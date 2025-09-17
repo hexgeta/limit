@@ -1,0 +1,142 @@
+'use client';
+
+import { useState } from 'react';
+import { useAccount } from 'wagmi';
+import { parseEther, formatEther, Address } from 'viem';
+import { useOTCTrade } from '../hooks/contracts/useOTCTrade';
+
+export function OTCTrading() {
+  const { isConnected } = useAccount();
+  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [formData, setFormData] = useState({
+    tokenAddress: '',
+    amount: '',
+    price: ''
+  });
+
+  const { createOrder, ordersCount, getOrder } = useOTCTrade();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const tokenToSell = activeTab === 'sell' ? formData.tokenAddress as Address : '0x0000000000000000000000000000000000000000' as Address;
+      const tokenToBuy = activeTab === 'buy' ? formData.tokenAddress as Address : '0x0000000000000000000000000000000000000000' as Address;
+      
+      const amountToSell = activeTab === 'sell' ? parseEther(formData.amount) : parseEther(formData.price);
+      const amountToBuy = activeTab === 'buy' ? parseEther(formData.amount) : parseEther(formData.price);
+
+      await createOrder({
+        args: [tokenToSell, amountToSell, tokenToBuy, amountToBuy],
+        value: activeTab === 'buy' ? amountToSell : 0n
+      });
+
+      // Reset form
+      setFormData({
+        tokenAddress: '',
+        amount: '',
+        price: ''
+      });
+    } catch (error) {
+      console.error('Error creating order:', error);
+    }
+  };
+
+  if (!isConnected) {
+    return <p className="text-gray-500">Connect wallet to trade</p>;
+  }
+
+  return (
+    <div className="w-full max-w-2xl">
+      <div className="flex gap-4 mb-4">
+        <button
+          onClick={() => setActiveTab('buy')}
+          className={`py-2 px-4 rounded ${
+            activeTab === 'buy'
+              ? 'bg-green-500 text-white'
+              : 'bg-gray-200 text-gray-700'
+          }`}
+        >
+          Buy
+        </button>
+        <button
+          onClick={() => setActiveTab('sell')}
+          className={`py-2 px-4 rounded ${
+            activeTab === 'sell'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-200 text-gray-700'
+          }`}
+        >
+          Sell
+        </button>
+      </div>
+
+      <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
+        <h2 className="text-xl font-bold mb-4">
+          {activeTab === 'buy' ? 'Buy Orders' : 'Sell Orders'}
+        </h2>
+        
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Token to {activeTab === 'buy' ? 'Buy' : 'Sell'}
+            </label>
+            <input
+              type="text"
+              placeholder="Token Address (0x...)"
+              value={formData.tokenAddress}
+              onChange={(e) => setFormData(prev => ({ ...prev, tokenAddress: e.target.value }))}
+              className="w-full p-2 rounded bg-white/10 border border-white/20"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Amount</label>
+            <input
+              type="text"
+              placeholder="0.0"
+              value={formData.amount}
+              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+              className="w-full p-2 rounded bg-white/10 border border-white/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Price in {activeTab === 'buy' ? 'PLS' : 'Token'}
+            </label>
+            <input
+              type="text"
+              placeholder="0.0"
+              value={formData.price}
+              onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+              className="w-full p-2 rounded bg-white/10 border border-white/20"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className={`py-2 px-4 rounded font-bold ${
+              activeTab === 'buy'
+                ? 'bg-green-500 hover:bg-green-600'
+                : 'bg-red-500 hover:bg-red-600'
+            } text-white`}
+          >
+            Place {activeTab === 'buy' ? 'Buy' : 'Sell'} Order
+          </button>
+        </form>
+
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4">Active Orders</h3>
+          <div className="space-y-4">
+            {ordersCount ? (
+              <p>Total Orders: {ordersCount.toString()}</p>
+            ) : (
+              <p className="text-gray-500">No active orders</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+} 

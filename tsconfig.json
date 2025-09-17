@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "target": "es2020",
     "lib": [
       "dom",
       "dom.iterable",
@@ -7,13 +8,13 @@
     ],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": false,
+    "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "incremental": true,
     "module": "esnext",
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -23,7 +24,6 @@
         "./*"
       ]
     },
-    "target": "ES2017",
     "plugins": [
       {
         "name": "next"
