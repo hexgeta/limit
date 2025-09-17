@@ -5,37 +5,100 @@ import { useAccount } from 'wagmi';
 import { parseEther, formatEther, Address } from 'viem';
 import { useOTCTrade } from '../hooks/contracts/useOTCTrade';
 
+// Contract address - update with actual deployed address
+const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_OTC_CONTRACT_ADDRESS as Address;
+
+// Import the contract ABI
+const OTC_ABI = [
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "sellToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "sellAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "buyTokensIndex",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "buyAmounts",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expirationTime",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct OTC.OrderDetails",
+        "name": "_orderDetails",
+        "type": "tuple"
+      }
+    ],
+    "name": "placeOrder",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+] as const;
+
 export function OTCTrading() {
   const { isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [formData, setFormData] = useState({
     tokenAddress: '',
     amount: '',
-    price: ''
+    price: '',
+    expirationDays: '30'
   });
 
-  const { createOrder, ordersCount, getOrder } = useOTCTrade();
+  const { placeOrder, ordersCount } = useOTCTrade();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      const tokenToSell = activeTab === 'sell' ? formData.tokenAddress as Address : '0x0000000000000000000000000000000000000000' as Address;
-      const tokenToBuy = activeTab === 'buy' ? formData.tokenAddress as Address : '0x0000000000000000000000000000000000000000' as Address;
+      // Calculate expiration time (current time + days)
+      const expirationTime = Math.floor(Date.now() / 1000) + (parseInt(formData.expirationDays) * 24 * 60 * 60);
       
-      const amountToSell = activeTab === 'sell' ? parseEther(formData.amount) : parseEther(formData.price);
-      const amountToBuy = activeTab === 'buy' ? parseEther(formData.amount) : parseEther(formData.price);
+      const sellToken = activeTab === 'sell' ? formData.tokenAddress as Address : '0x000000000000000000000000000000000000dEaD' as Address;
+      const sellAmount = activeTab === 'sell' ? parseEther(formData.amount) : parseEther(formData.price);
+      
+      // For buy orders, we're selling ETH for tokens
+      // For sell orders, we're selling tokens for ETH
+      const buyTokensIndex = activeTab === 'buy' ? [0n] : [0n]; // Assuming index 0 is ETH
+      const buyAmounts = activeTab === 'buy' ? [parseEther(formData.price)] : [parseEther(formData.amount)];
 
-      await createOrder({
-        args: [tokenToSell, amountToSell, tokenToBuy, amountToBuy],
-        value: activeTab === 'buy' ? amountToSell : 0n
+      await placeOrder({
+        address: OTC_CONTRACT_ADDRESS,
+        abi: OTC_ABI,
+        functionName: 'placeOrder',
+        args: [{
+          sellToken,
+          sellAmount,
+          buyTokensIndex,
+          buyAmounts,
+          expirationTime: BigInt(expirationTime)
+        }],
+        value: activeTab === 'buy' ? sellAmount : undefined
       });
 
       // Reset form
       setFormData({
         tokenAddress: '',
         amount: '',
-        price: ''
+        price: '',
+        expirationDays: '30'
       });
     } catch (error) {
       console.error('Error creating order:', error);
@@ -114,6 +177,19 @@ export function OTCTrading() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-2">Expiration (Days)</label>
+            <input
+              type="number"
+              placeholder="30"
+              value={formData.expirationDays}
+              onChange={(e) => setFormData(prev => ({ ...prev, expirationDays: e.target.value }))}
+              className="w-full p-2 rounded bg-white/10 border border-white/20"
+              min="1"
+              max="365"
+            />
+          </div>
+
           <button
             type="submit"
             className={`py-2 px-4 rounded font-bold ${
@@ -127,16 +203,16 @@ export function OTCTrading() {
         </form>
 
         <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">Active Orders</h3>
+          <h3 className="text-lg font-semibold mb-4">Order Statistics</h3>
           <div className="space-y-4">
             {ordersCount ? (
               <p>Total Orders: {ordersCount.toString()}</p>
             ) : (
-              <p className="text-gray-500">No active orders</p>
+              <p className="text-gray-500">No orders found</p>
             )}
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

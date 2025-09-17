@@ -10,8 +10,7 @@ const NavBar = () => {
           OtcMax 
         </Link>
         <div className="flex items-center space-x-6">
-
-
+          <w3m-button />
         </div>
       </div>
     </nav>

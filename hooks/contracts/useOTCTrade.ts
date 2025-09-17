@@ -4,73 +4,105 @@ import { parseEther, formatEther, Address } from 'viem';
 // We'll need to update this with the actual deployed contract address
 const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_OTC_CONTRACT_ADDRESS as Address;
 
-// Import the contract ABI
+// Import the contract ABI - using the correct ABI from the contract
 const OTC_ABI = [
-  // Order struct
   {
-    inputs: [
-      { name: "tokenToSell", type: "address" },
-      { name: "amountToSell", type: "uint256" },
-      { name: "tokenToBuy", type: "uint256" },
-      { name: "amountToBuy", type: "uint256" }
-    ],
-    name: "createOrder",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "payable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "_orderId", type: "uint256" }],
-    name: "fillOrder",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "_orderId", type: "uint256" }],
-    name: "cancelOrder",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "_orderId", type: "uint256" }],
-    name: "getOrder",
-    outputs: [
+    "inputs": [
       {
-        components: [
-          { name: "maker", type: "address" },
-          { name: "tokenToSell", type: "address" },
-          { name: "amountToSell", type: "uint256" },
-          { name: "tokenToBuy", type: "address" },
-          { name: "amountToBuy", type: "uint256" },
-          { name: "isActive", type: "bool" },
-          { name: "timestamp", type: "uint256" }
+        "components": [
+          {
+            "internalType": "address",
+            "name": "sellToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "sellAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "buyTokensIndex",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "buyAmounts",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expirationTime",
+            "type": "uint256"
+          }
         ],
-        name: "",
-        type: "tuple"
+        "internalType": "struct OTC.OrderDetails",
+        "name": "_orderDetails",
+        "type": "tuple"
       }
     ],
-    stateMutability: "view",
-    type: "function"
+    "name": "placeOrder",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "getOrdersCount",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_orderId",
+        "type": "uint256"
+      }
+    ],
+    "name": "cancelOrder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_orderId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_buyTokenIndexInOrder",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_buyAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "executeOrder",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getOrderCounter",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
-];
+] as const;
 
-export interface Order {
-  maker: Address;
-  tokenToSell: Address;
-  amountToSell: bigint;
-  tokenToBuy: Address;
-  amountToBuy: bigint;
-  isActive: boolean;
-  timestamp: bigint;
+export interface OrderDetails {
+  sellToken: Address;
+  sellAmount: bigint;
+  buyTokensIndex: bigint[];
+  buyAmounts: bigint[];
+  expirationTime: bigint;
 }
 
 export function useOTCTrade() {
@@ -80,44 +112,21 @@ export function useOTCTrade() {
   const { data: ordersCount } = useContractRead({
     address: OTC_CONTRACT_ADDRESS,
     abi: OTC_ABI,
-    functionName: 'getOrdersCount',
+    functionName: 'getOrderCounter',
   });
-
-  const getOrder = async (orderId: number) => {
-    const { data: order } = await useContractRead({
-      address: OTC_CONTRACT_ADDRESS,
-      abi: OTC_ABI,
-      functionName: 'getOrder',
-      args: [orderId],
-    });
-    return order as Order;
-  };
 
   // Write functions
-  const { writeAsync: createOrder } = useContractWrite({
-    address: OTC_CONTRACT_ADDRESS,
-    abi: OTC_ABI,
-    functionName: 'createOrder',
-  });
+  const { writeContractAsync: placeOrder } = useContractWrite();
 
-  const { writeAsync: fillOrder } = useContractWrite({
-    address: OTC_CONTRACT_ADDRESS,
-    abi: OTC_ABI,
-    functionName: 'fillOrder',
-  });
+  const { writeContractAsync: executeOrder } = useContractWrite();
 
-  const { writeAsync: cancelOrder } = useContractWrite({
-    address: OTC_CONTRACT_ADDRESS,
-    abi: OTC_ABI,
-    functionName: 'cancelOrder',
-  });
+  const { writeContractAsync: cancelOrder } = useContractWrite();
 
   return {
     ordersCount: ordersCount as bigint,
-    getOrder,
-    createOrder,
-    fillOrder,
+    placeOrder,
+    executeOrder,
     cancelOrder,
     userAddress: address,
   };
-} 
+}
