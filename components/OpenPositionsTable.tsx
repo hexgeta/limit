@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { formatEther } from 'viem';
 
 export function OpenPositionsTable() {
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed' | 'cancelled' | 'featured'>('active');
+  const [isClient, setIsClient] = useState(false);
+  
   const { 
     contractName, 
     contractOwner, 
@@ -19,6 +21,22 @@ export function OpenPositionsTable() {
     isLoading, 
     error 
   } = useOpenPositions();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Don't render on server side to avoid HTMLElement errors
+  if (!isClient) {
+    return (
+      <div className="w-full max-w-6xl mb-8">
+        <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
+          <h2 className="text-xl font-bold mb-4">All Orders</h2>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -93,17 +111,40 @@ export function OpenPositionsTable() {
     }
   };
 
+  // Featured token addresses (important tokens to highlight)
+  const featuredAddresses = [
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
+    '0x57964407c8f06561c4a8b1a0f4b8897f6c5ed47e', // pHEX
+    '0x95b3c8c3b8b1b0b0b0b0b0b0b0b0b0b0b0b0b0b0', // Example featured token
+    '0x3819c8c3b8b1b0b0b0b0b0b0b0b0b0b0b0b0b0b0', // Example featured token
+  ];
+
   // Get the orders to display based on active tab
   const getDisplayOrders = () => {
     switch (activeTab) {
       case 'active': return activeOrders;
       case 'completed': return completedOrders;
       case 'cancelled': return cancelledOrders;
+      case 'featured': 
+        return allOrders.filter(order => 
+          featuredAddresses.some(addr => 
+            order.orderDetailsWithId.orderDetails.sellToken.toLowerCase() === addr.toLowerCase() ||
+            order.userDetails.orderOwner.toLowerCase() === addr.toLowerCase()
+          )
+        );
       default: return allOrders;
     }
   };
 
   const displayOrders = getDisplayOrders();
+  
+  // Calculate featured orders count
+  const featuredOrders = allOrders.filter(order => 
+    featuredAddresses.some(addr => 
+      order.orderDetailsWithId.orderDetails.sellToken.toLowerCase() === addr.toLowerCase() ||
+      order.userDetails.orderOwner.toLowerCase() === addr.toLowerCase()
+    )
+  );
 
   return (
     <div className="w-full max-w-6xl mb-8">
@@ -131,6 +172,16 @@ export function OpenPositionsTable() {
             }`}
           >
             Active ({activeOrders.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('featured')}
+            className={`px-4 py-2 rounded ${
+              activeTab === 'featured'
+                ? 'bg-purple-500 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Featured ({featuredOrders.length})
           </button>
           <button
             onClick={() => setActiveTab('completed')}
