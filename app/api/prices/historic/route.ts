@@ -9,10 +9,14 @@ export const dynamic = 'force-dynamic';
 console.log('[Historic API] Supabase URL:', process.env.SUPABASE_URL ? '✓ Found' : '✗ Missing')
 console.log('[Historic API] Supabase Anon Key:', process.env.SUPABASE_ANON_KEY ? '✓ Found' : '✗ Missing')
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-)
+// Only create Supabase client if environment variables are available
+let supabase: any = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  )
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -23,6 +27,12 @@ export async function GET(request: NextRequest) {
 
   if (!symbol || !field) {
     return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
+  }
+
+  // Check if Supabase is available
+  if (!supabase) {
+    console.log('[Historic API] Supabase not configured, returning empty data')
+    return NextResponse.json({ data: null })
   }
 
   try {
