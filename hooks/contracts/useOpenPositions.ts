@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPublicClient, http } from 'viem';
-import { pulsechain } from 'viem/chains';
 import { Address } from 'viem';
 
 // Contract address - PulseChain OTC contract
@@ -263,20 +262,27 @@ export interface CompleteOrderDetails {
   orderDetailsWithId: OrderDetailsWithId;
 }
 
-// Create public client for PulseChain
-const client = createPublicClient({
-  chain: pulsechain,
-  transport: http('https://rpc.pulsechain.com', {
-    timeout: 10000, // 10 second timeout per call
-    retryCount: 0, // Let our error handling manage retries
-  })
-});
+// Helper function to create client (only on client side)
+function createClient() {
+  // Import pulsechain only when needed (client-side only)
+  const { pulsechain } = require('viem/chains');
+  return createPublicClient({
+    chain: pulsechain,
+    transport: http('https://rpc.pulsechain.com', {
+      timeout: 10000, // 10 second timeout per call
+      retryCount: 0, // Let our error handling manage retries
+    })
+  });
+}
 
 // Helper function to fetch contract data
 async function fetchContractData() {
   try {
     console.log('Fetching contract data from:', OTC_CONTRACT_ADDRESS);
     console.log('Using RPC:', 'https://rpc.pulsechain.com');
+    
+    // Create client only when needed (client-side only)
+    const client = createClient();
     
     // Test basic connectivity first
     try {

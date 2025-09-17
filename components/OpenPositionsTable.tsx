@@ -1,11 +1,102 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { formatEther } from 'viem';
+import { getTokenInfo, getTokenInfoByIndex, formatAddress } from '@/utils/tokenUtils';
+
+// Cache to remember which logos have failed to load
+const failedLogos = new Set<string>();
+// Cache to remember which format works for each symbol (svg or png)
+const formatCache = new Map<string, 'svg' | 'png'>();
+
+// TokenLogo component with proper caching to prevent flashing
+function TokenLogo({ src, alt, className }: { src: string; alt: string; className: string }) {
+  // Extract symbol from alt text for caching
+  const symbol = alt;
+  
+  // Determine the best format to try (check cache first, then default to original src)
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [hasError, setHasError] = useState(() => failedLogos.has(src));
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  useEffect(() => {
+    if (isClient) {
+      setCurrentSrc(src);
+      setHasError(failedLogos.has(src));
+    }
+  }, [src, isClient]);
+
+  const handleError = useCallback(() => {
+    // If this is a placeholder URL, don't try alternatives
+    if (src.includes('placeholder') || src.includes('via.placeholder')) {
+      setHasError(true);
+      return;
+    }
+    
+    // Try alternative formats/extensions
+    const baseUrl = src.replace(/\.(svg|png|jpg|jpeg)$/i, '');
+    const extensions = ['svg', 'png', 'jpg', 'jpeg'];
+    
+    for (const ext of extensions) {
+      const altSrc = `${baseUrl}.${ext}`;
+      if (altSrc !== src && !failedLogos.has(altSrc)) {
+        setCurrentSrc(altSrc);
+        return;
+      }
+    }
+    
+    // If all attempts failed, cache the failure and show fallback
+    failedLogos.add(src);
+    setHasError(true);
+  }, [src]);
+
+  const handleLoad = useCallback(() => {
+    // Cache the working URL for future use
+    formatCache.set(symbol, currentSrc.split('.').pop() as 'svg' | 'png');
+  }, [symbol, currentSrc]);
+
+  // During SSR, show fallback immediately
+  if (!isClient) {
+    return (
+      <div 
+        className={`${className} bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold`}
+      >
+        $
+      </div>
+    );
+  }
+
+  // If image failed to load or is known missing, show the fallback icon immediately
+  if (hasError) {
+    return (
+      <div 
+        className={`${className} bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold`}
+      >
+        $
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={handleError}
+      onLoad={handleLoad}
+      draggable="false"
+    />
+  );
+}
 
 export function OpenPositionsTable() {
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed' | 'cancelled' | 'featured'>('active');
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed' | 'cancelled' | 'featured'>('featured');
   const [isClient, setIsClient] = useState(false);
   
   const { 
@@ -85,9 +176,6 @@ export function OpenPositionsTable() {
     );
   }
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString();
@@ -113,11 +201,18 @@ export function OpenPositionsTable() {
 
   // MAXI token addresses (important tokens to highlight)
   const maxiTokenAddresses = [
-    '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
-    '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
-    '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
-    '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI
-    '0x352511c9bc5d47dbc122883ed9353e987d10a3ba', // weMAXI
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // pHEX
+    '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
+    '0xd63204ffcefd8f8cbf7390bbcd78536468c085a2', // pMAXI pair
+    '0x352511c9bc5d47dbc122883ed9353e987d10a3ba', // weMAXI (replaces eMAXI)
+    '0x969af590981bb9d19ff38638fa3bd88aed13603a', // pDECI pair
+    '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI (replaces eDECI)
+    '0x52d4b3f479537a15d0b37b6cdbdb2634cc78525e', // pLUCKY pair
+    '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY (replaces eLUCKY)
+    '0x0b0f8f6c86c506b70e2a488a451e5ea7995d05c9', // pTRIO pair
+    '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO (replaces eTRIO)
+    '0xb39490b46d02146f59e80c6061bb3e56b824d672', // pBASE pairs
+    '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE (replaces eBASE)
   ];
 
   // Get the orders to display based on active tab
@@ -155,6 +250,16 @@ export function OpenPositionsTable() {
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6">
           <button
+            onClick={() => setActiveTab('featured')}
+            className={`px-4 py-2 rounded ${
+              activeTab === 'featured'
+                ? 'bg-purple-500 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Maxi Tokens ({maxiTokenOrders.length})
+          </button>
+          <button
             onClick={() => setActiveTab('all')}
             className={`px-4 py-2 rounded ${
               activeTab === 'all'
@@ -173,16 +278,6 @@ export function OpenPositionsTable() {
             }`}
           >
             Active ({activeOrders.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('featured')}
-            className={`px-4 py-2 rounded ${
-              activeTab === 'featured'
-                ? 'bg-purple-500 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Maxi Tokens ({maxiTokenOrders.length})
           </button>
           <button
             onClick={() => setActiveTab('completed')}
@@ -243,19 +338,41 @@ export function OpenPositionsTable() {
                     <td className="py-3 px-2 font-mono">
                       {formatAddress(order.userDetails.orderOwner)}
                     </td>
-                    <td className="py-3 px-2 font-mono">
-                      {formatAddress(order.orderDetailsWithId.orderDetails.sellToken)}
+                    <td className="py-3 px-2">
+                      <div className="flex items-center space-x-2">
+                        <TokenLogo 
+                          src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
+                          alt={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker}
+                          className="w-6 h-6 rounded-full"
+                        />
+                        <span className="font-medium">
+                          {getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3 px-2">
                       {formatEther(order.orderDetailsWithId.orderDetails.sellAmount)}
                     </td>
                     <td className="py-3 px-2">
-                      <div className="space-y-1">
-                        {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => (
-                          <div key={idx} className="text-xs">
-                            Token #{tokenIndex.toString()}: {formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx])}
-                          </div>
-                        ))}
+                      <div className="space-y-2">
+                        {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+                          const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                          return (
+                            <div key={idx} className="flex items-center space-x-2">
+                              <TokenLogo 
+                                src={tokenInfo.logo}
+                                alt={tokenInfo.ticker}
+                                className="w-5 h-5 rounded-full"
+                              />
+                              <span className="text-sm font-medium">
+                                {tokenInfo.ticker}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx])}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="py-3 px-2">

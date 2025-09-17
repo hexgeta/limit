@@ -17,19 +17,19 @@ const Footer = () => {
         <div className="col-span-1">
           <h3 className="text-s font-semibold mb-2">Links</h3>
           <ul className="text-sm space-y-1">
-            <li><a href="https://pulsex.pulsechainapp.com/" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300">PulseX</a></li>
+            <li><a href="https://lookintomaxi.com" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300">LookIntoMaxi</a></li>
           </ul>
         </div>
         <div className="col-span-1">
-          <h3 className="text-s font-semibold mb-2">Resources</h3>
+          <h3 className="text-s font-semibold mb-2"></h3>
           <ul className="text-sm space-y-1">
-            <li><a href="https://gotealdefi.com/" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300">GoRealDefi</a></li>
+            <li><a href="" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300"></a></li>
           </ul>
         </div>
         <div className="col-span-1">
-          <h3 className="text-s font-semibold mb-2">Community</h3>
+          <h3 className="text-s font-semibold mb-2"></h3>
           <ul className="text-sm space-y-1">
-            <li><a href="https://twitter.com/plscharts" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300">Twitter</a></li>
+            <li><a href="" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300"></a></li>
           </ul>
         </div>
       </div>
