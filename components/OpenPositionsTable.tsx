@@ -111,12 +111,13 @@ export function OpenPositionsTable() {
     }
   };
 
-  // Featured token addresses (important tokens to highlight)
-  const featuredAddresses = [
-    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
-    '0x57964407c8f06561c4a8b1a0f4b8897f6c5ed47e', // pHEX
-    '0x95b3c8c3b8b1b0b0b0b0b0b0b0b0b0b0b0b0b0b0', // Example featured token
-    '0x3819c8c3b8b1b0b0b0b0b0b0b0b0b0b0b0b0b0b0', // Example featured token
+  // MAXI token addresses (important tokens to highlight)
+  const maxiTokenAddresses = [
+    '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
+    '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
+    '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
+    '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI
+    '0x352511c9bc5d47dbc122883ed9353e987d10a3ba', // weMAXI
   ];
 
   // Get the orders to display based on active tab
@@ -127,7 +128,7 @@ export function OpenPositionsTable() {
       case 'cancelled': return cancelledOrders;
       case 'featured': 
         return allOrders.filter(order => 
-          featuredAddresses.some(addr => 
+          maxiTokenAddresses.some(addr => 
             order.orderDetailsWithId.orderDetails.sellToken.toLowerCase() === addr.toLowerCase() ||
             order.userDetails.orderOwner.toLowerCase() === addr.toLowerCase()
           )
@@ -138,9 +139,9 @@ export function OpenPositionsTable() {
 
   const displayOrders = getDisplayOrders();
   
-  // Calculate featured orders count
-  const featuredOrders = allOrders.filter(order => 
-    featuredAddresses.some(addr => 
+  // Calculate MAXI token orders count
+  const maxiTokenOrders = allOrders.filter(order => 
+    maxiTokenAddresses.some(addr => 
       order.orderDetailsWithId.orderDetails.sellToken.toLowerCase() === addr.toLowerCase() ||
       order.userDetails.orderOwner.toLowerCase() === addr.toLowerCase()
     )
@@ -181,7 +182,7 @@ export function OpenPositionsTable() {
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            Featured ({featuredOrders.length})
+            Maxi Tokens ({maxiTokenOrders.length})
           </button>
           <button
             onClick={() => setActiveTab('completed')}

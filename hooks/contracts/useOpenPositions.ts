@@ -443,8 +443,11 @@ export function useOpenPositions() {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   const fetchData = useCallback(async () => {
+    if (!isClient) return;
+    
     setIsLoading(true);
     setError(null);
     
@@ -462,11 +465,17 @@ export function useOpenPositions() {
     } finally {
       setIsLoading(false);
     }
+  }, [isClient]);
+
+  useEffect(() => {
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (isClient) {
+      fetchData();
+    }
+  }, [isClient, fetchData]);
 
   return {
     contractName: data?.contractName,
@@ -478,7 +487,7 @@ export function useOpenPositions() {
     activeOrders: data?.activeOrders || [],
     completedOrders: data?.completedOrders || [],
     cancelledOrders: data?.cancelledOrders || [],
-    isLoading,
+    isLoading: !isClient || isLoading,
     error,
   };
 }
