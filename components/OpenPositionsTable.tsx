@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
+import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress } from '@/utils/tokenUtils';
 
@@ -13,6 +15,57 @@ const copyToClipboard = async (text: string) => {
   } catch (err) {
     console.error('Failed to copy: ', err);
   }
+};
+
+// Format number with scientific notation for very small numbers and commas for large numbers
+const formatAmount = (amount: string) => {
+  const num = parseFloat(amount);
+  if (num < 0.000001 && num > 0) {
+    return num.toExponential(2);
+  }
+  if (num >= 10000) {
+    return num.toLocaleString();
+  }
+  return amount;
+};
+
+// Format USD amount
+const formatUSD = (amount: number) => {
+  if (amount < 0.01) {
+    return `$${amount.toExponential(2)}`;
+  }
+  if (amount >= 10000) {
+    return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return `$${amount.toFixed(2)}`;
+};
+
+// Map wrapped tokens to base tokens for price fetching
+const getBaseTokenForPrice = (ticker: string) => {
+  const baseTokenMap: Record<string, string> = {
+    'weMAXI': 'MAXI',
+    'weDECI': 'DECI', 
+    'weLUCKY': 'LUCKY',
+    'weTRIO': 'TRIO',
+    'weBASE': 'BASE',
+    'weHEX': 'HEX',
+    'weUSDC': 'USDC',
+    'weUSDT': 'USDT',
+    'pMAXI': 'MAXI',
+    'pDECI': 'DECI',
+    'pLUCKY': 'LUCKY', 
+    'pTRIO': 'TRIO',
+    'pBASE': 'BASE',
+    'pHEX': 'HEX',
+    'eMAXI': 'MAXI',
+    'eDECI': 'DECI',
+    'eLUCKY': 'LUCKY',
+    'eTRIO': 'TRIO',
+    'eBASE': 'BASE',
+    'eHEX': 'HEX'
+  };
+  
+  return baseTokenMap[ticker] || ticker;
 };
 
 // MAXI token addresses (important tokens to highlight)
@@ -123,6 +176,8 @@ export function OpenPositionsTable() {
   const [activeTab, setActiveTab] = useState<'all' | 'featured'>('featured');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
   const [isClient, setIsClient] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [loadingDots, setLoadingDots] = useState(1);
   
   const { 
     contractName, 
@@ -138,32 +193,67 @@ export function OpenPositionsTable() {
     error 
   } = useOpenPositions();
 
+  // Get unique sell token addresses for price fetching
+  const sellTokenAddresses = allOrders ? [...new Set(allOrders.map(order => 
+    order.orderDetailsWithId.orderDetails.sellToken
+  ))] : [];
+  
+  // Debug: Log the token addresses we're trying to fetch prices for
+  useEffect(() => {
+    if (sellTokenAddresses.length > 0) {
+      console.log('Fetching prices for token addresses:', sellTokenAddresses);
+    }
+  }, [sellTokenAddresses]);
+  
+  const { prices: tokenPrices } = useTokenPrices(sellTokenAddresses);
+  
+  // Debug: Log the fetched prices
+  useEffect(() => {
+    if (Object.keys(tokenPrices).length > 0) {
+      console.log('Fetched token prices:', tokenPrices);
+    }
+  }, [tokenPrices]);
+
   useEffect(() => {
     setIsClient(true);
+    setMounted(true);
   }, []);
 
-  // Don't render on server side to avoid HTMLElement errors
-  if (!isClient) {
+  // Loading dots animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLoadingDots(prev => prev >= 3 ? 1 : prev + 1);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Loading state
+  if (!mounted || isLoading) {
     return (
-      <div className="w-full max-w-6xl mb-8">
-        <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
-          <h2 className="text-xl font-bold mb-4">All Orders</h2>
-          <p className="text-gray-400">Loading...</p>
+      <div className="bg-black text-white p-4 sm:p-6 pb-24 sm:pb-24 relative overflow-hidden">
+        <div className="max-w-[1000px] py-8 mx-auto w-full relative">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.5,
+              delay: 0.2,
+              ease: [0.23, 1, 0.32, 1]
+            }}
+            className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
+          >
+            <div className="text-gray-400">
+              Loading OTC positions
+              <span className="w-[24px] text-left inline-block">
+                {'.'.repeat(loadingDots)}
+              </span>
+            </div>
+          </motion.div>
         </div>
       </div>
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="w-full max-w-6xl mx-auto mb-8 mt-8">
-        <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
-          <h2 className="text-xl font-bold mb-4">Open Positions</h2>
-          <p className="text-gray-500">Loading positions...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -191,7 +281,7 @@ export function OpenPositionsTable() {
             </ul>
             <button 
               onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="px-4 py-2 bg-white text-black rounded hover:bg-white/80"
             >
               Retry
             </button>
@@ -203,7 +293,20 @@ export function OpenPositionsTable() {
 
 
   const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString();
+    const date = new Date(timestamp * 1000);
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day} ${month} ${year}`;
+  };
+
+  const formatPercentage = (percentage: number) => {
+    // If it's a whole number (no decimals), don't show decimals
+    if (percentage % 1 === 0) {
+      return `${percentage}%`;
+    }
+    // Otherwise, round to 1 decimal place
+    return `${percentage.toFixed(1)}%`;
   };
 
   const getStatusText = (status: number) => {
@@ -343,7 +446,7 @@ export function OpenPositionsTable() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto mb-8 mt-8">
+    <div className="w-full max-w-[1200px] mx-auto mb-8 mt-8">
       {/* Status Filter - Centered with Label Styling */}
       <div className="flex justify-right gap-3 mb-4">
         <button
@@ -397,20 +500,20 @@ export function OpenPositionsTable() {
           ) : (
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
-            <div className="grid grid-cols-7 items-center gap-4 mb-2 pb-2 border-b border-white/10">
-              <div className="text-gray-400 text-xs font-medium text-center">Token For Sale</div>
-              <div className="text-gray-400 text-xs font-medium text-center">Sell Amount</div>
-              <div className="text-gray-400 text-xs font-medium text-center">Asking For</div>
-              <div className="text-gray-400 text-xs font-medium text-center">Fill Status %</div>
-              <div className="text-gray-400 text-xs font-medium text-center">Seller</div>
-              <div className="text-gray-400 text-xs font-medium text-center">Status</div>
-              <div className="text-gray-400 text-xs font-medium text-center">Expires</div>
+            <div className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 pb-4 border-b border-white/10">
+              <div className="text-gray-400 text-sm font-medium text-center">Token For Sale</div>
+              <div className="text-gray-400 text-sm font-medium text-right pr-4">Sell Amount</div>
+              <div className="text-gray-400 text-sm font-medium text-left pl-16">Asking For</div>
+              <div className="text-gray-400 text-sm font-medium text-center">Fill Status %</div>
+              <div className="text-gray-400 text-sm font-medium text-center">Seller</div>
+              <div className="text-gray-400 text-sm font-medium text-center">Status</div>
+              <div className="text-gray-400 text-sm font-medium text-center">Expires</div>
             </div>
 
             {/* Table Rows */}
             <div className="space-y-1">
               {displayOrders.map((order, index) => (
-                <div key={index} className="grid grid-cols-7 items-center gap-4 py-2 hover:bg-gray-800/30 rounded-lg transition-all duration-300">
+                <div key={index} className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 py-8 border-b border-white/10">
                   <div className="flex items-center space-x-2">
                     <TokenLogo 
                       src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
@@ -421,10 +524,39 @@ export function OpenPositionsTable() {
                       {getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker}
                     </span>
                   </div>
-                  <div className="text-white font-mono text-sm text-right">
-                    {formatEther(order.orderDetailsWithId.orderDetails.sellAmount)}
+                  <div className="flex flex-col items-end justify-center pr-4">
+                    {(() => {
+                      const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
+                      const sellTokenInfo = getTokenInfo(sellTokenAddress);
+                      const tokenAmount = parseFloat(formatEther(order.orderDetailsWithId.orderDetails.sellAmount));
+                      const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
+                      const usdValue = tokenAmount * tokenPrice;
+                      
+                      // Debug: Log calculation details
+                      if (sellTokenInfo.ticker === 'PLSX') {
+                        console.log('PLSX Debug:', {
+                          tokenAddress: sellTokenAddress,
+                          ticker: sellTokenInfo.ticker,
+                          tokenAmount,
+                          tokenPrice,
+                          usdValue,
+                          priceData: tokenPrices[sellTokenAddress]
+                        });
+                      }
+                      
+                      return (
+                        <>
+                          <span className="text-green-400 font-mono text-xs">
+                            {formatUSD(usdValue)}
+                          </span>
+                          <span className="text-white font-mono text-sm">
+                            {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
-                  <div className="space-y-1">
+                  <div className="flex flex-col justify-center space-y-1 pl-16">
                     {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                       return (
@@ -438,14 +570,24 @@ export function OpenPositionsTable() {
                             {tokenInfo.ticker}
                           </span>
                           <span className="text-gray-400 text-xs font-mono">
-                            {formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx])}
+                            {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]))}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  <div className="text-white text-sm text-center">
-                    {(100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100)).toFixed(2)}%
+                  <div className="flex flex-col items-center space-y-2">
+                    <span className="text-white text-sm">
+                      {formatPercentage(100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100))}
+                    </span>
+                    <div className="w-full max-w-[60px] h-1 bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-500 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${(100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100))}%` 
+                        }}
+                      />
+                    </div>
                   </div>
                   <div className="text-center">
                     <button
@@ -456,7 +598,13 @@ export function OpenPositionsTable() {
                     </button>
                   </div>
                   <div className="text-center">
-                    <span className={`text-sm font-medium ${getStatusColor(order.orderDetailsWithId.status)}`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                      order.orderDetailsWithId.status === 0 
+                        ? 'bg-green-500/20 text-green-400 border-green-400' 
+                        : order.orderDetailsWithId.status === 1
+                        ? 'bg-red-500/20 text-red-400 border-red-400'
+                        : 'bg-blue-500/20 text-blue-400 border-blue-400'
+                    }`}>
                       {getStatusText(order.orderDetailsWithId.status)}
                     </span>
                   </div>

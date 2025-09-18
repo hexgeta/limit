@@ -106,7 +106,7 @@ export function OTCTrading() {
   };
 
   if (!isConnected) {
-    return <p className="text-gray-500">Connect wallet to trade</p>;
+    return <p className="text-gray-500  text-black p-4 rounded-lg">Connect wallet to trade</p>;
   }
 
   return (
