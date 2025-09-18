@@ -3,19 +3,21 @@ import { MORE_COINS } from '@/constants/more-coins';
 
 // Create a map of token addresses to token info from both TOKEN_CONSTANTS and MORE_COINS
 const TOKEN_MAP = new Map([
-  // Add tokens from TOKEN_CONSTANTS
-  ...TOKEN_CONSTANTS.map(token => [
-    token.a.toLowerCase(),
-    {
-      ticker: token.ticker,
-      name: token.name,
-      decimals: token.decimals,
-      logo: getTokenLogo(token.ticker)
-    }
-  ]),
+  // Add tokens from TOKEN_CONSTANTS (only if they have an address)
+  ...TOKEN_CONSTANTS
+    .filter(token => token.a && token.a.trim() !== '')
+    .map(token => [
+      token.a.toLowerCase(),
+      {
+        ticker: token.ticker,
+        name: token.name,
+        decimals: token.decimals,
+        logo: getTokenLogo(token.ticker)
+      }
+    ]),
   // Add tokens from MORE_COINS (only if not already in TOKEN_CONSTANTS)
   ...MORE_COINS
-    .filter(coin => coin.a && !TOKEN_CONSTANTS.some(token => token.a.toLowerCase() === coin.a.toLowerCase()))
+    .filter(coin => coin.a && coin.a.trim() !== '' && !TOKEN_CONSTANTS.some(token => token.a && token.a.toLowerCase() === coin.a.toLowerCase()))
     .map(coin => [
       coin.a.toLowerCase(),
       {
@@ -68,8 +70,8 @@ function getTokenLogo(ticker: string): string {
     'eBASE': '/coin-logos/BASE.svg',
     
     // Additional tokens from more-coins.ts
-    'BRIBE': '/coin-logos/BRIBE.svg',
-    'DARK': '/coin-logos/DARK.svg',
+    'BRIBE': '/coin-logos/default.svg', // No BRIBE.svg file exists
+    'DARK': '/coin-logos/default.svg', // No DARK.svg file exists
   };
   
   return logoMap[ticker] || '/coin-logos/default.svg';
@@ -96,7 +98,7 @@ export function getTokenInfo(address: string): {
     ticker: formatAddress(address),
     name: 'Unknown Token',
     decimals: 18,
-    logo: 'https://via.placeholder.com/24x24/666666/ffffff?text=?',
+    logo: '/coin-logos/default.svg',
     address: address
   };
 }
@@ -148,7 +150,7 @@ export function getTokenInfoByIndex(index: number) {
     ticker: `Token #${index}`,
     name: `Token #${index}`,
     decimals: 18,
-    logo: 'https://via.placeholder.com/24x24/666666/ffffff?text=?',
+    logo: '/coin-logos/default.svg',
     address: `0x${index.toString().padStart(40, '0')}` // Fallback address
   };
 }

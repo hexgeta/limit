@@ -11,7 +11,7 @@ const Footer = () => {
       <div className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
         <div className="col-span-1">
           <h3 className="text-s font-semibold mb-2">
-            AgoráX.com {CURRENT_YEAR}
+            Agorá X {CURRENT_YEAR}
           </h3>
         </div>
         <div className="col-span-1">

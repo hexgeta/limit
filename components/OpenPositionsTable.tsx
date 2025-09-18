@@ -7,6 +7,10 @@ import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker } from '@/utils/tokenUtils';
 
+// Sorting types
+type SortField = 'token' | 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date';
+type SortDirection = 'asc' | 'desc';
+
 // Copy to clipboard function
 const copyToClipboard = async (text: string) => {
   try {
@@ -29,10 +33,16 @@ const formatAmount = (amount: string) => {
   return amount;
 };
 
-// Format USD amount
+// Format USD amount without scientific notation
 const formatUSD = (amount: number) => {
+  if (amount < 0.000001) {
+    return `$${amount.toFixed(8)}`;
+  }
   if (amount < 0.01) {
-    return `$${amount.toExponential(2)}`;
+    return `$${amount.toFixed(6)}`;
+  }
+  if (amount < 1) {
+    return `$${amount.toFixed(4)}`;
   }
   if (amount >= 10000) {
     return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -109,12 +119,6 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
   }, [src, isClient]);
 
   const handleError = useCallback(() => {
-    // If this is a placeholder URL, don't try alternatives
-    if (src.includes('placeholder') || src.includes('via.placeholder')) {
-      setHasError(true);
-      return;
-    }
-    
     // Try alternative formats/extensions
     const baseUrl = src.replace(/\.(svg|png|jpg|jpeg)$/i, '');
     const extensions = ['svg', 'png', 'jpg', 'jpeg'];
@@ -140,22 +144,26 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
   // During SSR, show fallback immediately
   if (!isClient) {
     return (
-      <div 
-        className={`${className} bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold`}
-      >
-        $
-      </div>
+      <img 
+        src="/coin-logos/default.svg"
+        alt={alt}
+        className={className}
+        loading="lazy"
+        draggable="false"
+      />
     );
   }
 
   // If image failed to load or is known missing, show the fallback icon immediately
   if (hasError) {
     return (
-      <div 
-        className={`${className} bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold`}
-      >
-        $
-      </div>
+      <img 
+        src="/coin-logos/default.svg"
+        alt={alt}
+        className={className}
+        loading="lazy"
+        draggable="false"
+      />
     );
   }
 
@@ -179,6 +187,10 @@ export function OpenPositionsTable() {
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
   
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
   const { 
     contractName, 
     contractOwner, 
@@ -198,14 +210,21 @@ export function OpenPositionsTable() {
     order.orderDetailsWithId.orderDetails.sellToken
   ))] : [];
   
-  // Debug: Log the token addresses we're trying to fetch prices for
+  // Convert addresses to tickers for price fetching
+  const sellTokenTickers = sellTokenAddresses.map(address => {
+    const tokenInfo = getTokenInfo(address);
+    return tokenInfo.ticker;
+  }).filter(ticker => ticker && !ticker.startsWith('0x')); // Filter out unknown tokens
+  
+  // Debug: Log the token addresses and tickers we're trying to fetch prices for
   useEffect(() => {
     if (sellTokenAddresses.length > 0) {
       console.log('Fetching prices for token addresses:', sellTokenAddresses);
+      console.log('Converted to tickers:', sellTokenTickers);
     }
-  }, [sellTokenAddresses]);
+  }, [sellTokenAddresses, sellTokenTickers]);
   
-  const { prices: tokenPrices } = useTokenPrices(sellTokenAddresses);
+  const { prices: tokenPrices } = useTokenPrices(sellTokenTickers);
   
   // Debug: Log the fetched prices
   useEffect(() => {
@@ -327,6 +346,15 @@ export function OpenPositionsTable() {
     }
   };
 
+  // Handle sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
 
   // Get the orders to display based on active tab and status filter
   const getDisplayOrders = () => {
@@ -363,17 +391,62 @@ export function OpenPositionsTable() {
     }
     
     // Then filter by status
+    let filteredOrders = [];
     switch (statusFilter) {
       case 'active':
-        return orders.filter(order => order.orderDetailsWithId.status === 0);
+        filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 0);
+        break;
       case 'completed':
-        return orders.filter(order => order.orderDetailsWithId.status === 2);
+        filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 2);
+        break;
       case 'cancelled':
-        return orders.filter(order => order.orderDetailsWithId.status === 1);
+        filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 1);
+        break;
       case 'all':
       default:
-        return orders;
+        filteredOrders = orders;
     }
+    
+    // Apply sorting
+    const sortedOrders = [...filteredOrders].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'token':
+          const aToken = getTokenInfo(a.orderDetailsWithId.orderDetails.sellToken).ticker;
+          const bToken = getTokenInfo(b.orderDetailsWithId.orderDetails.sellToken).ticker;
+          comparison = aToken.localeCompare(bToken);
+          break;
+        case 'sellAmount':
+          const aAmount = parseFloat(formatEther(a.orderDetailsWithId.orderDetails.sellAmount));
+          const bAmount = parseFloat(formatEther(b.orderDetailsWithId.orderDetails.sellAmount));
+          comparison = aAmount - bAmount;
+          break;
+        case 'askingFor':
+          const aAsking = a.orderDetailsWithId.orderDetails.buyTokensIndex.length;
+          const bAsking = b.orderDetailsWithId.orderDetails.buyTokensIndex.length;
+          comparison = aAsking - bAsking;
+          break;
+        case 'progress':
+          const aProgress = 100 - ((Number(a.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
+          const bProgress = 100 - ((Number(b.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
+          comparison = aProgress - bProgress;
+          break;
+        case 'owner':
+          comparison = a.userDetails.orderOwner.localeCompare(b.userDetails.orderOwner);
+          break;
+        case 'status':
+          comparison = a.orderDetailsWithId.status - b.orderDetailsWithId.status;
+          break;
+        case 'date':
+          comparison = Number(a.orderDetailsWithId.orderDetails.expirationTime) - Number(b.orderDetailsWithId.orderDetails.expirationTime);
+          break;
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    return sortedOrders;
   };
 
   const displayOrders = getDisplayOrders();
@@ -527,13 +600,62 @@ export function OpenPositionsTable() {
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
             <div className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 pb-4 border-b border-white/10">
-              <div className="text-gray-400 text-sm font-medium text-center">Token For Sale</div>
-              <div className="text-gray-400 text-sm font-medium text-right pr-4">Sell Amount</div>
-              <div className="text-gray-400 text-sm font-medium text-left pl-16">Asking For</div>
-              <div className="text-gray-400 text-sm font-medium text-center">Fill Status %</div>
-              <div className="text-gray-400 text-sm font-medium text-center">Seller</div>
-              <div className="text-gray-400 text-sm font-medium text-center">Status</div>
-              <div className="text-gray-400 text-sm font-medium text-center">Expires</div>
+              <button 
+                onClick={() => handleSort('token')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'token' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Token For Sale {sortField === 'token' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
+                onClick={() => handleSort('sellAmount')}
+                className={`text-sm font-medium text-right pr-4 hover:text-white transition-colors ${
+                  sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Sell Amount {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
+                onClick={() => handleSort('askingFor')}
+                className={`text-sm font-medium text-left pl-16 hover:text-white transition-colors ${
+                  sortField === 'askingFor' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Asking For {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
+                onClick={() => handleSort('progress')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'progress' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
+                onClick={() => handleSort('owner')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'owner' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Seller {sortField === 'owner' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
+                onClick={() => handleSort('status')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'status' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button 
+                onClick={() => handleSort('date')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'date' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
             </div>
 
             {/* Table Rows */}
@@ -548,7 +670,9 @@ export function OpenPositionsTable() {
                     delay: 0.4 + (index * 0.05),
                     ease: [0.23, 1, 0.32, 1]
                   }}
-                  className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 py-8 border-b border-white/10"
+                  className={`grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 py-8 ${
+                    index < displayOrders.length - 1 ? 'border-b border-white/10' : ''
+                  }`}
                 >
                   <div className="flex items-center space-x-2">
                     <TokenLogo 
@@ -565,7 +689,7 @@ export function OpenPositionsTable() {
                       const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
                       const sellTokenInfo = getTokenInfo(sellTokenAddress);
                       const tokenAmount = parseFloat(formatEther(order.orderDetailsWithId.orderDetails.sellAmount));
-                      const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
+                      const tokenPrice = tokenPrices[sellTokenInfo.ticker]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                       
                       // Debug: Log calculation details
@@ -576,16 +700,16 @@ export function OpenPositionsTable() {
                           tokenAmount,
                           tokenPrice,
                           usdValue,
-                          priceData: tokenPrices[sellTokenAddress]
+                          priceData: tokenPrices[sellTokenInfo.ticker]
                         });
                       }
                       
                       return (
                         <>
-                          <span className="text-green-400 text-xs">
-                            {formatUSD(usdValue)}
+                          <span className={`text-sm font-medium ${tokenPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
+                            {tokenPrice > 0 ? formatUSD(usdValue) : '--'}
                           </span>
-                          <span className="text-white text-sm">
+                          <span className="text-gray-400 text-xs">
                             {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
                           </span>
                         </>
