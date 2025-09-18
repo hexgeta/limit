@@ -1,8 +1,10 @@
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
+import { MORE_COINS } from '@/constants/more-coins';
 
-// Create a map of token addresses to token info
-const TOKEN_MAP = new Map(
-  TOKEN_CONSTANTS.map(token => [
+// Create a map of token addresses to token info from both TOKEN_CONSTANTS and MORE_COINS
+const TOKEN_MAP = new Map([
+  // Add tokens from TOKEN_CONSTANTS
+  ...TOKEN_CONSTANTS.map(token => [
     token.a.toLowerCase(),
     {
       ticker: token.ticker,
@@ -10,8 +12,20 @@ const TOKEN_MAP = new Map(
       decimals: token.decimals,
       logo: getTokenLogo(token.ticker)
     }
-  ])
-);
+  ]),
+  // Add tokens from MORE_COINS (only if not already in TOKEN_CONSTANTS)
+  ...MORE_COINS
+    .filter(coin => coin.a && !TOKEN_CONSTANTS.some(token => token.a.toLowerCase() === coin.a.toLowerCase()))
+    .map(coin => [
+      coin.a.toLowerCase(),
+      {
+        ticker: coin.ticker,
+        name: coin.name,
+        decimals: coin.decimals,
+        logo: getTokenLogo(coin.ticker)
+      }
+    ])
+]);
 
 // Function to get token logo URL based on ticker
 function getTokenLogo(ticker: string): string {
@@ -52,6 +66,10 @@ function getTokenLogo(ticker: string): string {
     'eLUCKY': '/coin-logos/LUCKY.svg',
     'eTRIO': '/coin-logos/TRIO.svg',
     'eBASE': '/coin-logos/BASE.svg',
+    
+    // Additional tokens from more-coins.ts
+    'BRIBE': '/coin-logos/BRIBE.svg',
+    'DARK': '/coin-logos/DARK.svg',
   };
   
   return logoMap[ticker] || '/coin-logos/default.svg';
@@ -61,7 +79,10 @@ function getTokenLogo(ticker: string): string {
 export function getTokenInfo(address: string) {
   const tokenInfo = TOKEN_MAP.get(address.toLowerCase());
   if (tokenInfo) {
-    return tokenInfo;
+    return {
+      ...tokenInfo,
+      address: address
+    };
   }
   
   // Fallback for unknown tokens
@@ -69,13 +90,18 @@ export function getTokenInfo(address: string) {
     ticker: formatAddress(address),
     name: 'Unknown Token',
     decimals: 18,
-    logo: 'https://via.placeholder.com/24x24/666666/ffffff?text=?'
+    logo: 'https://via.placeholder.com/24x24/666666/ffffff?text=?',
+    address: address
   };
 }
 
 // Function to format address for display
 export function formatAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  // Format address as '0x...[last 4 characters]'
+  if (address.startsWith('0x') && address.length > 6) {
+    return `0x...${address.slice(-4)}`;
+  }
+  return address; // Return original if not a long enough address to truncate
 }
 
 // Function to get token info by index (for buy tokens)
@@ -96,13 +122,18 @@ export function getTokenInfoByIndex(index: number) {
   
   const address = indexMap[index];
   if (address) {
-    return getTokenInfo(address);
+    const tokenInfo = getTokenInfo(address);
+    return {
+      ...tokenInfo,
+      address: address
+    };
   }
   
   return {
     ticker: `Token #${index}`,
     name: `Token #${index}`,
     decimals: 18,
-    logo: 'https://via.placeholder.com/24x24/666666/ffffff?text=?'
+    logo: 'https://via.placeholder.com/24x24/666666/ffffff?text=?',
+    address: `0x${index.toString().padStart(40, '0')}` // Fallback address
   };
 }

@@ -90,7 +90,7 @@ export const TOKEN_CONSTANTS = [{
   a: "0x57fde0a71132198BBeC939B98976993d8D89D225",
   dexs: "0x922723FC4de3122F7DC837E2CD2b82Dce9dA81d2",
   ticker: "weHEX",
-  decimals: 8,
+    decimals: 8,
   name: "Wrapped HEX from Eth"
 }, {
   chain: 369,

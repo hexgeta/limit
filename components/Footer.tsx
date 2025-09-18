@@ -11,13 +11,15 @@ const Footer = () => {
       <div className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
         <div className="col-span-1">
           <h3 className="text-s font-semibold mb-2">
-            OtcMax.com {CURRENT_YEAR}
+            AgoráX.com {CURRENT_YEAR}
           </h3>
         </div>
         <div className="col-span-1">
           <h3 className="text-s font-semibold mb-2">Links</h3>
           <ul className="text-sm space-y-1">
             <li><a href="https://lookintomaxi.com" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300">LookIntoMaxi</a></li>
+            <li><a href="https://x.com/lookintomaxi" target="_blank" rel="noopener noreferrer" className="text-[rgb(153,153,153)] hover:text-gray-300">Twitter</a></li>
+
           </ul>
         </div>
         <div className="col-span-1">
