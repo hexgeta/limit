@@ -72,6 +72,7 @@ function getTokenLogo(ticker: string): string {
     // Additional tokens from more-coins.ts
     'BRIBE': '/coin-logos/default.svg', // No BRIBE.svg file exists
     'DARK': '/coin-logos/default.svg', // No DARK.svg file exists
+    'OG': '/coin-logos/default.svg', // No OG.svg file exists
   };
   
   return logoMap[ticker] || '/coin-logos/default.svg';

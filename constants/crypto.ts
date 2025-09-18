@@ -3752,7 +3752,7 @@ export const TOKEN_CONSTANTS = [{
 {
     chain: 369,
     a: "0x1578F4De7fCb3Ac9e8925ac690228EDcA3BBc7c5",
-    dexs: "0xaCe4fA86AF3dAd73e8ccEe92FB2bEEA19b564faC",
+    dexs: "0xBD86d4BdD8B84824c4E19BED9f20F07e75020b53",
     ticker: "DARK",
   decimals: 18,
     name: "Dark"

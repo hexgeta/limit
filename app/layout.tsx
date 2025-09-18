@@ -8,8 +8,8 @@ import { Providers } from '@/components/Providers'
 export const revalidate = 2592000; // 30 days in seconds
 
 export const metadata = {
-  title: 'PlsCharts.com',
-  description: 'PlsCharts.com',
+  title: 'AgoráX - OTC Platform for Pooled HEX Stake Tokens',
+  description: 'AgoráX is an OTC platform for trading pooled HEX stake tokens. Trade your HEX stakes with other users in a secure, decentralized environment.',
   icons: {
     icon: [
       {

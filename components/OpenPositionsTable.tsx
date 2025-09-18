@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { CircleDollarSign } from 'lucide-react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther } from 'viem';
@@ -21,11 +22,11 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
-// Format number with scientific notation for very small numbers and commas for large numbers
+// Format number without scientific notation
 const formatAmount = (amount: string) => {
   const num = parseFloat(amount);
   if (num < 0.000001 && num > 0) {
-    return num.toExponential(2);
+    return num.toFixed(8);
   }
   if (num >= 10000) {
     return num.toLocaleString();
@@ -97,84 +98,47 @@ const failedLogos = new Set<string>();
 // Cache to remember which format works for each symbol (svg or png)
 const formatCache = new Map<string, 'svg' | 'png'>();
 
-// TokenLogo component with proper caching to prevent flashing
+// Simplified TokenLogo component that always shows fallback for missing logos
 function TokenLogo({ src, alt, className }: { src: string; alt: string; className: string }) {
-  // Extract symbol from alt text for caching
-  const symbol = alt;
-  
-  // Determine the best format to try (check cache first, then default to original src)
-  const [currentSrc, setCurrentSrc] = useState(src);
-  const [hasError, setHasError] = useState(() => failedLogos.has(src));
+  const [hasError, setHasError] = useState(false);
   const [isClient, setIsClient] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
-  useEffect(() => {
-    if (isClient) {
-      setCurrentSrc(src);
-      setHasError(failedLogos.has(src));
-    }
-  }, [src, isClient]);
 
   const handleError = useCallback(() => {
-    // Try alternative formats/extensions
-    const baseUrl = src.replace(/\.(svg|png|jpg|jpeg)$/i, '');
-    const extensions = ['svg', 'png', 'jpg', 'jpeg'];
-    
-    for (const ext of extensions) {
-      const altSrc = `${baseUrl}.${ext}`;
-      if (altSrc !== src && !failedLogos.has(altSrc)) {
-        setCurrentSrc(altSrc);
-        return;
-      }
-    }
-    
-    // If all attempts failed, cache the failure and show fallback
-    failedLogos.add(src);
     setHasError(true);
-  }, [src]);
+  }, []);
 
-  const handleLoad = useCallback(() => {
-    // Cache the working URL for future use
-    formatCache.set(symbol, currentSrc.split('.').pop() as 'svg' | 'png');
-  }, [symbol, currentSrc]);
+  // Debug logging for logo loading
+  useEffect(() => {
+    if (alt === 'DARK' || alt === 'BRIBE' || alt === 'OG') {
+      console.log(`TokenLogo debug for ${alt}:`, {
+        src,
+        hasError,
+        isClient,
+        shouldShowFallback: !isClient || hasError || src.includes('default.svg')
+      });
+    }
+  }, [alt, src, hasError, isClient]);
 
-  // During SSR, show fallback immediately
-  if (!isClient) {
+  // If it's already the default.svg or has error, show Lucide icon fallback
+  if (src.includes('default.svg') || hasError || !isClient) {
     return (
-      <img 
-        src="/coin-logos/default.svg"
-        alt={alt}
-        className={className}
-        loading="lazy"
-        draggable="false"
-      />
-    );
-  }
-
-  // If image failed to load or is known missing, show the fallback icon immediately
-  if (hasError) {
-    return (
-      <img 
-        src="/coin-logos/default.svg"
-        alt={alt}
-        className={className}
-        loading="lazy"
-        draggable="false"
+      <CircleDollarSign 
+        className={`${className} text-white`}
       />
     );
   }
 
   return (
     <img 
-      src={currentSrc}
+      src={src}
       alt={alt}
       className={className}
       loading="lazy"
       onError={handleError}
-      onLoad={handleLoad}
       draggable="false"
     />
   );
@@ -210,21 +174,15 @@ export function OpenPositionsTable() {
     order.orderDetailsWithId.orderDetails.sellToken
   ))] : [];
   
-  // Convert addresses to tickers for price fetching
-  const sellTokenTickers = sellTokenAddresses.map(address => {
-    const tokenInfo = getTokenInfo(address);
-    return tokenInfo.ticker;
-  }).filter(ticker => ticker && !ticker.startsWith('0x')); // Filter out unknown tokens
+  // Use contract addresses directly for price fetching
+  const { prices: tokenPrices, isLoading: pricesLoading } = useTokenPrices(sellTokenAddresses);
   
-  // Debug: Log the token addresses and tickers we're trying to fetch prices for
+  // Debug: Log the token addresses we're trying to fetch prices for
   useEffect(() => {
     if (sellTokenAddresses.length > 0) {
       console.log('Fetching prices for token addresses:', sellTokenAddresses);
-      console.log('Converted to tickers:', sellTokenTickers);
     }
-  }, [sellTokenAddresses, sellTokenTickers]);
-  
-  const { prices: tokenPrices } = useTokenPrices(sellTokenTickers);
+  }, [sellTokenAddresses]);
   
   // Debug: Log the fetched prices
   useEffect(() => {
@@ -232,6 +190,22 @@ export function OpenPositionsTable() {
       console.log('Fetched token prices:', tokenPrices);
     }
   }, [tokenPrices]);
+
+  // Debug: Log token info for specific tokens
+  useEffect(() => {
+    if (sellTokenAddresses.length > 0) {
+      console.log('Token info debug:');
+      sellTokenAddresses.forEach(address => {
+        const tokenInfo = getTokenInfo(address);
+        console.log(`${address} -> ${tokenInfo.ticker}:`, {
+          ticker: tokenInfo.ticker,
+          name: tokenInfo.name,
+          logo: tokenInfo.logo,
+          hasPrice: !!tokenPrices[address]
+        });
+      });
+    }
+  }, [sellTokenAddresses, tokenPrices]);
 
   useEffect(() => {
     setIsClient(true);
@@ -246,8 +220,8 @@ export function OpenPositionsTable() {
     return () => clearInterval(interval);
   }, []);
 
-  // Loading state
-  if (!mounted || isLoading) {
+  // Loading state - wait for both contract data and price data
+  if (!mounted || isLoading || pricesLoading) {
     return (
       <div className="bg-black text-white p-4 sm:p-6 pb-24 sm:pb-24 relative overflow-hidden">
         <div className="max-w-[1000px] py-8 mx-auto w-full relative">
@@ -262,7 +236,7 @@ export function OpenPositionsTable() {
             className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
           >
             <div className="text-gray-400 text-lg">
-              Loading OTC positions
+              Loading OTC positions and prices
               <span className="w-[24px] text-left inline-block">
                 {'.'.repeat(loadingDots)}
               </span>
@@ -278,9 +252,9 @@ export function OpenPositionsTable() {
     return (
       <div className="w-full max-w-6xl mx-auto mb-8 mt-8">
         <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
-          <h2 className="text-xl font-bold mb-4">Contract Information</h2>
+          <h2 className="text-xl font-bold mb-4">AgoráX Contract Information</h2>
           <div className="text-red-500">
-            <p className="font-semibold mb-2">Unable to connect to the OTC contract</p>
+            <p className="font-semibold mb-2">Unable to connect to the AgoráX OTC contract</p>
             <p className="text-sm mb-2">Error: {error.message}</p>
             <p className="text-sm text-gray-400 mb-2">
               Contract Address: 0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2
@@ -689,7 +663,7 @@ export function OpenPositionsTable() {
                       const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
                       const sellTokenInfo = getTokenInfo(sellTokenAddress);
                       const tokenAmount = parseFloat(formatEther(order.orderDetailsWithId.orderDetails.sellAmount));
-                      const tokenPrice = tokenPrices[sellTokenInfo.ticker]?.price || 0;
+                      const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                       
                       // Debug: Log calculation details
@@ -700,7 +674,7 @@ export function OpenPositionsTable() {
                           tokenAmount,
                           tokenPrice,
                           usdValue,
-                          priceData: tokenPrices[sellTokenInfo.ticker]
+                          priceData: tokenPrices[sellTokenAddress]
                         });
                       }
                       
