@@ -10,7 +10,7 @@ const NavBar = () => {
           AgoráX
         </Link>
         <div className="flex items-center space-x-6">
-          <w3m-button />
+          {/* <CustomConnectButton /> */}
         </div>
       </div>
     </nav>

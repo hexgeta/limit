@@ -57,17 +57,8 @@ export function CoinLogo({
       )}
       loading={priority ? 'eager' : 'lazy'}
       onError={(e) => {
-        // Fallback to a white dollar sign icon
-        e.currentTarget.style.display = 'none'
-        const fallback = document.createElement('div')
-        fallback.className = cn(
-          LOGO_SIZES[size],
-          'bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold',
-          logoSymbol === 'HEX' ? '' : 'rounded-full',
-          className
-        )
-        fallback.textContent = '$'
-        e.currentTarget.parentNode?.insertBefore(fallback, e.currentTarget)
+        // Fallback to default logo if the image fails to load
+        e.currentTarget.src = '/coin-logos/default.svg'
       }}
     />
   )

@@ -76,7 +76,13 @@ function getTokenLogo(ticker: string): string {
 }
 
 // Function to get token info by address
-export function getTokenInfo(address: string) {
+export function getTokenInfo(address: string): {
+  ticker: string;
+  name: string;
+  decimals: number;
+  logo: string;
+  address: string;
+} {
   const tokenInfo = TOKEN_MAP.get(address.toLowerCase());
   if (tokenInfo) {
     return {
@@ -102,6 +108,15 @@ export function formatAddress(address: string): string {
     return `0x...${address.slice(-4)}`;
   }
   return address; // Return original if not a long enough address to truncate
+}
+
+// Function to format token ticker for display (convert 'we' to 'e')
+export function formatTokenTicker(ticker: string): string {
+  // Convert 'we' prefixed tokens to 'e' prefixed for display
+  if (ticker.startsWith('we')) {
+    return 'e' + ticker.slice(2);
+  }
+  return ticker;
 }
 
 // Function to get token info by index (for buy tokens)

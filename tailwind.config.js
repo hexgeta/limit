@@ -99,7 +99,7 @@ module.exports = {
     		},
     		fontFamily: {
     			sans: [
-					'Archia',
+					'Persephone',
     				'ui-sans-serif',
     				'system-ui',
     				'sans-serif',

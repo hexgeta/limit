@@ -9,14 +9,14 @@ export function FontLoader({
   weight = 'regular',
   priority = false 
 }: FontLoaderProps) {
-  const fontPath = `/fonts/Archia/archia-${weight}.woff2`
+  const fontPath = `/fonts/Archia/Persephone NF Regular.ttf`
   
   return (
     <link
       rel="preload"
       href={fontPath}
       as="font"
-      type="font/woff2"
+      type="font/truetype"
       crossOrigin="anonymous"
       fetchPriority={priority ? 'high' : 'auto'}
     />

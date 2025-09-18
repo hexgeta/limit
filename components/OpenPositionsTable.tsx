@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther } from 'viem';
-import { getTokenInfo, getTokenInfoByIndex, formatAddress } from '@/utils/tokenUtils';
+import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker } from '@/utils/tokenUtils';
 
 // Copy to clipboard function
 const copyToClipboard = async (text: string) => {
@@ -242,7 +242,7 @@ export function OpenPositionsTable() {
             }}
             className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
           >
-            <div className="text-gray-400">
+            <div className="text-gray-400 text-lg">
               Loading OTC positions
               <span className="w-[24px] text-left inline-block">
                 {'.'.repeat(loadingDots)}
@@ -446,9 +446,26 @@ export function OpenPositionsTable() {
   }
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto mb-8 mt-8">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ 
+        duration: 0.6,
+        ease: [0.23, 1, 0.32, 1]
+      }}
+      className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
+    >
       {/* Status Filter - Centered with Label Styling */}
-      <div className="flex justify-right gap-3 mb-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ 
+          duration: 0.4,
+          delay: 0.2,
+          ease: [0.23, 1, 0.32, 1]
+        }}
+        className="flex justify-right gap-3 mb-4"
+      >
         <button
           onClick={() => setStatusFilter('active')}
           className={`px-4 py-2 rounded-full transition-all duration-300 border ${
@@ -479,9 +496,18 @@ export function OpenPositionsTable() {
         >
           Cancelled ({cancelledCountForCurrentToken})
         </button>
-      </div>
+      </motion.div>
 
-      <div className="bg-black border-2 border-white/10 rounded-2xl p-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ 
+          duration: 0.5,
+          delay: 0.3,
+          ease: [0.23, 1, 0.32, 1]
+        }}
+        className="bg-black border-2 border-white/10 rounded-2xl p-6"
+      >
         {/* Horizontal scroll container with hidden scrollbar */}
         <div className="overflow-x-auto scrollbar-hide">
           {!displayOrders || displayOrders.length === 0 ? (
@@ -513,15 +539,25 @@ export function OpenPositionsTable() {
             {/* Table Rows */}
             <div className="space-y-1">
               {displayOrders.map((order, index) => (
-                <div key={index} className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 py-8 border-b border-white/10">
+                <motion.div 
+                  key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ 
+                    duration: 0.4,
+                    delay: 0.4 + (index * 0.05),
+                    ease: [0.23, 1, 0.32, 1]
+                  }}
+                  className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 py-8 border-b border-white/10"
+                >
                   <div className="flex items-center space-x-2">
                     <TokenLogo 
                       src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
-                      alt={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker}
+                      alt={formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                       className="w-6 h-6 rounded-full"
                     />
                     <span className="text-white text-sm font-medium">
-                      {getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker}
+                      {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                     </span>
                   </div>
                   <div className="flex flex-col items-end justify-center pr-4">
@@ -546,10 +582,10 @@ export function OpenPositionsTable() {
                       
                       return (
                         <>
-                          <span className="text-green-400 font-mono text-xs">
+                          <span className="text-green-400 text-xs">
                             {formatUSD(usdValue)}
                           </span>
-                          <span className="text-white font-mono text-sm">
+                          <span className="text-white text-sm">
                             {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
                           </span>
                         </>
@@ -563,13 +599,13 @@ export function OpenPositionsTable() {
                         <div key={idx} className="flex items-center space-x-2">
                           <TokenLogo 
                             src={tokenInfo.logo}
-                            alt={tokenInfo.ticker}
+                            alt={formatTokenTicker(tokenInfo.ticker)}
                             className="w-5 h-5 rounded-full"
                           />
                           <span className="text-white text-sm font-medium">
-                            {tokenInfo.ticker}
+                            {formatTokenTicker(tokenInfo.ticker)}
                           </span>
-                          <span className="text-gray-400 text-xs font-mono">
+                          <span className="text-gray-400 text-xs">
                             {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]))}
                           </span>
                         </div>
@@ -592,7 +628,7 @@ export function OpenPositionsTable() {
                   <div className="text-center">
                     <button
                       onClick={() => copyToClipboard(order.userDetails.orderOwner)}
-                      className="px-3 py-1 rounded-full bg-gray-800/50 text-white border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 font-mono text-xs"
+                      className="px-3 py-1 rounded-full bg-gray-800/50 text-white border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 text-xs"
                     >
                       {formatAddress(order.userDetails.orderOwner)}
                     </button>
@@ -611,13 +647,13 @@ export function OpenPositionsTable() {
                   <div className="text-gray-400 text-sm text-center">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
         )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
