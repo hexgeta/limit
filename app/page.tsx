@@ -41,12 +41,10 @@ export default function Home() {
       </div>
 
       {/* Create Position Modal */}
-      {showCreateModal && (
-        <CreatePositionModal 
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-        />
-      )}
+      <CreatePositionModal 
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
     </main>
   );
 } 
