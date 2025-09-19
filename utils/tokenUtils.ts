@@ -15,6 +15,13 @@ const TOKEN_MAP = new Map([
         logo: getTokenLogo(token.ticker)
       }
     ]),
+  // Add contract's native address mapping to PLS
+  ['0x000000000000000000000000000000000000dead', {
+    ticker: 'PLS',
+    name: 'Pulse',
+    decimals: 18,
+    logo: getTokenLogo('PLS')
+  }],
   // Add tokens from MORE_COINS (only if not already in TOKEN_CONSTANTS)
   ...MORE_COINS
     .filter(coin => coin.a && coin.a.trim() !== '' && !TOKEN_CONSTANTS.some(token => token.a && token.a.toLowerCase() === coin.a.toLowerCase()))
@@ -34,6 +41,7 @@ function getTokenLogo(ticker: string): string {
   const logoMap: Record<string, string> = {
     // Base tokens
     'PLS': '/coin-logos/PLS.svg',
+    'WPLS': '/coin-logos/PLS.svg', // Wrapped PLS uses PLS logo
     'PLSX': '/coin-logos/PLSX.svg',
     'HEX': '/coin-logos/HEX.svg',
     'ETH': '/coin-logos/ETH.svg',
@@ -86,7 +94,25 @@ export function getTokenInfo(address: string): {
   logo: string;
   address: string;
 } {
-  const tokenInfo = TOKEN_MAP.get(address.toLowerCase());
+  // Handle native token mapping - contract uses 0xdEaD, frontend uses 0x0
+  const normalizedAddress = address.toLowerCase();
+  const nativeAddresses = ['0x0', '0x0000000000000000000000000000000000000000', '0x000000000000000000000000000000000000dead'];
+  
+  let searchAddress = normalizedAddress;
+  if (nativeAddresses.includes(normalizedAddress)) {
+    // Try to find PLS token info using any of the native addresses
+    for (const nativeAddr of nativeAddresses) {
+      const tokenInfo = TOKEN_MAP.get(nativeAddr);
+      if (tokenInfo) {
+        return {
+          ...tokenInfo,
+          address: address // Return the original address passed in
+        };
+      }
+    }
+  }
+  
+  const tokenInfo = TOKEN_MAP.get(searchAddress);
   if (tokenInfo) {
     return {
       ...tokenInfo,

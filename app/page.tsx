@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { OpenPositionsTable } from '@/components/OpenPositionsTable';
+import { CreatePositionModal } from '@/components/CreatePositionModal';
 
 export default function Home() {
+  const [showCreateModal, setShowCreateModal] = useState(false);
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
       {/* Hero Section */}
@@ -13,20 +15,17 @@ export default function Home() {
             OTC Platform for Pooled HEX Stake Tokens
           </h2>
           <p className="text-md text-gray-400 max-w-3xl mx-auto mb-8">
-            Buy and sell pooled HEX stake tokens through our peer-to-peer OTC marketplace.
+            Buy and sell pooled HEX stake tokens at scale and on your terms with AgoráX, a peer-to-peer OTC marketplace.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-8 py-3 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-colors"
-            >
+            <button className="px-8 py-3 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-colors">
               Connect Wallet
             </button>
             <button 
-              onClick={() => window.location.reload()}
+              onClick={() => setShowCreateModal(true)}
               className="px-8 py-3 border border-white text-white rounded-full font-semibold hover:bg-white hover:text-black transition-colors"
             >
-              Learn More
+              Open Position
             </button>
           </div>
         </div>
@@ -40,6 +39,14 @@ export default function Home() {
           <OpenPositionsTable />
         </div>
       </div>
+
+      {/* Create Position Modal */}
+      {showCreateModal && (
+        <CreatePositionModal 
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
     </main>
   );
 } 

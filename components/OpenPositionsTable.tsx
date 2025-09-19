@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CircleDollarSign } from 'lucide-react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
@@ -108,7 +108,7 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
   }, []);
 
   const handleError = useCallback(() => {
-    setHasError(true);
+      setHasError(true);
   }, []);
 
   // Debug logging for logo loading
@@ -150,6 +150,9 @@ export function OpenPositionsTable() {
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
+  const [showMotion, setShowMotion] = useState(true);
+  const animationCompleteRef = useRef(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('date');
@@ -176,6 +179,24 @@ export function OpenPositionsTable() {
   
   // Use contract addresses directly for price fetching
   const { prices: tokenPrices, isLoading: pricesLoading } = useTokenPrices(sellTokenAddresses);
+  
+  // Check if we have valid price data for all tokens
+  const hasValidPriceData = useMemo(() => {
+    return tokenPrices && sellTokenAddresses.length > 0 && 
+           sellTokenAddresses.some(address => tokenPrices[address]?.price > 0);
+  }, [tokenPrices, sellTokenAddresses]);
+  
+  // Overall loading state - only for initial load
+  const isTableLoading = (pricesLoading || !hasValidPriceData) && isInitialLoad;
+  
+  // Handle animation completion without state updates that cause re-renders
+  const handleAnimationComplete = useCallback(() => {
+    if (!animationCompleteRef.current) {
+      animationCompleteRef.current = true;
+      // Switch to regular divs after a delay to avoid any flashing
+      setTimeout(() => setShowMotion(false), 50);
+    }
+  }, []);
   
   // Debug: Log the token addresses we're trying to fetch prices for
   useEffect(() => {
@@ -212,6 +233,13 @@ export function OpenPositionsTable() {
     setMounted(true);
   }, []);
 
+  // Effect to handle initial load completion
+  useEffect(() => {
+    if (hasValidPriceData && !pricesLoading && isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [hasValidPriceData, pricesLoading, isInitialLoad]);
+
   // Loading dots animation
   useEffect(() => {
     const interval = setInterval(() => {
@@ -219,106 +247,6 @@ export function OpenPositionsTable() {
     }, 500);
     return () => clearInterval(interval);
   }, []);
-
-  // Loading state - wait for both contract data and price data
-  if (!mounted || isLoading || pricesLoading) {
-    return (
-      <div className="bg-black text-white p-4 sm:p-6 pb-24 sm:pb-24 relative overflow-hidden">
-        <div className="max-w-[1000px] py-8 mx-auto w-full relative">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ 
-              duration: 0.5,
-              delay: 0.2,
-              ease: [0.23, 1, 0.32, 1]
-            }}
-            className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
-          >
-            <div className="text-gray-400 text-lg">
-              Loading OTC positions and prices
-              <span className="w-[24px] text-left inline-block">
-                {'.'.repeat(loadingDots)}
-              </span>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    );
-  }
-
-
-  if (error) {
-    return (
-      <div className="w-full max-w-6xl mx-auto mb-8 mt-8">
-        <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
-          <h2 className="text-xl font-bold mb-4">AgoráX Contract Information</h2>
-          <div className="text-red-500">
-            <p className="font-semibold mb-2">Unable to connect to the AgoráX OTC contract</p>
-            <p className="text-sm mb-2">Error: {error.message}</p>
-            <p className="text-sm text-gray-400 mb-2">
-              Contract Address: 0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2
-            </p>
-            <p className="text-sm text-gray-400 mb-3">
-              RPC Endpoint: https://rpc.pulsechain.com
-            </p>
-            <p className="text-sm text-gray-400 mb-3">
-              This could mean:
-            </p>
-            <ul className="text-sm text-gray-400 ml-4 mb-4">
-              <li>• The contract is not deployed at the expected address</li>
-              <li>• The contract is not properly initialized</li>
-              <li>• There's a network connectivity issue</li>
-              <li>• The RPC endpoint is not responding correctly</li>
-              <li>• Check the browser console for detailed error messages</li>
-            </ul>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-white text-black rounded hover:bg-white/80"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    const day = date.getDate();
-    const month = date.toLocaleDateString('en-US', { month: 'short' });
-    const year = date.getFullYear().toString().slice(-2);
-    return `${day} ${month} ${year}`;
-  };
-
-  const formatPercentage = (percentage: number) => {
-    // If it's a whole number (no decimals), don't show decimals
-    if (percentage % 1 === 0) {
-      return `${percentage}%`;
-    }
-    // Otherwise, round to 1 decimal place
-    return `${percentage.toFixed(1)}%`;
-  };
-
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case 0: return 'Active';
-      case 1: return 'Cancelled';
-      case 2: return 'Completed';
-      default: return 'Unknown';
-    }
-  };
-
-  const getStatusColor = (status: number) => {
-    switch (status) {
-      case 0: return 'text-green-400';
-      case 1: return 'text-red-400';
-      case 2: return 'text-blue-400';
-      default: return 'text-gray-400';
-    }
-  };
 
   // Handle sorting
   const handleSort = (field: SortField) => {
@@ -330,8 +258,10 @@ export function OpenPositionsTable() {
     }
   };
 
-  // Get the orders to display based on active tab and status filter
-  const getDisplayOrders = () => {
+  // Memoize the display orders to prevent unnecessary recalculations
+  const displayOrders = useMemo(() => {
+    if (!allOrders) return [];
+    
     let orders = [];
     
     // First filter by token type (Maxi Tokens or All)
@@ -421,10 +351,8 @@ export function OpenPositionsTable() {
     });
     
     return sortedOrders;
-  };
+  }, [allOrders, activeTab, statusFilter, sortField, sortDirection]);
 
-  const displayOrders = getDisplayOrders();
-  
   // Helper function to get orders for current token filter
   const getOrdersForCurrentTokenFilter = () => {
     switch (activeTab) {
@@ -455,11 +383,120 @@ export function OpenPositionsTable() {
     }
   };
 
-  // Calculate counts for current token filter
-  const currentTokenOrders = getOrdersForCurrentTokenFilter();
-  const activeCountForCurrentToken = currentTokenOrders.filter(order => order.orderDetailsWithId.status === 0).length;
-  const completedCountForCurrentToken = currentTokenOrders.filter(order => order.orderDetailsWithId.status === 2).length;
-  const cancelledCountForCurrentToken = currentTokenOrders.filter(order => order.orderDetailsWithId.status === 1).length;
+  // Memoize counts for current token filter
+  const currentTokenOrders = useMemo(() => getOrdersForCurrentTokenFilter(), [allOrders, activeTab]);
+  const activeCountForCurrentToken = useMemo(() => 
+    currentTokenOrders.filter(order => order.orderDetailsWithId.status === 0).length, 
+    [currentTokenOrders]
+  );
+  const completedCountForCurrentToken = useMemo(() => 
+    currentTokenOrders.filter(order => order.orderDetailsWithId.status === 2).length, 
+    [currentTokenOrders]
+  );
+  const cancelledCountForCurrentToken = useMemo(() => 
+    currentTokenOrders.filter(order => order.orderDetailsWithId.status === 1).length, 
+    [currentTokenOrders]
+  );
+
+  // Loading state - only for initial load
+  if (!mounted || isTableLoading) {
+    return (
+      <div className="bg-black text-white p-4 sm:p-6 pb-24 sm:pb-24 relative overflow-hidden">
+        <div className="max-w-[1000px] pb-8 mx-auto w-full relative">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.5,
+              delay: 0.2,
+              ease: [0.23, 1, 0.32, 1]
+            }}
+            className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
+          >
+            <div className="text-gray-400 text-lg">
+              Loading OTC positions
+              <span className="w-[24px] text-left inline-block">
+                {'.'.repeat(loadingDots)}
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (error) {
+    return (
+      <div className="w-full max-w-6xl mx-auto mb-8 mt-8">
+        <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
+          <h2 className="text-xl font-bold mb-4">AgoráX Contract Information</h2>
+          <div className="text-red-500">
+            <p className="font-semibold mb-2">Unable to connect to the AgoráX OTC contract</p>
+            <p className="text-sm mb-2">Error: {error.message}</p>
+            <p className="text-sm text-gray-400 mb-2">
+              Contract Address: 0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2
+            </p>
+            <p className="text-sm text-gray-400 mb-3">
+              RPC Endpoint: https://rpc.pulsechain.com
+            </p>
+            <p className="text-sm text-gray-400 mb-3">
+              This could mean:
+            </p>
+            <ul className="text-sm text-gray-400 ml-4 mb-4">
+              <li>• The contract is not deployed at the expected address</li>
+              <li>• The contract is not properly initialized</li>
+              <li>• There's a network connectivity issue</li>
+              <li>• The RPC endpoint is not responding correctly</li>
+              <li>• Check the browser console for detailed error messages</li>
+            </ul>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-white text-black rounded hover:bg-white/80"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  const formatTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day} ${month} ${year}`;
+  };
+
+  const formatPercentage = (percentage: number) => {
+    // If it's a whole number (no decimals), don't show decimals
+    if (percentage % 1 === 0) {
+      return `${percentage}%`;
+    }
+    // Otherwise, round to 1 decimal place
+    return `${percentage.toFixed(1)}%`;
+  };
+
+  const getStatusText = (status: number) => {
+    switch (status) {
+      case 0: return 'Active';
+      case 1: return 'Cancelled';
+      case 2: return 'Completed';
+      default: return 'Unknown';
+    }
+  };
+
+  const getStatusColor = (status: number) => {
+    switch (status) {
+      case 0: return 'text-green-400';
+      case 1: return 'text-red-400';
+      case 2: return 'text-blue-400';
+      default: return 'text-gray-400';
+    }
+  };
   
   // Calculate MAXI token orders count
   const maxiTokenOrders = allOrders.filter(order => {
@@ -492,25 +529,35 @@ export function OpenPositionsTable() {
     });
   }
 
+  // Container component - motion or regular div
+  const Container = showMotion ? motion.div : 'div';
+  const StatusFilter = showMotion ? motion.div : 'div';
+  const TableContainer = showMotion ? motion.div : 'div';
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ 
+    <Container 
+      {...(showMotion ? {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        transition: { 
         duration: 0.6,
         ease: [0.23, 1, 0.32, 1]
-      }}
+        },
+        onAnimationComplete: handleAnimationComplete
+      } : {})}
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
       {/* Status Filter - Centered with Label Styling */}
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ 
+      <StatusFilter 
+        {...(showMotion ? {
+          initial: { opacity: 0, y: 10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { 
           duration: 0.4,
           delay: 0.2,
           ease: [0.23, 1, 0.32, 1]
-        }}
+          }
+        } : {})}
         className="flex justify-right gap-3 mb-4"
       >
         <button
@@ -543,16 +590,18 @@ export function OpenPositionsTable() {
         >
           Cancelled ({cancelledCountForCurrentToken})
         </button>
-      </motion.div>
+      </StatusFilter>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ 
+      <TableContainer 
+        {...(showMotion ? {
+          initial: { opacity: 0, y: 15 },
+          animate: { opacity: 1, y: 0 },
+          transition: { 
           duration: 0.5,
           delay: 0.3,
           ease: [0.23, 1, 0.32, 1]
-        }}
+          }
+        } : {})}
         className="bg-black border-2 border-white/10 rounded-2xl p-6"
       >
         {/* Horizontal scroll container with hidden scrollbar */}
@@ -751,7 +800,7 @@ export function OpenPositionsTable() {
           </div>
         )}
         </div>
-      </motion.div>
-    </motion.div>
+      </TableContainer>
+    </Container>
   );
 }

@@ -16,6 +16,32 @@
   --text-color: #ffffff;
 }
 
+/* No-select utility classes */
+.no-select {
+  @apply select-none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+}
+
+.no-select * {
+  @apply select-none !important;
+  pointer-events: auto !important;
+}
+
+.no-select img {
+  -webkit-user-drag: none !important;
+  -khtml-user-drag: none !important;
+  -moz-user-drag: none !important;
+  -o-user-drag: none !important;
+  user-drag: none !important;
+  pointer-events: none !important;
+}
+
 .skeleton {
   @apply bg-zinc-950 bg-[length:200%_100%] animate-shine;
   background-image: linear-gradient(
@@ -310,4 +336,34 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar { 
   display: none;  /* Safari and Chrome */
+}
+
+/* Hide scrollbar arrows globally */
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Custom scrollbar styling - hide arrows but keep scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Hide scrollbar arrows specifically */
+::-webkit-scrollbar-button:start:decrement,
+::-webkit-scrollbar-button:end:increment {
+  display: none;
 }
