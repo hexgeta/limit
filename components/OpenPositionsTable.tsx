@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { CircleDollarSign } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CircleDollarSign, ChevronDown } from 'lucide-react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker } from '@/utils/tokenUtils';
 
 // Sorting types
-type SortField = 'token' | 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date';
+type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date';
 type SortDirection = 'asc' | 'desc';
 
 // Copy to clipboard function
@@ -32,6 +32,19 @@ const formatAmount = (amount: string) => {
     return num.toLocaleString();
   }
   return amount;
+};
+
+// Format number with commas for large numbers
+const formatNumberWithCommas = (value: string) => {
+  if (!value) return '';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  return num.toLocaleString();
+};
+
+// Remove commas from number string
+const removeCommas = (value: string) => {
+  return value.replace(/,/g, '');
 };
 
 // Format USD amount without scientific notation
@@ -158,6 +171,12 @@ export function OpenPositionsTable() {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
+  // Expanded positions state
+  const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
+  
+  // Offer input state
+  const [offerInputs, setOfferInputs] = useState<{[orderId: string]: {[tokenAddress: string]: string}}>({});
+  
   const { 
     contractName, 
     contractOwner, 
@@ -258,6 +277,156 @@ export function OpenPositionsTable() {
     }
   };
 
+  // Handle position expansion
+  const togglePositionExpansion = (orderId: string) => {
+    setExpandedPositions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+        // Scroll the expanded position to the top after a short delay
+        setTimeout(() => {
+          const element = document.querySelector(`[data-order-id="${orderId}"]`);
+          if (element) {
+            element.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start',
+              inline: 'nearest'
+            });
+          }
+        }, 100);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle take full offer - fill inputs with max amounts
+  const handleTakeFullOffer = (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+    const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+    
+    if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
+      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
+      return;
+    }
+    
+    if (!buyAmounts || !Array.isArray(buyAmounts)) {
+      console.error('buyAmounts is not available or not an array:', buyAmounts);
+      return;
+    }
+    
+    const newInputs: {[tokenAddress: string]: string} = {};
+    
+    // Fill each asking for token with its maximum amount
+    buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+      if (tokenInfo.address && buyAmounts[idx]) {
+        const maxAmount = formatEther(buyAmounts[idx]);
+        newInputs[tokenInfo.address] = maxAmount;
+      }
+    });
+    
+    setOfferInputs(prev => ({
+      ...prev,
+      [orderId]: newInputs
+    }));
+  };
+
+  // Handle take partial offer - show empty inputs
+  const handleTakePartialOffer = (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+    const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+    
+    if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
+      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
+      return;
+    }
+    
+    if (!buyAmounts || !Array.isArray(buyAmounts)) {
+      console.error('buyAmounts is not available or not an array:', buyAmounts);
+      return;
+    }
+    
+    const newInputs: {[tokenAddress: string]: string} = {};
+    
+    // Initialize empty inputs for each asking for token
+    buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+      if (tokenInfo.address && buyAmounts[idx]) {
+        newInputs[tokenInfo.address] = '';
+      }
+    });
+    
+    setOfferInputs(prev => ({
+      ...prev,
+      [orderId]: newInputs
+    }));
+  };
+
+  // Handle input change for offer amounts
+  const handleOfferInputChange = (orderId: string, tokenAddress: string, value: string, order: any) => {
+    // Find the maximum allowed amount for this token
+    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+    const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+    
+    let maxAllowedAmount = '';
+    if (buyTokensIndex && buyAmounts) {
+      const tokenIndex = buyTokensIndex.findIndex((idx: bigint) => {
+        const tokenInfo = getTokenInfoByIndex(Number(idx));
+        return tokenInfo.address === tokenAddress;
+      });
+      
+      if (tokenIndex !== -1 && buyAmounts[tokenIndex]) {
+        maxAllowedAmount = formatEther(buyAmounts[tokenIndex]);
+      }
+    }
+    
+    // Validate the input amount
+    const inputAmount = parseFloat(value);
+    const maxAmount = parseFloat(maxAllowedAmount);
+    
+    // If input is valid and within limits, or if it's empty, allow it
+    if (value === '' || (!isNaN(inputAmount) && inputAmount <= maxAmount)) {
+      setOfferInputs(prev => ({
+        ...prev,
+        [orderId]: {
+          ...prev[orderId],
+          [tokenAddress]: value
+        }
+      }));
+    }
+    // If input exceeds maximum, don't update the state (effectively preventing the input)
+  };
+
+  // Handle clear all inputs
+  const handleClearInputs = (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+    
+    if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
+      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
+      return;
+    }
+    
+    const newInputs: {[tokenAddress: string]: string} = {};
+    
+    // Clear all inputs
+    buyTokensIndex.forEach((tokenIndex: bigint) => {
+      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+      if (tokenInfo.address) {
+        newInputs[tokenInfo.address] = '';
+      }
+    });
+    
+    setOfferInputs(prev => ({
+      ...prev,
+      [orderId]: newInputs
+    }));
+  };
+
   // Memoize the display orders to prevent unnecessary recalculations
   const displayOrders = useMemo(() => {
     if (!allOrders) return [];
@@ -316,15 +485,16 @@ export function OpenPositionsTable() {
       let comparison = 0;
       
       switch (sortField) {
-        case 'token':
-          const aToken = getTokenInfo(a.orderDetailsWithId.orderDetails.sellToken).ticker;
-          const bToken = getTokenInfo(b.orderDetailsWithId.orderDetails.sellToken).ticker;
-          comparison = aToken.localeCompare(bToken);
-          break;
         case 'sellAmount':
-          const aAmount = parseFloat(formatEther(a.orderDetailsWithId.orderDetails.sellAmount));
-          const bAmount = parseFloat(formatEther(b.orderDetailsWithId.orderDetails.sellAmount));
-          comparison = aAmount - bAmount;
+          const aSellTokenAddress = a.orderDetailsWithId.orderDetails.sellToken;
+          const bSellTokenAddress = b.orderDetailsWithId.orderDetails.sellToken;
+          const aTokenAmount = parseFloat(formatEther(a.orderDetailsWithId.orderDetails.sellAmount));
+          const bTokenAmount = parseFloat(formatEther(b.orderDetailsWithId.orderDetails.sellAmount));
+          const aTokenPrice = tokenPrices[aSellTokenAddress]?.price || 0;
+          const bTokenPrice = tokenPrices[bSellTokenAddress]?.price || 0;
+          const aUsdValue = aTokenAmount * aTokenPrice;
+          const bUsdValue = bTokenAmount * bTokenPrice;
+          comparison = aUsdValue - bUsdValue;
           break;
         case 'askingFor':
           const aAsking = a.orderDetailsWithId.orderDetails.buyTokensIndex.length;
@@ -351,7 +521,7 @@ export function OpenPositionsTable() {
     });
     
     return sortedOrders;
-  }, [allOrders, activeTab, statusFilter, sortField, sortDirection]);
+  }, [allOrders, activeTab, statusFilter, sortField, sortDirection, tokenPrices]);
 
   // Helper function to get orders for current token filter
   const getOrdersForCurrentTokenFilter = () => {
@@ -595,14 +765,32 @@ export function OpenPositionsTable() {
       <TableContainer 
         {...(showMotion ? {
           initial: { opacity: 0, y: 15 },
-          animate: { opacity: 1, y: 0 },
+          animate: { 
+            opacity: 1, 
+            y: 0,
+            scale: expandedPositions.size > 0 ? 0.95 : 1,
+            height: expandedPositions.size > 0 ? 'fit-content' : 'auto'
+          },
           transition: { 
           duration: 0.5,
           delay: 0.3,
           ease: [0.23, 1, 0.32, 1]
-          }
+          },
+          layout: true
         } : {})}
-        className="bg-black border-2 border-white/10 rounded-2xl p-6"
+        className={`bg-black border-2 border-white/10 rounded-2xl p-6 transition-all duration-500 ease-out ${
+          expandedPositions.size > 0 ? 'shadow-2xl shadow-white/10' : ''
+        }`}
+        style={{ 
+          height: expandedPositions.size > 0 ? 'fit-content' : 'auto',
+          minHeight: expandedPositions.size > 0 ? 'auto' : '400px',
+          maxHeight: expandedPositions.size > 0 ? 'fit-content' : 'none',
+          width: expandedPositions.size > 0 ? 'fit-content' : '100%',
+          margin: expandedPositions.size > 0 ? '0 auto' : '0',
+          transform: expandedPositions.size > 0 ? 'scale(0.95)' : 'scale(1)',
+          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)',
+          padding: expandedPositions.size > 0 ? '1rem' : '1.5rem'
+        }}
       >
         {/* Horizontal scroll container with hidden scrollbar */}
         <div className="overflow-x-auto scrollbar-hide">
@@ -622,22 +810,23 @@ export function OpenPositionsTable() {
           ) : (
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
-            <div className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 pb-4 border-b border-white/10">
-              <button 
-                onClick={() => handleSort('token')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'token' ? 'text-white' : 'text-gray-400'
-                }`}
-              >
-                Token For Sale {sortField === 'token' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </button>
+            <motion.div 
+              className={`grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 pb-4 border-b border-white/10 ${
+                expandedPositions.size > 0 ? 'px-2' : ''
+              }`}
+              animate={{
+                scale: expandedPositions.size > 0 ? 0.98 : 1,
+                opacity: expandedPositions.size > 0 ? 0.9 : 1
+              }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+            >
               <button 
                 onClick={() => handleSort('sellAmount')}
-                className={`text-sm font-medium text-right pr-4 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-left pl-4 hover:text-white transition-colors ${
                   sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                Sell Amount {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                Token For Sale {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               <button 
                 onClick={() => handleSort('askingFor')}
@@ -679,35 +868,44 @@ export function OpenPositionsTable() {
               >
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              <div className="text-sm font-medium text-center text-gray-400">
+                Actions
             </div>
+            </motion.div>
 
             {/* Table Rows */}
-            <div className="space-y-1">
-              {displayOrders.map((order, index) => (
                 <motion.div 
-                  key={index}
+              className={`space-y-1 ${expandedPositions.size > 0 ? 'pt-0' : ''}`}
+              layout
+              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            >
+              {displayOrders.map((order, index) => {
+                const orderId = order.orderDetailsWithId.orderId.toString();
+                const isExpanded = expandedPositions.has(orderId);
+                const hasAnyExpanded = expandedPositions.size > 0;
+                const shouldShow = !hasAnyExpanded || isExpanded;
+                
+                return (
+                  <div key={index} data-order-id={orderId}>
+                <motion.div 
                   initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                      animate={{ 
+                        opacity: shouldShow ? 1 : 0,
+                        y: shouldShow ? 0 : -20,
+                        scale: shouldShow ? 1 : 0.9
+                      }}
                   transition={{ 
                     duration: 0.4,
-                    delay: 0.4 + (index * 0.05),
+                        delay: shouldShow ? 0.1 : 0,
                     ease: [0.23, 1, 0.32, 1]
                   }}
-                  className={`grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 py-8 ${
-                    index < displayOrders.length - 1 ? 'border-b border-white/10' : ''
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <TokenLogo 
-                      src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
-                      alt={formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
-                      className="w-6 h-6 rounded-full"
-                    />
-                    <span className="text-white text-sm font-medium">
-                      {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end justify-center pr-4">
+                      className={`grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 ${
+                        expandedPositions.size > 0 && shouldShow ? 'py-4' : 'py-8'
+                      } ${
+                        index < displayOrders.length - 1 && shouldShow ? 'border-b border-white/10' : ''
+                      } ${expandedPositions.size > 0 && shouldShow ? 'px-2' : ''}`}
+                    >
+                    <div className="flex flex-col justify-center space-y-1 pl-4">
                     {(() => {
                       const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
                       const sellTokenInfo = getTokenInfo(sellTokenAddress);
@@ -729,12 +927,22 @@ export function OpenPositionsTable() {
                       
                       return (
                         <>
-                          <span className={`text-sm font-medium ${tokenPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
-                            {tokenPrice > 0 ? formatUSD(usdValue) : '--'}
+                            <span className={`text-lg font-medium ${tokenPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
+                              {tokenPrice > 0 ? formatUSD(usdValue) : '--'}
                           </span>
-                          <span className="text-gray-400 text-xs">
+                            <div className="flex items-center space-x-2">
+                              <TokenLogo 
+                                src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
+                                alt={formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
+                                className="w-5 h-5 rounded-full"
+                              />
+                              <span className="text-white text-sm font-medium">
+                                {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
+                          </span>
+                              <span className="text-gray-400 text-xs">
                             {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
                           </span>
+                            </div>
                         </>
                       );
                     })()}
@@ -746,13 +954,13 @@ export function OpenPositionsTable() {
                         <div key={idx} className="flex items-center space-x-2">
                           <TokenLogo 
                             src={tokenInfo.logo}
-                            alt={formatTokenTicker(tokenInfo.ticker)}
+                              alt={formatTokenTicker(tokenInfo.ticker)}
                             className="w-5 h-5 rounded-full"
                           />
                           <span className="text-white text-sm font-medium">
-                            {formatTokenTicker(tokenInfo.ticker)}
+                              {formatTokenTicker(tokenInfo.ticker)}
                           </span>
-                          <span className="text-gray-400 text-xs">
+                            <span className="text-gray-400 text-xs">
                             {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]))}
                           </span>
                         </div>
@@ -775,7 +983,7 @@ export function OpenPositionsTable() {
                   <div className="text-center">
                     <button
                       onClick={() => copyToClipboard(order.userDetails.orderOwner)}
-                      className="px-3 py-1 rounded-full bg-gray-800/50 text-white border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 text-xs"
+                        className="px-3 py-1 rounded-full bg-gray-800/50 text-white border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 text-xs"
                     >
                       {formatAddress(order.userDetails.orderOwner)}
                     </button>
@@ -794,9 +1002,127 @@ export function OpenPositionsTable() {
                   <div className="text-gray-400 text-sm text-center">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
+                    <div className="text-center">
+                      <button
+                        onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                        className="p-2 rounded-full hover:text-white transition-colors"
+                      >
+                        <ChevronDown 
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
+                          }`}
+                        />
+                      </button>
+                  </div>
                 </motion.div>
-              ))}
+                  
+                  {/* Expandable Actions Shelf */}
+                  <AnimatePresence>
+                    {expandedPositions.has(order.orderDetailsWithId.orderId.toString()) && (
+                      <motion.div
+                        key={`shelf-${order.orderDetailsWithId.orderId}`}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="rounded-2xl mt-2 border border-white/10 bg-white/5"
+                      >
+                        <div className="p-3">
+                          <div className="flex flex-col space-y-2">
+                            <h4 className="text-white font-medium text-xl">Your Trade</h4>
+                            
+                            {/* Offer Input Fields */}
+                            <div className="mt-3 pt-3 border-t border-white/10">
+                              <h5 className="text-white font-medium text-xs mb-2">You pay:</h5>
+                              <div className="flex flex-wrap gap-2">
+                                {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+                                  const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                                  const orderId = order.orderDetailsWithId.orderId.toString();
+                                  const currentAmount = offerInputs[orderId]?.[tokenInfo.address] || '';
+                                  
+                                  return (
+                                    <div key={tokenInfo.address} className="flex items-start space-x-2 bg-white/5 rounded-lg px-3 py-2">
+                                      <div className="flex items-center space-x-2">
+                                        <TokenLogo 
+                                          src={tokenInfo.logo}
+                                          alt={formatTokenTicker(tokenInfo.ticker)}
+                                          className="w-6 h-6 rounded-full"
+                                        />
+                                        <span className="text-white text-md font-medium">
+                                          {formatTokenTicker(tokenInfo.ticker)}
+                                        </span>
             </div>
+                                      <div className="flex flex-col">
+                                        <input
+                                          type="text"
+                                          value={formatNumberWithCommas(currentAmount)}
+                                          onChange={(e) => handleOfferInputChange(
+                                            orderId, 
+                                            tokenInfo.address, 
+                                            removeCommas(e.target.value),
+                                            order
+                                          )}
+                                          className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-md max-w-32 focus:border-white/40 focus:outline-none"
+                                          placeholder="0"
+                                        />
+                                        <button
+                                          onClick={() => {
+                                            const maxAmount = formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]);
+                                            handleOfferInputChange(orderId, tokenInfo.address, maxAmount, order);
+                                          }}
+                                          className="text-xs text-left text-gray-500 hover:text-white mt-1 transition-colors cursor-pointer"
+                                        >
+                                          MAX
+                                        </button>
+          </div>
+                                    </div>
+                                  );
+                                })}
+          </div>
+                              
+                              {/* "Take full offer" and "Clear" links under all inputs */}
+                              <div className="mt-4 flex space-x-3">
+                                <button
+                                  onClick={() => handleTakeFullOffer(order)}
+                                  className="text-xs text-blue-400 hover:text-white transition-colors"
+                                >
+                                  Take full offer
+                                </button>
+                                <button
+                                  onClick={() => handleClearInputs(order)}
+                                  className="text-xs text-red-400 hover:text-white transition-colors"
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                              
+                              {/* Submit Section */}
+                              <div className="mt-4 pt-3 border-t border-white/10">
+                                <button 
+                                  onClick={() => {
+                                    // TODO: Implement submit logic
+                                    console.log('Submitting offer for order:', order.orderDetailsWithId.orderId.toString());
+                                    console.log('Offer amounts:', offerInputs[order.orderDetailsWithId.orderId.toString()]);
+                                  }}
+                                  className="px-6 py-2 bg-white text-black border border-white rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+                                >
+                                  Confirm Trade
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="text-xs text-gray-500 mt-1">
+                              Order ID: {order.orderDetailsWithId.orderId.toString()}
+                            </div>
+                          </div>
+        </div>
+      </motion.div>
+                    )}
+                  </AnimatePresence>
+        </div>
+                );
+              })}
+      </motion.div>
           </div>
         )}
         </div>
