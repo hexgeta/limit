@@ -136,20 +136,32 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     inputRef: React.RefObject<HTMLInputElement>
   ) => {
     const input = e.target;
-    const cursorPosition = input.selectionStart || 0;
     const rawValue = removeCommas(input.value);
     
     if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
       setter(rawValue);
       
-      // Restore cursor position after state update
-      setTimeout(() => {
-        if (inputRef.current) {
-          const formattedValue = formatNumberWithCommas(rawValue);
-          const newCursorPosition = Math.min(cursorPosition, formattedValue.length);
-          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
-        }
-      }, 0);
+      // Use a more reliable approach with double requestAnimationFrame
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            // Calculate cursor position more intelligently
+            const formattedValue = formatNumberWithCommas(rawValue);
+            const originalCursorPos = input.selectionStart || 0;
+            const originalValue = input.value;
+            
+            // If the user is typing at the end, keep cursor at the end
+            if (originalCursorPos >= originalValue.length - 1) {
+              inputRef.current.setSelectionRange(formattedValue.length, formattedValue.length);
+            } else {
+              // For middle positions, try to maintain relative position
+              const digitsBeforeCursor = originalValue.substring(0, originalCursorPos).replace(/,/g, '').length;
+              const newCursorPos = Math.min(digitsBeforeCursor, formattedValue.length);
+              inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            }
+          }
+        });
+      });
     }
   };
 
@@ -336,7 +348,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-2 items-center">
                 {/* You Offer Section */}
                 <div className="bg-white/5 rounded-xl p-6">
-                  <h3 className="text-white font-semibold mb-4">You Offer</h3>
+                  <h3 className="text-white font-semibold mb-4">Your Offer</h3>
                 
                 {/* Token Selector */}
                 <div className="relative mb-4" ref={sellDropdownRef}>
@@ -428,7 +440,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
 
                 {/* You Want Section */}
                 <div className="bg-white/5 rounded-xl p-6">
-                  <h3 className="text-white font-semibold mb-4">You Want</h3>
+                  <h3 className="text-white font-semibold mb-4">Your Ask</h3>
                 
                 {/* Token Selector */}
                 <div className="relative mb-4" ref={buyDropdownRef}>
@@ -535,19 +547,27 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                   <h3 className="text-white font-semibold mb-4">Deal Summary</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Offer Amount:</span>
+                      <span className="text-gray-400">Your Offer:</span>
                       <span className="text-white font-medium">{formatNumberWithCommas(removeCommas(sellAmount))} {formatTokenTicker(sellToken.ticker)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Platform Fee (1%):</span>
-                      <span className="text-white font-medium">{formatNumberWithCommas((parseFloat(removeCommas(sellAmount)) * 0.01).toFixed(2))} {formatTokenTicker(sellToken.ticker)}</span>
+                      <span className="text-gray-400">Your Ask:</span>
+                      <span className="text-white font-medium">{formatNumberWithCommas(removeCommas(buyAmount))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
                     </div>
-                    <div className="border-t border-white/10 pt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white font-semibold">Total Cost:</span>
-                        <span className="text-white font-bold">{formatNumberWithCommas((parseFloat(removeCommas(sellAmount)) * 1.01).toFixed(2))} {formatTokenTicker(sellToken.ticker)}</span>
-                      </div>
-                    </div>
+                     <div className="flex justify-between items-center">
+                       <div>
+                         <span className="text-gray-400">Fee:</span>
+                         <div className="text-xs text-gray-500 mt-1">(1% platform fee deducted from buyer at sale)</div>
+                       </div>
+                       <span className="text-red-400 font-medium">-{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.01).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
+                     </div>
+
+                     <div className="border-t border-white/10 pt-3">
+                       <div className="flex justify-between items-center">
+                         <span className="text-white font-semibold">You Receive:</span>
+                         <span className="text-white font-bold">{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.99).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
+                       </div>
+                     </div>
                   </div>
                 </div>
               )}

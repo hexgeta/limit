@@ -1098,6 +1098,58 @@ export function OpenPositionsTable() {
                                 </button>
                               </div>
                               
+                              {/* Fee Breakdown */}
+                              {(() => {
+                                const orderId = order.orderDetailsWithId.orderId.toString();
+                                const currentInputs = offerInputs[orderId];
+                                if (!currentInputs) return null;
+                                
+                                // Calculate total buy amount (what buyer will pay)
+                                let totalBuyAmount = 0;
+                                const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+                                const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+                                
+                                if (buyTokensIndex && buyAmounts && Array.isArray(buyTokensIndex) && Array.isArray(buyAmounts)) {
+                                  buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+                                    const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                                    if (tokenInfo.address && currentInputs[tokenInfo.address]) {
+                                      const inputAmount = parseFloat(removeCommas(currentInputs[tokenInfo.address]));
+                                      if (!isNaN(inputAmount)) {
+                                        totalBuyAmount += inputAmount;
+                                      }
+                                    }
+                                  });
+                                }
+                                
+                                if (totalBuyAmount > 0) {
+                                  const platformFee = totalBuyAmount * 0.01; // 1% fee
+                                  const orderOwnerReceives = totalBuyAmount - platformFee;
+                                  
+                                  return (
+                                    <div className="mt-4 p-3 bg-white/5 rounded-lg">
+                                      <h5 className="text-white font-medium mb-2">Fee Breakdown</h5>
+                                      <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-400">You Pay:</span>
+                                          <span className="text-white">{formatNumberWithCommas(totalBuyAmount.toFixed(2))} tokens</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-400">Platform Fee (1%):</span>
+                                          <span className="text-white">{formatNumberWithCommas(platformFee.toFixed(2))} tokens</span>
+                                        </div>
+                                        <div className="border-t border-white/10 pt-1">
+                                          <div className="flex justify-between">
+                                            <span className="text-white font-medium">Order Owner Receives:</span>
+                                            <span className="text-white font-bold">{formatNumberWithCommas(orderOwnerReceives.toFixed(2))} tokens</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+
                               {/* Submit Section */}
                               <div className="mt-4 pt-3 border-t border-white/10">
                                 <button 
