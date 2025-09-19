@@ -301,70 +301,7 @@ export function OpenPositionsTable() {
     });
   };
 
-  // Handle take full offer - fill inputs with max amounts
-  const handleTakeFullOffer = (order: any) => {
-    const orderId = order.orderDetailsWithId.orderId.toString();
-    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
-    const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
-    
-    if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
-      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
-      return;
-    }
-    
-    if (!buyAmounts || !Array.isArray(buyAmounts)) {
-      console.error('buyAmounts is not available or not an array:', buyAmounts);
-      return;
-    }
-    
-    const newInputs: {[tokenAddress: string]: string} = {};
-    
-    // Fill each asking for token with its maximum amount
-    buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
-      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-      if (tokenInfo.address && buyAmounts[idx]) {
-        const maxAmount = formatEther(buyAmounts[idx]);
-        newInputs[tokenInfo.address] = maxAmount;
-      }
-    });
-    
-    setOfferInputs(prev => ({
-      ...prev,
-      [orderId]: newInputs
-    }));
-  };
 
-  // Handle take partial offer - show empty inputs
-  const handleTakePartialOffer = (order: any) => {
-    const orderId = order.orderDetailsWithId.orderId.toString();
-    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
-    const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
-    
-    if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
-      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
-      return;
-    }
-    
-    if (!buyAmounts || !Array.isArray(buyAmounts)) {
-      console.error('buyAmounts is not available or not an array:', buyAmounts);
-      return;
-    }
-    
-    const newInputs: {[tokenAddress: string]: string} = {};
-    
-    // Initialize empty inputs for each asking for token
-    buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
-      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-      if (tokenInfo.address && buyAmounts[idx]) {
-        newInputs[tokenInfo.address] = '';
-      }
-    });
-    
-    setOfferInputs(prev => ({
-      ...prev,
-      [orderId]: newInputs
-    }));
-  };
 
   // Handle input change for offer amounts
   const handleOfferInputChange = (orderId: string, tokenAddress: string, value: string, order: any) => {
@@ -373,8 +310,9 @@ export function OpenPositionsTable() {
     const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
     
     let maxAllowedAmount = '';
+    let tokenIndex = -1;
     if (buyTokensIndex && buyAmounts) {
-      const tokenIndex = buyTokensIndex.findIndex((idx: bigint) => {
+      tokenIndex = buyTokensIndex.findIndex((idx: bigint) => {
         const tokenInfo = getTokenInfoByIndex(Number(idx));
         return tokenInfo.address === tokenAddress;
       });
@@ -390,15 +328,76 @@ export function OpenPositionsTable() {
     
     // If input is valid and within limits, or if it's empty, allow it
     if (value === '' || (!isNaN(inputAmount) && inputAmount <= maxAmount)) {
+      // Calculate the percentage for this token
+      let percentage = 0;
+      if (inputAmount > 0 && maxAmount > 0) {
+        percentage = inputAmount / maxAmount;
+      }
+      
+      // Update all other tokens to maintain the same percentage
+      const newInputs: {[tokenAddress: string]: string} = {
+        ...offerInputs[orderId],
+        [tokenAddress]: value
+      };
+      
+      // If we have a valid percentage, apply it to all other tokens
+      if (percentage > 0 && tokenIndex !== -1) {
+        buyTokensIndex.forEach((idx: bigint, idxNum: number) => {
+          if (idxNum !== tokenIndex) {
+            const otherTokenInfo = getTokenInfoByIndex(Number(idx));
+            const otherMaxAmount = parseFloat(formatEther(buyAmounts[idxNum]));
+            const otherAmount = (otherMaxAmount * percentage).toString();
+            newInputs[otherTokenInfo.address] = otherAmount;
+          }
+        });
+      } else if (value === '') {
+        // If clearing this input, clear all others too
+        buyTokensIndex.forEach((idx: bigint) => {
+          const otherTokenInfo = getTokenInfoByIndex(Number(idx));
+          newInputs[otherTokenInfo.address] = '';
+        });
+      }
+      
       setOfferInputs(prev => ({
         ...prev,
-        [orderId]: {
-          ...prev[orderId],
-          [tokenAddress]: value
-        }
+        [orderId]: newInputs
       }));
     }
     // If input exceeds maximum, don't update the state (effectively preventing the input)
+  };
+
+  // Handle percentage fill
+  const handlePercentageFill = (order: any, percentage: number) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+    const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+    
+    if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
+      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
+      return;
+    }
+    
+    if (!buyAmounts || !Array.isArray(buyAmounts)) {
+      console.error('buyAmounts is not available or not an array:', buyAmounts);
+      return;
+    }
+    
+    const newInputs: {[tokenAddress: string]: string} = {};
+    
+    // Fill each token with the specified percentage of its maximum amount
+    buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+      if (tokenInfo.address && buyAmounts[idx]) {
+        const maxAmount = parseFloat(formatEther(buyAmounts[idx]));
+        const fillAmount = (maxAmount * percentage).toString();
+        newInputs[tokenInfo.address] = fillAmount;
+      }
+    });
+    
+    setOfferInputs(prev => ({
+      ...prev,
+      [orderId]: newInputs
+    }));
   };
 
   // Handle clear all inputs
@@ -1041,7 +1040,7 @@ export function OpenPositionsTable() {
                                   const currentAmount = offerInputs[orderId]?.[tokenInfo.address] || '';
                                   
                                   return (
-                                    <div key={tokenInfo.address} className="flex items-start space-x-2 bg-white/5 rounded-lg px-3 py-2">
+                                    <div key={tokenInfo.address} className="flex items-center space-x-2 bg-white/5 rounded-lg px-3 py-2">
                                       <div className="flex items-center space-x-2">
                                         <TokenLogo 
                                           src={tokenInfo.logo}
@@ -1065,32 +1064,35 @@ export function OpenPositionsTable() {
                                           className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-md max-w-32 focus:border-white/40 focus:outline-none"
                                           placeholder="0"
                                         />
-                                        <button
-                                          onClick={() => {
-                                            const maxAmount = formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]);
-                                            handleOfferInputChange(orderId, tokenInfo.address, maxAmount, order);
-                                          }}
-                                          className="text-xs text-left text-gray-500 hover:text-white mt-1 transition-colors cursor-pointer"
-                                        >
-                                          MAX
-                                        </button>
           </div>
                                     </div>
                                   );
                                 })}
           </div>
                               
-                              {/* "Take full offer" and "Clear" links under all inputs */}
-                              <div className="mt-4 flex space-x-3">
+                              {/* Percentage buttons and Clear under all inputs */}
+                              <div className="mt-4 flex space-x-2">
                                 <button
-                                  onClick={() => handleTakeFullOffer(order)}
-                                  className="text-xs text-blue-400 hover:text-white transition-colors"
+                                  onClick={() => handlePercentageFill(order, 1.0)}
+                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
                                 >
-                                  Take full offer
+                                  100%
+                                </button>
+                                <button
+                                  onClick={() => handlePercentageFill(order, 0.5)}
+                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                                >
+                                  50%
+                                </button>
+                                <button
+                                  onClick={() => handlePercentageFill(order, 0.1)}
+                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                                >
+                                  10%
                                 </button>
                                 <button
                                   onClick={() => handleClearInputs(order)}
-                                  className="text-xs text-red-400 hover:text-white transition-colors"
+                                  className="px-3 py-1 text-xs bg-red-500/20 text-red-400 border border-red-400 rounded hover:bg-red-500/30 transition-colors"
                                 >
                                   Clear
                                 </button>
