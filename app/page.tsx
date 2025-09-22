@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { OpenPositionsTable } from '@/components/OpenPositionsTable';
 import { CreatePositionModal } from '@/components/CreatePositionModal';
+import { ContractFunctionDemo } from '@/components/ContractFunctionDemo';
+// import { OrderTestingInterface } from '@/components/OrderTestingInterface';
 
 export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,11 +37,17 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="w-full px-8 py-2">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-          </div>
-          <OpenPositionsTable />
-        </div>
+                <div className="max-w-6xl mx-auto">
+                  {/* <div className="mb-8">
+                    Order Testing Interface - Remove this in production
+                    <OrderTestingInterface />
+                  </div> */}
+                  <div className="mb-8">
+                    {/* Contract Function Whitelist Demo - Remove this in production */}
+                    <ContractFunctionDemo />
+                  </div>
+                  <OpenPositionsTable />
+                </div>
       </div>
 
       {/* Create Position Modal */}

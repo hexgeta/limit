@@ -23,24 +23,25 @@ export const modal = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
   networks,
+  defaultChain: networks[0], // Set PulseChain as default (first in array)
   metadata,
   themeMode: 'dark',
   features: {
     analytics: false, // Disable analytics to avoid conflicts
-    email: true, // Enable email login for wallet creation
-    socials: ['google', 'twitter'], // Enable social login options
-    emailShowWallets: true, // Show wallet options in email flow
+    email: false, // Disable email login/onboarding
+    socials: [], // Disable social login options/onboarding
+    emailShowWallets: false, // Hide wallet options in email flow
   },
   // Remove branding and search
   enableNetworkView: false,
   enableAccountView: false,
   enableExplorer: true, // Show the search bar
-  enableOnramp: false, // Disable onramp features
+  enableOnramp: false, // Disable onramp/funding features
   enableSwaps: false, // Disable swap features
   themeVariables: {
     // Colors - Black and White Theme
     '--w3m-accent': '#ffffff', // White accent for buttons and highlights
-    '--w3m-background-color': 'rgba(0, 0, 0, 0.95)', // Black backdrop with more opacity
+    '--w3m-background-color': 'rgba(0, 0, 0, 0.8)', // Black backdrop with more opacity
     '--w3m-color-bg-1': '#000000', // Pure black modal background
     '--w3m-color-bg-2': '#000000', // Pure black secondary background
     '--w3m-color-bg-3': '#000000', // Pure black for cards/inputs

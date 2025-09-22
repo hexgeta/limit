@@ -1,5 +1,6 @@
-import { useContractRead, useContractWrite, useAccount } from 'wagmi';
+import { useContractRead, useAccount } from 'wagmi';
 import { parseEther, formatEther, Address } from 'viem';
+import { useContractWhitelist } from './useContractWhitelist';
 
 // We'll need to update this with the actual deployed contract address
 const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_OTC_CONTRACT_ADDRESS as Address;
@@ -107,6 +108,15 @@ export interface OrderDetails {
 
 export function useOTCTrade() {
   const { address } = useAccount();
+  
+  // Use the whitelist system for write functions
+  const {
+    placeOrder,
+    executeOrder,
+    cancelOrder,
+    isWalletConnected,
+    isConnected
+  } = useContractWhitelist();
 
   // Read functions
   const { data: ordersCount } = useContractRead({
@@ -115,18 +125,13 @@ export function useOTCTrade() {
     functionName: 'getOrderCounter',
   });
 
-  // Write functions
-  const { writeContractAsync: placeOrder } = useContractWrite();
-
-  const { writeContractAsync: executeOrder } = useContractWrite();
-
-  const { writeContractAsync: cancelOrder } = useContractWrite();
-
   return {
     ordersCount: ordersCount as bigint,
     placeOrder,
     executeOrder,
     cancelOrder,
     userAddress: address,
+    isWalletConnected,
+    isConnected,
   };
 }
