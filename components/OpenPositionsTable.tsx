@@ -196,14 +196,29 @@ export function OpenPositionsTable() {
     order.orderDetailsWithId.orderDetails.sellToken
   ))] : [];
   
+  // Get unique buy token addresses for price fetching
+  const buyTokenAddresses = allOrders ? [...new Set(allOrders.flatMap(order => {
+    const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+    if (buyTokensIndex && Array.isArray(buyTokensIndex)) {
+      return buyTokensIndex.map((tokenIndex: bigint) => {
+        const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+        return tokenInfo.address;
+      });
+    }
+    return [];
+  }))] : [];
+  
+  // Combine all unique token addresses for price fetching
+  const allTokenAddresses = [...new Set([...sellTokenAddresses, ...buyTokenAddresses])];
+  
   // Use contract addresses directly for price fetching
-  const { prices: tokenPrices, isLoading: pricesLoading } = useTokenPrices(sellTokenAddresses);
+  const { prices: tokenPrices, isLoading: pricesLoading } = useTokenPrices(allTokenAddresses);
   
   // Check if we have valid price data for all tokens
   const hasValidPriceData = useMemo(() => {
-    return tokenPrices && sellTokenAddresses.length > 0 && 
-           sellTokenAddresses.some(address => tokenPrices[address]?.price > 0);
-  }, [tokenPrices, sellTokenAddresses]);
+    return tokenPrices && allTokenAddresses.length > 0 && 
+           allTokenAddresses.some(address => tokenPrices[address]?.price > 0);
+  }, [tokenPrices, allTokenAddresses]);
   
   // Overall loading state - only for initial load
   const isTableLoading = (pricesLoading || !hasValidPriceData) && isInitialLoad;
@@ -819,56 +834,69 @@ export function OpenPositionsTable() {
               }}
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             >
+              {/* COLUMN 1: Token For Sale */}
               <button 
                 onClick={() => handleSort('sellAmount')}
-                className={`text-sm font-medium text-left pl-4 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-left hover:text-white transition-colors ${
                   sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                Token For Sale {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                For Sale {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 2: Asking For */}
               <button 
                 onClick={() => handleSort('askingFor')}
-                className={`text-sm font-medium text-left pl-16 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-left hover:text-white transition-colors ${
                   sortField === 'askingFor' ? 'text-white' : 'text-gray-400'
                 }`}
               >
                 Asking For {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 3: Fill Status % */}
               <button 
                 onClick={() => handleSort('progress')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center ml-4 hover:text-white transition-colors ${
                   sortField === 'progress' ? 'text-white' : 'text-gray-400'
                 }`}
               >
                 Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 4: Seller */}
               <button 
                 onClick={() => handleSort('owner')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center ml-4 hover:text-white transition-colors ${
                   sortField === 'owner' ? 'text-white' : 'text-gray-400'
                 }`}
               >
                 Seller {sortField === 'owner' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 5: Status */}
               <button 
                 onClick={() => handleSort('status')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center ml-4 hover:text-white transition-colors ${
                   sortField === 'status' ? 'text-white' : 'text-gray-400'
                 }`}
               >
                 Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 6: Expires */}
               <button 
                 onClick={() => handleSort('date')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                className={`text-sm font-medium text-left ml-4 hover:text-white transition-colors ${
                   sortField === 'date' ? 'text-white' : 'text-gray-400'
                 }`}
               >
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
-              <div className="text-sm font-medium text-center text-gray-400">
-                Actions
+              
+              {/* COLUMN 7: Actions */}
+              <div className="text-sm font-medium text-right ml-4 text-gray-400">
+                {/* Actions header removed - left blank */}
             </div>
             </motion.div>
 
@@ -898,13 +926,14 @@ export function OpenPositionsTable() {
                         delay: shouldShow ? 0.1 : 0,
                     ease: [0.23, 1, 0.32, 1]
                   }}
-                      className={`grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 ${
+                      className={`grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr_auto] items-start gap-4 ${
                         expandedPositions.size > 0 && shouldShow ? 'py-4' : 'py-8'
                       } ${
                         index < displayOrders.length - 1 && shouldShow ? 'border-b border-white/10' : ''
                       } ${expandedPositions.size > 0 && shouldShow ? 'px-2' : ''}`}
                     >
-                    <div className="flex flex-col justify-center space-y-1 pl-4">
+                    {/* COLUMN 1: Token For Sale Content */}
+                    <div className="flex flex-col items-start space-y-1">
                     {(() => {
                       const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
                       const sellTokenInfo = getTokenInfo(sellTokenAddress);
@@ -912,60 +941,99 @@ export function OpenPositionsTable() {
                       const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                       
-                      // Debug: Log calculation details
-                      if (sellTokenInfo.ticker === 'PLSX') {
-                        console.log('PLSX Debug:', {
-                          tokenAddress: sellTokenAddress,
-                          ticker: sellTokenInfo.ticker,
-                          tokenAmount,
-                          tokenPrice,
-                          usdValue,
-                          priceData: tokenPrices[sellTokenAddress]
+                      
+                      return (
+                        <div className="inline-block">
+                          <span className={`text-lg font-medium ${tokenPrice > 0 ? 'text-white' : 'text-gray-500'} ${tokenPrice === 0 ? 'py-1' : ''}`}>
+                            {tokenPrice > 0 ? formatUSD(usdValue) : '--'}
+                          </span>
+                          <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                  <div className="flex items-center space-x-2">
+                    <TokenLogo 
+                      src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
+                              alt={formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
+                      className="w-6 h-6 rounded-full"
+                    />
+                            <div className="flex flex-col">
+                    <span className="text-white text-sm font-medium">
+                                {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
+                    </span>
+                              <span className="text-gray-400 text-xs">
+                                {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
+                              </span>
+                              {tokenPrice > 0 && (
+                                <span className="text-gray-500 text-xs">
+                                  {formatUSD(usdValue)}
+                                </span>
+                              )}
+                  </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  {/* COLUMN 2: Asking For Content */}
+                  <div className="flex flex-col items-start space-y-1">
+                    {(() => {
+                      // Calculate total USD value for all buy tokens
+                      let totalUsdValue = 0;
+                      const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+                      const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+                      
+                      if (buyTokensIndex && buyAmounts && Array.isArray(buyTokensIndex) && Array.isArray(buyAmounts)) {
+                        buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+                      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                          const tokenAmount = parseFloat(formatEther(buyAmounts[idx]));
+                          const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
+                      const usdValue = tokenAmount * tokenPrice;
+                          totalUsdValue += usdValue;
+                          
                         });
                       }
                       
                       return (
-                        <>
-                            <span className={`text-lg font-medium ${tokenPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
-                              {tokenPrice > 0 ? formatUSD(usdValue) : '--'}
+                        <div className="inline-block">
+                          <span className={`text-lg font-medium ${totalUsdValue > 0 ? 'text-white' : 'text-gray-500'} ${totalUsdValue === 0 ? 'py-1' : ''}`}>
+                            {totalUsdValue > 0 ? formatUSD(totalUsdValue) : '--'}
                           </span>
-                            <div className="flex items-center space-x-2">
-                              <TokenLogo 
-                                src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
-                                alt={formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
-                                className="w-5 h-5 rounded-full"
-                              />
-                              <span className="text-white text-sm font-medium">
-                                {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
-                          </span>
-                              <span className="text-gray-400 text-xs">
-                            {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
-                          </span>
-                            </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="flex flex-col justify-center space-y-1 pl-16">
-                    {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+                          <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                          {buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                            const tokenAmount = parseFloat(formatEther(buyAmounts[idx]));
+                            const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
+                            const usdValue = tokenAmount * tokenPrice;
+                            
+                            
                       return (
-                        <div key={idx} className="flex items-center space-x-2">
+                              <div key={idx} className="flex items-center space-x-2 mb-3">
                           <TokenLogo 
                             src={tokenInfo.logo}
-                              alt={formatTokenTicker(tokenInfo.ticker)}
-                            className="w-5 h-5 rounded-full"
+                                  alt={formatTokenTicker(tokenInfo.ticker)}
+                            className="w-6 h-6 rounded-full"
                           />
+                                <div className="flex flex-col">
                           <span className="text-white text-sm font-medium">
-                              {formatTokenTicker(tokenInfo.ticker)}
+                                    {formatTokenTicker(tokenInfo.ticker)}
                           </span>
-                            <span className="text-gray-400 text-xs">
+                                  <span className="text-gray-400 text-xs">
                             {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]))}
                           </span>
+                                  {tokenPrice > 0 && (
+                                    <span className="text-gray-500 text-xs">
+                                      {formatUSD(usdValue)}
+                                    </span>
+                                  )}
+                                </div>
                         </div>
                       );
                     })}
                   </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  {/* COLUMN 3: Fill Status % Content */}
                   <div className="flex flex-col items-center space-y-2">
                     <span className="text-white text-sm">
                       {formatPercentage(100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100))}
@@ -979,6 +1047,8 @@ export function OpenPositionsTable() {
                       />
                     </div>
                   </div>
+                  
+                  {/* COLUMN 4: Seller Content */}
                   <div className="text-center">
                     <button
                       onClick={() => copyToClipboard(order.userDetails.orderOwner)}
@@ -987,6 +1057,8 @@ export function OpenPositionsTable() {
                       {formatAddress(order.userDetails.orderOwner)}
                     </button>
                   </div>
+                  
+                  {/* COLUMN 5: Status Content */}
                   <div className="text-center">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
                       order.orderDetailsWithId.status === 0 
@@ -998,10 +1070,14 @@ export function OpenPositionsTable() {
                       {getStatusText(order.orderDetailsWithId.status)}
                     </span>
                   </div>
-                  <div className="text-gray-400 text-sm text-center">
+                  
+                  {/* COLUMN 6: Expires Content */}
+                  <div className="text-gray-400 text-sm text-right">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
-                    <div className="text-center">
+                  
+                  {/* COLUMN 7: Actions Content */}
+                    <div className="text-right">
                       <button
                         onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
                         className="p-2 rounded-full hover:text-white transition-colors"

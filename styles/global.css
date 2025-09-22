@@ -317,9 +317,8 @@ textarea {
     overflow: hidden;
   }
   
-  /* When radio-page class is present, prevent scrolling on body and html */
-  .radio-page ~ body,
-  html:has(.radio-page) {
+  /* When radio-page class is present, prevent scrolling on body only if explicitly needed */
+  .radio-page ~ body {
     overflow: hidden;
   }
 }
@@ -366,4 +365,152 @@ body {
 ::-webkit-scrollbar-button:start:decrement,
 ::-webkit-scrollbar-button:end:increment {
   display: none;
+}
+
+/* Custom AppKit Connect Button Styling - Multiple targeting approaches */
+
+/* Approach 1: Direct targeting */
+.connect-button-wrapper {
+  @apply relative;
+}
+
+/* Approach 2: Target all possible AppKit selectors */
+appkit-button,
+appkit-button *,
+appkit-button button,
+appkit-button span,
+appkit-button div,
+w3m-button,
+w3m-button *,
+w3m-button button,
+w3m-button span,
+w3m-button div,
+[data-w3m],
+[data-w3m] *,
+[data-w3m] button,
+[data-w3m] span,
+[data-w3m] div {
+  font-family: 'Persephone', ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: 0.05em !important;
+  word-spacing: 0.2em !important;
+}
+
+/* Style the main button element - multiple selectors */
+appkit-button button,
+w3m-button button,
+[data-w3m] button,
+.connect-button-wrapper appkit-button button,
+.connect-button-wrapper w3m-button button {
+  background: white !important;
+  color: black !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 9999px !important;
+  padding: 12px 32px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  transition: background-color 0.2s ease !important;
+}
+
+appkit-button button:hover,
+w3m-button button:hover,
+[data-w3m] button:hover,
+.connect-button-wrapper appkit-button button:hover,
+.connect-button-wrapper w3m-button button:hover {
+  background: #e5e7eb !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Style button text */
+appkit-button button span,
+appkit-button button div,
+w3m-button button span,
+w3m-button button div,
+[data-w3m] button span,
+[data-w3m] button div {
+  color: black !important;
+  font-weight: 600 !important;
+}
+
+/* Ensure proper spacing and alignment */
+appkit-button,
+w3m-button,
+[data-w3m] {
+  display: inline-block !important;
+}
+
+/* Style the AppKit modal backdrop to match CreatePositionModal */
+w3m-modal,
+w3m-modal::backdrop,
+[data-w3m-modal],
+[data-w3m-modal]::backdrop,
+.w3m-modal,
+.w3m-modal::backdrop {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important; /* Higher than navbar (z-[100]) and footer */
+}
+
+/* Target the modal container itself */
+w3m-modal > div,
+[data-w3m-modal] > div,
+.w3m-modal > div {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important;
+}
+
+/* More aggressive targeting for the modal backdrop */
+w3m-modal,
+[data-w3m-modal],
+.w3m-modal {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important;
+}
+
+/* Target any overlay or backdrop elements */
+.w3m-overlay,
+.w3m-backdrop,
+[data-w3m-overlay],
+[data-w3m-backdrop] {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important;
+}
+
+/* Fix white outline issue - remove any borders or outlines from AppKit modal */
+w3m-modal,
+[data-w3m-modal],
+.w3m-modal,
+w3m-modal *,
+[data-w3m-modal] *,
+.w3m-modal * {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure the modal content has proper z-index */
+w3m-modal > div > div,
+[data-w3m-modal] > div > div,
+.w3m-modal > div > div {
+  z-index: 10000 !important;
+}
+
+/* Disable body scroll when AppKit modal is open - only via class */
+.w3m-modal-open {
+  overflow: hidden !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .connect-button-wrapper appkit-button button {
+    @apply px-4 py-2 text-sm;
+  }
 }

@@ -150,7 +150,7 @@ export function formatTokenTicker(ticker: string): string {
 
 // Function to get token info by index (for buy tokens)
 export function getTokenInfoByIndex(index: number) {
-  // Map token indices to actual token addresses
+  // Map token indices to actual token addresses from TOKEN_CONSTANTS
   const indexMap: Record<number, string> = {
     0: '0x0', // PLS
     1: '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
@@ -170,6 +170,19 @@ export function getTokenInfoByIndex(index: number) {
     return {
       ...tokenInfo,
       address: address
+    };
+  }
+  
+  // Fallback: try to find token by index in TOKEN_CONSTANTS
+  const tokenConstants = require('@/constants/crypto').TOKEN_CONSTANTS;
+  if (tokenConstants && tokenConstants[index]) {
+    const token = tokenConstants[index];
+    return {
+      ticker: token.ticker,
+      name: token.name,
+      decimals: token.decimals,
+      logo: getTokenLogo(token.ticker),
+      address: token.a
     };
   }
   

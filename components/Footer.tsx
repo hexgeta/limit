@@ -13,7 +13,7 @@ const Footer = () => {
           AgoráX {CURRENT_YEAR}
         </h3>
         <p className="text-sm text-[rgb(153,153,153)]">
-          OTC Platform for Pooled HEX Stake Tokens
+          Powering peer-to-peer pooled HEX stake trading
         </p>
       </div>
     </footer>

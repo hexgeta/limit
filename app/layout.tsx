@@ -3,6 +3,8 @@ import { FontLoader } from '@/components/ui/FontLoader'
 import NavBar from '@/components/NavBar'
 import Footer from '@/components/Footer'
 import { Providers } from '@/components/Providers'
+import AppKitProvider from '@/context/AppKitProvider'
+import { headers } from 'next/headers'
 
 // Static layout with revalidation
 export const revalidate = 2592000; // 30 days in seconds
@@ -25,11 +27,14 @@ export const viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const headersData = await headers();
+  const cookies = headersData.get('cookie');
+
   return (
     <html lang="en" className="font-sans">
       <head>
@@ -38,13 +43,15 @@ export default function RootLayout({
         <script defer data-domain="otc.lookintomaxi.com" src="https://plausible.io/js/script.js"></script>
       </head>
       <body className="min-h-screen bg-black text-white">
-        <Providers>
-          <div className="flex flex-col min-h-screen">
-            <NavBar />
-            <main className="flex-grow">{children}</main>
-            <Footer />
-          </div>
-        </Providers>
+        <AppKitProvider cookies={cookies}>
+          <Providers>
+            <div className="flex flex-col min-h-screen">
+              <NavBar />
+              <main className="flex-grow">{children}</main>
+              <Footer />
+            </div>
+          </Providers>
+        </AppKitProvider>
       </body>
     </html>
   )
