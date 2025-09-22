@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CircleDollarSign, ChevronDown } from 'lucide-react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
-import { formatEther } from 'viem';
+import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
+import { formatEther, parseEther } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker } from '@/utils/tokenUtils';
 
 // Sorting types
@@ -158,6 +159,7 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
 }
 
 export function OpenPositionsTable() {
+  const { executeOrder, isWalletConnected } = useContractWhitelist();
   const [activeTab, setActiveTab] = useState<'all' | 'featured'>('featured');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
   const [isClient, setIsClient] = useState(false);
@@ -176,6 +178,10 @@ export function OpenPositionsTable() {
   
   // Offer input state
   const [offerInputs, setOfferInputs] = useState<{[orderId: string]: {[tokenAddress: string]: string}}>({});
+  
+  // State for executing orders
+  const [executingOrders, setExecutingOrders] = useState<Set<string>>(new Set());
+  const [executeErrors, setExecuteErrors] = useState<{[orderId: string]: string}>({});
   
   const { 
     contractName, 
@@ -439,6 +445,102 @@ export function OpenPositionsTable() {
       ...prev,
       [orderId]: newInputs
     }));
+  };
+
+  // Handle executing an order
+  const handleExecuteOrder = async (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    
+    if (!isWalletConnected) {
+      setExecuteErrors(prev => ({
+        ...prev,
+        [orderId]: 'Please connect your wallet to execute orders'
+      }));
+      return;
+    }
+
+    const currentInputs = offerInputs[orderId];
+    if (!currentInputs) {
+      setExecuteErrors(prev => ({
+        ...prev,
+        [orderId]: 'Please enter amounts for the tokens you want to buy'
+      }));
+      return;
+    }
+
+    // Validate that at least one input has a value
+    const hasValidInput = Object.values(currentInputs).some(value => 
+      value && parseFloat(removeCommas(value)) > 0
+    );
+
+    if (!hasValidInput) {
+      setExecuteErrors(prev => ({
+        ...prev,
+        [orderId]: 'Please enter amounts for the tokens you want to buy'
+      }));
+      return;
+    }
+
+    setExecutingOrders(prev => new Set(prev).add(orderId));
+    setExecuteErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[orderId];
+      return newErrors;
+    });
+
+    try {
+      // For now, we'll execute with the first token that has an input
+      // In a real implementation, you might want to handle multiple tokens
+      const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+      const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+      
+      let tokenIndexToExecute = -1;
+      let buyAmount = BigInt(0);
+      
+      for (let i = 0; i < buyTokensIndex.length; i++) {
+        const tokenInfo = getTokenInfoByIndex(Number(buyTokensIndex[i]));
+        if (tokenInfo.address && currentInputs[tokenInfo.address]) {
+          const inputAmount = parseFloat(removeCommas(currentInputs[tokenInfo.address]));
+          if (inputAmount > 0) {
+            tokenIndexToExecute = i;
+            buyAmount = parseEther(inputAmount.toString());
+            break;
+          }
+        }
+      }
+
+      if (tokenIndexToExecute === -1) {
+        throw new Error('No valid token amount found');
+      }
+
+      // Execute the order
+      const txResult = await executeOrder(
+        BigInt(orderId),
+        BigInt(tokenIndexToExecute),
+        buyAmount
+      );
+
+      console.log('Order executed successfully:', txResult);
+      
+      // Clear the inputs for this order
+      handleClearInputs(order);
+      
+      // Optionally refresh the orders
+      // refetch();
+      
+    } catch (error: any) {
+      console.error('Error executing order:', error);
+      setExecuteErrors(prev => ({
+        ...prev,
+        [orderId]: error.message || 'Failed to execute order. Please try again.'
+      }));
+    } finally {
+      setExecutingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
   };
 
   // Memoize the display orders to prevent unnecessary recalculations
@@ -825,7 +927,7 @@ export function OpenPositionsTable() {
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
             <motion.div 
-              className={`grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 pb-4 border-b border-white/10 ${
+              className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 pb-4 border-b border-white/10 ${
                 expandedPositions.size > 0 ? 'px-2' : ''
               }`}
               animate={{
@@ -926,7 +1028,7 @@ export function OpenPositionsTable() {
                         delay: shouldShow ? 0.1 : 0,
                     ease: [0.23, 1, 0.32, 1]
                   }}
-                      className={`grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr_auto] items-start gap-4 ${
+                      className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-start gap-4 ${
                         expandedPositions.size > 0 && shouldShow ? 'py-4' : 'py-8'
                       } ${
                         index < displayOrders.length - 1 && shouldShow ? 'border-b border-white/10' : ''
@@ -1226,17 +1328,21 @@ export function OpenPositionsTable() {
                                 return null;
                               })()}
 
+                              {/* Error Display */}
+                              {executeErrors[order.orderDetailsWithId.orderId.toString()] && (
+                                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                  <p className="text-red-400 text-sm">{executeErrors[order.orderDetailsWithId.orderId.toString()]}</p>
+                                </div>
+                              )}
+
                               {/* Submit Section */}
                               <div className="mt-4 pt-3 border-t border-white/10">
                                 <button 
-                                  onClick={() => {
-                                    // TODO: Implement submit logic
-                                    console.log('Submitting offer for order:', order.orderDetailsWithId.orderId.toString());
-                                    console.log('Offer amounts:', offerInputs[order.orderDetailsWithId.orderId.toString()]);
-                                  }}
-                                  className="px-6 py-2 bg-white text-black border border-white rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+                                  onClick={() => handleExecuteOrder(order)}
+                                  disabled={executingOrders.has(order.orderDetailsWithId.orderId.toString()) || !isWalletConnected}
+                                  className="px-6 py-2 bg-white text-black border border-white rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  Confirm Trade
+                                  {executingOrders.has(order.orderDetailsWithId.orderId.toString()) ? 'Executing...' : 'Confirm Trade'}
                                 </button>
                               </div>
                             </div>

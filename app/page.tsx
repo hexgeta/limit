@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { OpenPositionsTable } from '@/components/OpenPositionsTable';
 import { CreatePositionModal } from '@/components/CreatePositionModal';
-import { ContractFunctionDemo } from '@/components/ContractFunctionDemo';
-// import { OrderTestingInterface } from '@/components/OrderTestingInterface';
 
 export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -19,8 +17,8 @@ export default function Home() {
           <h2 className="text-4xl md:text-2xl text-white mb-4">
             Trade Pooled HEX Stake Tokens OTC
           </h2>
-          <p className="text-md text-gray-400 max-w-2xl mx-auto mb-8 flex items-center justify-center">
-            Peer-to-peer. At scale. On your terms.
+          <p className="text-md text-gray-400 max-w-2xl mx-auto mb-4 flex items-center justify-center">
+            Peer-to-peer. At scale. On your own terms.
           </p>
           {isConnected && (
             <div className="flex justify-center">
@@ -38,14 +36,6 @@ export default function Home() {
       {/* Main Content */}
       <div className="w-full px-8 py-2">
                 <div className="max-w-6xl mx-auto">
-                  {/* <div className="mb-8">
-                    Order Testing Interface - Remove this in production
-                    <OrderTestingInterface />
-                  </div> */}
-                  <div className="mb-8">
-                    {/* Contract Function Whitelist Demo - Remove this in production */}
-                    <ContractFunctionDemo />
-                  </div>
                   <OpenPositionsTable />
                 </div>
       </div>

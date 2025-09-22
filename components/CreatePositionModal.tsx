@@ -7,6 +7,8 @@ import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker } from '@/utils/to
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { MORE_COINS } from '@/constants/more-coins';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
+import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
+import { parseEther } from 'viem';
 
 // Whitelisted tokens for OTC trading
 const WHITELISTED_TOKENS = [
@@ -46,6 +48,9 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
 
   // Fetch token stats from LookIntoMaxi API
   const { tokenStats, isLoading: statsLoading, error: statsError } = useTokenStats();
+  
+  // Contract functions
+  const { placeOrder, isWalletConnected } = useContractWhitelist();
 
   // Handle close - let AnimatePresence handle the timing
   const handleClose = () => {
@@ -116,6 +121,10 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     }
     return 7;
   });
+
+  // State for order creation
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Helper function to format numbers with commas
   const formatNumberWithCommas = (value: string): string => {
@@ -208,16 +217,53 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     };
   }).filter(token => token.ticker); // Filter out any invalid tokens
 
-  const handleCreateDeal = () => {
-    // TODO: Implement actual deal creation logic
-    console.log('Creating deal:', {
-      sellToken,
-      buyToken,
-      sellAmount,
-      buyAmount,
-      expirationDays
-    });
-    handleClose();
+  const handleCreateDeal = async () => {
+    if (!isWalletConnected) {
+      setOrderError('Please connect your wallet to create an order');
+      return;
+    }
+
+    if (!sellToken || !buyToken || !sellAmount || !buyAmount) {
+      setOrderError('Please fill in all required fields');
+      return;
+    }
+
+    setIsCreatingOrder(true);
+    setOrderError(null);
+
+    try {
+      // Convert amounts to wei (assuming 18 decimals for most tokens)
+      const sellAmountWei = parseEther(removeCommas(sellAmount));
+      const buyAmountWei = parseEther(removeCommas(buyAmount));
+      
+      // Calculate expiration time (current time + expiration days)
+      const expirationTime = BigInt(Math.floor(Date.now() / 1000) + (expirationDays * 24 * 60 * 60));
+      
+      // Prepare order details
+      const orderDetails = {
+        sellToken: sellToken.address as `0x${string}`,
+        sellAmount: sellAmountWei,
+        buyTokensIndex: [0], // For now, using index 0 - you may need to map this to actual token indices
+        buyAmounts: [buyAmountWei],
+        expirationTime: expirationTime
+      };
+
+      console.log('Creating order with details:', orderDetails);
+      
+      // Call the contract function
+      const txResult = await placeOrder(orderDetails, sellAmountWei);
+      
+      console.log('Order created successfully:', txResult);
+      
+      // Close modal on success
+      handleClose();
+      
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      setOrderError(error.message || 'Failed to create order. Please try again.');
+    } finally {
+      setIsCreatingOrder(false);
+    }
   };
 
   const handleSellTokenSelect = (token: TokenOption) => {
@@ -308,10 +354,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          onAnimationComplete={(definition) => {
-            if (definition.opacity === 0) {
-              // Exit animation completed
-            }
+          onAnimationComplete={() => {
+            // Animation completed
           }}
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-2"
           onClick={handleClose}
@@ -321,10 +365,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            onAnimationComplete={(definition) => {
-              if (definition.opacity === 0) {
-                // Exit animation completed
-              }
+            onAnimationComplete={() => {
+              // Animation completed
             }}
             className="bg-black border-2 border-white/10 rounded-2xl p-8 w-full max-w-2xl h-[calc(100vh-3rem)] max-h-[900px] relative flex flex-col"
             onClick={(e) => e.stopPropagation()}
@@ -845,20 +887,28 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
               )}
             </div>
 
+            {/* Error Display */}
+            {orderError && (
+              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm">{orderError}</p>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex justify-end space-x-4 mt-6">
               <button
                 onClick={handleClose}
-                className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-800/80 transition-colors"
+                disabled={isCreatingOrder}
+                className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-800/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateDeal}
-                disabled={!sellToken || !buyToken || !sellAmount || !buyAmount}
+                disabled={!sellToken || !buyToken || !sellAmount || !buyAmount || isCreatingOrder || !isWalletConnected}
                 className="px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Deal
+                {isCreatingOrder ? 'Creating Order...' : 'Create Deal'}
               </button>
             </div>
           </motion.div>
