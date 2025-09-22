@@ -12,8 +12,8 @@ const queryClient = new QueryClient()
 
 // Set up metadata
 const metadata = {
-  name: 'OTC Max - PulseChain Trading',
-  description: 'Over-the-counter trading platform for PulseChain tokens',
+  name: 'AgoráX - OTC Platform',
+  description: 'Over-the-counter trading platform for pooled HEX stake tokens',
   url: 'https://otc.lookintomaxi.com',
   icons: ['https://otc.lookintomaxi.com/favicon.png']
 }
@@ -26,7 +26,7 @@ export const modal = createAppKit({
   metadata,
   themeMode: 'dark',
   features: {
-    analytics: true, // Optional - defaults to your Cloud configuration
+    analytics: false, // Disable analytics to avoid conflicts
     email: true, // Enable email login for wallet creation
     socials: ['google', 'twitter'], // Enable social login options
     emailShowWallets: true, // Show wallet options in email flow
@@ -34,12 +34,9 @@ export const modal = createAppKit({
   // Remove branding and search
   enableNetworkView: false,
   enableAccountView: false,
-  enableExplorer: true, // Hide the search bar
-  enableOnramp: true, // Hide onramp features
-  enableSwaps: false, // Hide swap features
-  enableEmail: true, // Enable email login for wallet creation
-  enableSocials: true, // Enable social logins for wallet creation
-  enableAnalytics: false, // Disable analytics
+  enableExplorer: true, // Show the search bar
+  enableOnramp: false, // Disable onramp features
+  enableSwaps: false, // Disable swap features
   themeVariables: {
     // Colors - Black and White Theme
     '--w3m-accent': '#ffffff', // White accent for buttons and highlights
