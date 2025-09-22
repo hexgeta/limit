@@ -3,7 +3,7 @@
 import { wagmiAdapter, projectId, networks } from '@/config/appkit'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
-import React, { type ReactNode } from 'react'
+import React, { type ReactNode, useEffect } from 'react'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 import { useAppKitScrollLock } from '@/hooks/useAppKitScrollLock'
 
@@ -27,20 +27,27 @@ export const modal = createAppKit({
   themeMode: 'dark',
   features: {
     analytics: true, // Optional - defaults to your Cloud configuration
-    email: true, // Enable email login
-    socials: ['google', 'twitter', 'discord'], // Social login options
+    email: true, // Enable email login for wallet creation
+    socials: ['google', 'twitter'], // Enable social login options
     emailShowWallets: true, // Show wallet options in email flow
   },
-  // Remove branding
+  // Remove branding and search
   enableNetworkView: false,
   enableAccountView: false,
+  enableExplorer: true, // Hide the search bar
+  enableOnramp: true, // Hide onramp features
+  enableSwaps: false, // Hide swap features
+  enableEmail: true, // Enable email login for wallet creation
+  enableSocials: true, // Enable social logins for wallet creation
+  enableAnalytics: false, // Disable analytics
   themeVariables: {
     // Colors - Black and White Theme
     '--w3m-accent': '#ffffff', // White accent for buttons and highlights
-    '--w3m-background-color': 'rgba(0, 0, 0, 0.8)', // Black backdrop with transparency
+    '--w3m-background-color': 'rgba(0, 0, 0, 0.95)', // Black backdrop with more opacity
     '--w3m-color-bg-1': '#000000', // Pure black modal background
-    '--w3m-color-bg-2': '#000', // Dark gray secondary background
-    '--w3m-color-bg-3': '#000', // Lighter gray for cards/inputs
+    '--w3m-color-bg-2': '#000000', // Pure black secondary background
+    '--w3m-color-bg-3': '#000000', // Pure black for cards/inputs
+    '--w3m-color-bg-4': '#000000', // Pure black for additional elements
     '--w3m-color-fg-1': '#ffffff', // Pure white primary text
     '--w3m-color-fg-2': '#e5e5e5', // Light gray secondary text
     '--w3m-color-fg-3': '#cccccc', // Medium gray tertiary text
@@ -62,6 +69,20 @@ export const modal = createAppKit({
     '--w3m-font-family': 'Persephone, ui-sans-serif, system-ui, sans-serif',
     '--w3m-font-size-master': '10px',
     '--w3m-line-height-master': '1.5', // Line height for better readability
+    
+    // Hide branding elements
+    '--w3m-logo-image-url': 'none',
+    '--w3m-logo-image-height': '0px',
+    '--w3m-logo-image-width': '0px',
+    
+    // Hide the "UX BY reown" branding footer
+    '--w3m-footer-branding-display': 'none',
+    '--w3m-footer-branding-height': '0px',
+    '--w3m-footer-branding-margin': '0px',
+    
+    // Additional branding hide attempts
+    '--w3m-wui-ux-by-reown-display': 'none',
+  
   }
   // Show all 470+ wallets - removed includeWalletIds to display complete selection
 })

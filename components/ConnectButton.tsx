@@ -19,11 +19,14 @@ export const ConnectButton = () => {
   }
 
   return (
-    <button
-      onClick={() => open()}
-      className="px-8 py-3 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-colors"
-    >
-      Connect Wallet
-    </button>
+    <div className="flex flex-col items-center gap-4">
+      <button
+        onClick={() => open()}
+        className="px-8 py-3 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-colors"
+      >
+        Connect Wallet
+      </button>
+      <w3m-wallet-guide />
+    </div>
   )
 }

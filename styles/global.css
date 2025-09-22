@@ -556,6 +556,110 @@ w3m-modal input[placeholder*="Search"]::placeholder,
   overflow: hidden !important;
 }
 
+/* Hide AppKit branding footer - Multiple approaches */
+w3m-footer,
+w3m-footer-branding,
+w3m-footer-branding *,
+w3m-footer * {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+}
+
+/* Hide any reown branding elements */
+[data-testid="footer-branding"],
+[data-testid="w3m-footer-branding"],
+[data-testid="w3m-footer"],
+.w3m-footer-branding,
+.w3m-footer,
+.w3m-footer-branding *,
+.w3m-footer * {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Hide the "UX BY" text and reown branding */
+div[class*="footer"],
+div[class*="branding"],
+span[class*="branding"],
+p[class*="branding"],
+a[class*="branding"] {
+  display: none !important;
+}
+
+/* Target specific text content */
+*:contains("UX BY"),
+*:contains("reown"),
+*:contains("UX BY reown") {
+  display: none !important;
+}
+
+/* More specific selectors for AppKit modal */
+.w3m-modal w3m-footer,
+.w3m-modal w3m-footer-branding,
+.w3m-modal [class*="footer"],
+.w3m-modal [class*="branding"] {
+  display: none !important;
+}
+
+/* Target the modal container specifically */
+w3m-modal w3m-footer,
+w3m-modal w3m-footer-branding {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Hide the specific UX BY reown branding element */
+.wui-ux-by-reown {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+}
+
+/* Also target any parent containers */
+* .wui-ux-by-reown,
+w3m-modal .wui-ux-by-reown,
+.w3m-modal .wui-ux-by-reown {
+  display: none !important;
+}
+
+/* Force modal background to be pure black */
+w3m-modal,
+.w3m-modal,
+w3m-modal > div,
+.w3m-modal > div {
+  background-color: #000000 !important;
+  background: #000000 !important;
+}
+
+/* Force all modal content backgrounds to be black */
+w3m-modal *,
+.w3m-modal * {
+  background-color: #000000 !important;
+}
+
+/* Override any grey backgrounds in the modal */
+w3m-modal [class*="bg-"],
+.w3m-modal [class*="bg-"],
+w3m-modal [style*="background"],
+.w3m-modal [style*="background"] {
+  background-color: #000000 !important;
+  background: #000000 !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .connect-button-wrapper appkit-button button {
