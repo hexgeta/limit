@@ -35,6 +35,7 @@ export default function RootLayout({
       <head>
         <FontLoader weight="regular" priority={true} />
         <FontLoader weight="bold" />
+        <script defer data-domain="otc.lookintomaxi.com" src="https://plausible.io/js/script.js"></script>
       </head>
       <body className="min-h-screen bg-black text-white">
         <Providers>
