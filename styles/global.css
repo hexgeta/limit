@@ -402,7 +402,7 @@ w3m-button button,
 .connect-button-wrapper appkit-button button,
 .connect-button-wrapper w3m-button button {
   background: white !important;
-  color: white !important;
+  color: black !important;
   border: none !important;
   box-shadow: none !important;
   border-radius: 9999px !important;
