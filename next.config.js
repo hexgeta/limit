@@ -15,6 +15,19 @@ const nextConfig = {
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
+    
+    // Handle pino-pretty module resolution - make it optional
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      'pino-pretty': false,
+    };
+    
+    // Add alias to handle pino-pretty gracefully
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'pino-pretty': false,
+    };
+    
     return config;
   },
   typescript: {
