@@ -12,8 +12,8 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
       {/* Hero Section */}
-      <div className="w-full px-8 py-8 bg-gradient-to-b from-black to-gray-900">
-        <div className="max-w-6xl py-8 mx-auto text-center">
+      <div className="w-full px-8 mt-24 mb-4 bg-gradient-to-b from-black to-gray-900">
+        <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-4xl md:text-2xl text-white mb-4">
             Trade Pooled HEX Stake Tokens OTC
           </h2>

@@ -8,7 +8,8 @@ import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { MORE_COINS } from '@/constants/more-coins';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
-import { parseEther } from 'viem';
+import { parseEther, formatEther } from 'viem';
+import { useBalance, usePublicClient } from 'wagmi';
 
 // Whitelisted tokens for OTC trading
 const WHITELISTED_TOKENS = [
@@ -50,7 +51,10 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   const { tokenStats, isLoading: statsLoading, error: statsError } = useTokenStats();
   
   // Contract functions
-  const { placeOrder, isWalletConnected } = useContractWhitelist();
+  const { placeOrder, isWalletConnected, address } = useContractWhitelist();
+  
+  // Public client for manual balance checks
+  const publicClient = usePublicClient();
 
   // Handle close - let AnimatePresence handle the timing
   const handleClose = () => {
@@ -125,6 +129,47 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   // State for order creation
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
+
+  // Get wallet balances for selected tokens
+  const { data: sellTokenBalance, isLoading: sellBalanceLoading, error: sellBalanceError } = useBalance({
+    address: address,
+    token: sellToken?.address === '0x0' ? undefined : sellToken?.address as `0x${string}`,
+    chainId: 369, // PulseChain
+    query: {
+      enabled: !!address && !!sellToken,
+      retry: 3,
+    }
+  });
+  
+  const { data: buyTokenBalance, isLoading: buyBalanceLoading, error: buyBalanceError } = useBalance({
+    address: address,
+    token: buyToken?.address === '0x0' ? undefined : buyToken?.address as `0x${string}`,
+    chainId: 369, // PulseChain
+    query: {
+      enabled: !!address && !!buyToken,
+      retry: 3,
+    }
+  });
+
+  // Debug logging for balance issues
+  console.log('Balance Debug:', {
+    address,
+    sellToken: sellToken?.address,
+    sellTokenBalance,
+    sellBalanceLoading,
+    sellBalanceError,
+    chainId: 369,
+    isNativeToken: sellToken?.address === '0x0'
+  });
+
+  // UI Debug logging
+  console.log('UI Debug:', {
+    sellTokenExists: !!sellToken,
+    sellTokenBalanceExists: !!sellTokenBalance,
+    sellTokenBalanceValue: sellTokenBalance?.value,
+    sellTokenBalanceFormatted: sellTokenBalance?.formatted,
+    shouldShowBalance: sellToken && sellTokenBalance && !sellBalanceLoading && !sellBalanceError
+  });
 
   // Helper function to format numbers with commas
   const formatNumberWithCommas = (value: string): string => {
@@ -217,6 +262,61 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     };
   }).filter(token => token.ticker); // Filter out any invalid tokens
 
+  // Helper function to get token index from address
+  const getTokenIndex = (address: string): number => {
+    const index = WHITELISTED_TOKENS.findIndex(tokenAddress => 
+      tokenAddress.toLowerCase() === address.toLowerCase()
+    );
+    return index;
+  };
+
+  // Handle MAX button clicks
+  const handleMaxSellAmount = () => {
+    if (sellTokenBalance) {
+      const balance = formatEther(sellTokenBalance.value);
+      setSellAmount(balance);
+    }
+  };
+
+  const handleMaxBuyAmount = () => {
+    if (buyTokenBalance) {
+      const balance = formatEther(buyTokenBalance.value);
+      setBuyAmount(balance);
+    }
+  };
+
+  // Manual balance check for debugging
+  const checkBalanceManually = async () => {
+    if (!address || !sellToken || !publicClient) return;
+    
+    try {
+      if (sellToken.address === '0x0') {
+        // Native PLS balance
+        const balance = await publicClient.getBalance({ address: address as `0x${string}` });
+        console.log('Manual PLS balance:', formatEther(balance));
+      } else {
+        // ERC20/PRC20 balance
+        const balance = await publicClient.readContract({
+          address: sellToken.address as `0x${string}`,
+          abi: [
+            {
+              name: 'balanceOf',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [{ name: 'account', type: 'address' }],
+              outputs: [{ name: '', type: 'uint256' }],
+            },
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`],
+        });
+        console.log('Manual token balance:', formatEther(balance as bigint));
+      }
+    } catch (error) {
+      console.error('Manual balance check failed:', error);
+    }
+  };
+
   const handleCreateDeal = async () => {
     if (!isWalletConnected) {
       setOrderError('Please connect your wallet to create an order');
@@ -239,19 +339,26 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       // Calculate expiration time (current time + expiration days)
       const expirationTime = BigInt(Math.floor(Date.now() / 1000) + (expirationDays * 24 * 60 * 60));
       
+      // Map buy token to its index
+      const buyTokenIndex = getTokenIndex(buyToken.address);
+      if (buyTokenIndex === -1) {
+        throw new Error('Invalid buy token selected');
+      }
+
       // Prepare order details
       const orderDetails = {
         sellToken: sellToken.address as `0x${string}`,
         sellAmount: sellAmountWei,
-        buyTokensIndex: [0], // For now, using index 0 - you may need to map this to actual token indices
+        buyTokensIndex: [buyTokenIndex],
         buyAmounts: [buyAmountWei],
         expirationTime: expirationTime
       };
 
       console.log('Creating order with details:', orderDetails);
       
-      // Call the contract function
-      const txResult = await placeOrder(orderDetails, sellAmountWei);
+      // Call the contract function - only send value if selling native PLS
+      const value = sellToken.address === '0x0' ? sellAmountWei : undefined;
+      const txResult = await placeOrder(orderDetails, value);
       
       console.log('Order created successfully:', txResult);
       
@@ -457,6 +564,41 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                   className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
                 />
                 
+                {/* Balance and MAX button */}
+                {sellToken && (
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-gray-400 text-xs">
+                      {sellBalanceLoading ? (
+                        'Loading balance...'
+                      ) : sellBalanceError ? (
+                        'Error loading balance'
+                      ) : sellTokenBalance ? (
+                        `Balance: ${formatNumberWithCommas(formatEther(sellTokenBalance.value))} ${formatTokenTicker(sellToken.ticker)}`
+                      ) : (
+                        'Balance: --'
+                      )}
+                    </span>
+                    <div className="flex space-x-2">
+                      {sellTokenBalance && !sellBalanceLoading && !sellBalanceError && (
+                        <button
+                          type="button"
+                          onClick={handleMaxSellAmount}
+                          className="text-blue-400 hover:text-white text-xs font-medium transition-colors"
+                        >
+                          MAX
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={checkBalanceManually}
+                        className="text-yellow-400 hover:text-yellow-300 text-xs font-medium transition-colors"
+                      >
+                        DEBUG
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Price conversion display */}
                 {sellAmount && buyAmount && sellToken && buyToken && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0 && (
                   <div className="mt-2 text-xs text-gray-400">
@@ -548,6 +690,21 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                   onChange={(e) => handleAmountChange(e, setBuyAmount, buyAmountRef)}
                   className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
                 />
+                
+                {/* Invisible placeholder to match height with YOUR OFFER section */}
+                <div className="flex justify-between items-center mt-2 invisible">
+                  <span className="text-gray-400 text-xs">
+                    Balance: -- --
+                  </span>
+                  <div className="flex space-x-2">
+                    <span className="text-blue-400 text-xs font-medium">
+                      MAX
+                    </span>
+                    <span className="text-yellow-400 text-xs font-medium">
+                      DEBUG
+                    </span>
+                  </div>
+                </div>
                 
                 {/* Price conversion display */}
                 {sellAmount && buyAmount && sellToken && buyToken && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0 && (
@@ -889,8 +1046,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
 
             {/* Error Display */}
             {orderError && (
-              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                <p className="text-red-400 text-sm">{orderError}</p>
+              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg max-h-40 overflow-y-auto">
+                <p className="text-red-400 text-sm break-words whitespace-pre-wrap">{orderError}</p>
               </div>
             )}
 
