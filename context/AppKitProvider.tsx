@@ -26,22 +26,44 @@ export const modal = createAppKit({
   metadata,
   themeMode: 'dark',
   features: {
-    analytics: true // Optional - defaults to your Cloud configuration
+    analytics: true, // Optional - defaults to your Cloud configuration
+    email: true, // Enable email login
+    socials: ['google', 'twitter', 'discord'], // Social login options
+    emailShowWallets: true, // Show wallet options in email flow
   },
+  // Remove branding
+  enableNetworkView: false,
+  enableAccountView: false,
   themeVariables: {
-    '--w3m-accent': '#9333ea', // Purple accent to match your theme
-    '--w3m-border-radius-master': '8px',
-    '--w3m-background-color': 'rgba(0, 0, 0, 0.5)', // Dark backdrop
+    // Colors - Black and White Theme
+    '--w3m-accent': '#ffffff', // White accent for buttons and highlights
+    '--w3m-background-color': 'rgba(0, 0, 0, 0.8)', // Black backdrop with transparency
+    '--w3m-color-bg-1': '#000000', // Pure black modal background
+    '--w3m-color-bg-2': '#000', // Dark gray secondary background
+    '--w3m-color-bg-3': '#000', // Lighter gray for cards/inputs
+    '--w3m-color-fg-1': '#ffffff', // Pure white primary text
+    '--w3m-color-fg-2': '#e5e5e5', // Light gray secondary text
+    '--w3m-color-fg-3': '#cccccc', // Medium gray tertiary text
+    
+    // Borders and radius
+    '--w3m-border-radius-master': '8px', // Border radius
+    '--w3m-border-radius-secondary': '8px', // Secondary radius
+    
+    // Effects
     '--w3m-backdrop-filter': 'blur(4px)', // Blur effect
     '--w3m-z-index': '9999', // Higher than navbar and footer
-  },
-  // Ensure Rabby wallet is included and prominent
-  includeWalletIds: [
-    'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
-    '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
-    '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rabby Wallet
-    'c286eebc742a537cd1d6818363e9dc53b21759a1e8e5d9b263d0c03ec7703576', // WalletConnect
-  ]
+    
+    // Borders and overlays
+    '--w3m-color-overlay': 'rgba(255, 255, 255, 0.1)', // White overlay for hover states
+    '--w3m-color-error': '#ff4444', // Red for errors
+    '--w3m-color-success': '#44ff44', // Green for success
+    
+    // Fonts
+    '--w3m-font-family': 'Persephone, ui-sans-serif, system-ui, sans-serif',
+    '--w3m-font-size-master': '10px',
+    '--w3m-line-height-master': '1.5', // Line height for better readability
+  }
+  // Show all 470+ wallets - removed includeWalletIds to display complete selection
 })
 
 function AppKitProvider({ children, cookies }: { children: ReactNode; cookies: string | null }) {

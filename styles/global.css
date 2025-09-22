@@ -408,7 +408,7 @@ w3m-button button,
   border-radius: 9999px !important;
   padding: 12px 32px !important;
   font-weight: 600 !important;
-  font-size: 14px !important;
+  font-size: 10px !important;
   transition: background-color 0.2s ease !important;
 }
 
@@ -501,6 +501,54 @@ w3m-modal > div > div,
 [data-w3m-modal] > div > div,
 .w3m-modal > div > div {
   z-index: 10000 !important;
+}
+
+/* Hide AppKit branding */
+w3m-modal [data-testid="footer"],
+w3m-modal .w3m-footer,
+[data-w3m-modal] [data-testid="footer"],
+[data-w3m-modal] .w3m-footer,
+.w3m-modal [data-testid="footer"],
+.w3m-modal .w3m-footer,
+w3m-modal [data-testid="footer"] *,
+[data-w3m-modal] [data-testid="footer"] *,
+.w3m-modal [data-testid="footer"] * {
+  display: none !important;
+}
+
+/* Hide "UX by" branding */
+w3m-modal [data-testid="footer"]:has-text("UX by"),
+w3m-modal [data-testid="footer"]:has-text("reown"),
+[data-w3m-modal] [data-testid="footer"]:has-text("UX by"),
+[data-w3m-modal] [data-testid="footer"]:has-text("reown"),
+.w3m-modal [data-testid="footer"]:has-text("UX by"),
+.w3m-modal [data-testid="footer"]:has-text("reown") {
+  display: none !important;
+}
+
+/* Customize search bar appearance */
+w3m-modal input[type="search"],
+w3m-modal input[placeholder*="Search"],
+[data-w3m-modal] input[type="search"],
+[data-w3m-modal] input[placeholder*="Search"],
+.w3m-modal input[type="search"],
+.w3m-modal input[placeholder*="Search"] {
+  background: #000000 !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+}
+
+/* Style search bar placeholder */
+w3m-modal input[type="search"]::placeholder,
+w3m-modal input[placeholder*="Search"]::placeholder,
+[data-w3m-modal] input[type="search"]::placeholder,
+[data-w3m-modal] input[placeholder*="Search"]::placeholder,
+.w3m-modal input[type="search"]::placeholder,
+.w3m-modal input[placeholder*="Search"]::placeholder {
+  color: #cccccc !important;
+  opacity: 1 !important;
 }
 
 /* Disable body scroll when AppKit modal is open - only via class */
