@@ -573,7 +573,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                       ) : sellBalanceError ? (
                         'Error loading balance'
                       ) : sellTokenBalance ? (
-                        `Balance: ${formatNumberWithCommas(formatEther(sellTokenBalance.value))} ${formatTokenTicker(sellToken.ticker)}`
+                        `Balance: ${formatNumberWithCommas(sellTokenBalance.formatted)} ${formatTokenTicker(sellToken.ticker)}`
                       ) : (
                         'Balance: --'
                       )}
