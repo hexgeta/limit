@@ -273,14 +273,14 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   // Handle MAX button clicks
   const handleMaxSellAmount = () => {
     if (sellTokenBalance) {
-      const balance = formatEther(sellTokenBalance.value);
+      const balance = sellTokenBalance.formatted;
       setSellAmount(balance);
     }
   };
 
   const handleMaxBuyAmount = () => {
     if (buyTokenBalance) {
-      const balance = formatEther(buyTokenBalance.value);
+      const balance = buyTokenBalance.formatted;
       setBuyAmount(balance);
     }
   };
@@ -588,13 +588,6 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                           MAX
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={checkBalanceManually}
-                        className="text-yellow-400 hover:text-yellow-300 text-xs font-medium transition-colors"
-                      >
-                        DEBUG
-                      </button>
                     </div>
                   </div>
                 )}
@@ -697,11 +690,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                     Balance: -- --
                   </span>
                   <div className="flex space-x-2">
-                    <span className="text-blue-400 text-xs font-medium">
+                    <span className="text-gray-400 hover:text-white text-xs font-medium">
                       MAX
-                    </span>
-                    <span className="text-yellow-400 text-xs font-medium">
-                      DEBUG
                     </span>
                   </div>
                 </div>
