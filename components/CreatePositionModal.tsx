@@ -3,16 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeftRight } from 'lucide-react';
-import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker } from '@/utils/tokenUtils';
+import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { MORE_COINS } from '@/constants/more-coins';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
 import { parseEther, formatEther } from 'viem';
 import { useBalance, usePublicClient } from 'wagmi';
+import { useTransaction } from '@/context/TransactionContext';
+import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
 
-// Whitelisted tokens for OTC trading
-const WHITELISTED_TOKENS = [
+// Whitelisted tokens for OTC trading - SELL SIDE (what you can offer)
+const SELL_WHITELISTED_TOKENS = [
   '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // pHEX
   '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b', // pMAXI
   '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // pDECI
@@ -25,10 +27,33 @@ const WHITELISTED_TOKENS = [
   '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
   '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
   '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
-  '0x0', // PLS
+  '0x000000000000000000000000000000000000dEaD', // PLS (native token)
   '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
   '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
 ];
+
+// Whitelisted tokens for OTC trading - BUY SIDE (what you can request)
+// Based on contract validation, some tokens like MAXI are not accepted on buy side
+const BUY_WHITELISTED_TOKENS = [
+  '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // pHEX
+  // '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b', // pMAXI - NOT ALLOWED ON BUY SIDE
+  '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // pDECI
+  '0x6b0956258ff7bd7645aa35369b55b61b8e6d6140', // pLUCKY
+  '0xf55cd1e399e1cc3d95303048897a680be3313308', // pTRIO
+  '0xe9f84d418b008888a992ff8c6d22389c2c3504e0', // pBASE
+  // '0x352511c9bc5d47dbc122883ed9353e987d10a3ba', // weMAXI - NOT ALLOWED ON BUY SIDE
+  '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI
+  '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
+  '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
+  '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
+  '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
+  '0x000000000000000000000000000000000000dEaD', // PLS (native token)
+  '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
+  '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
+  // Add DAI and other stablecoins that are commonly accepted
+  '0xefd766ccb38eaf1dfd701853bfce31359239f305', // weDAI
+];
+
 
 interface CreatePositionModalProps {
   isOpen: boolean;
@@ -40,6 +65,7 @@ interface TokenOption {
   ticker: string;
   name: string;
   logo: string;
+  decimals: number;
 }
 
 export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProps) {
@@ -52,13 +78,82 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   
   // Contract functions
   const { placeOrder, isWalletConnected, address } = useContractWhitelist();
+  const { setTransactionPending } = useTransaction();
   
   // Public client for manual balance checks
   const publicClient = usePublicClient();
+  
+  // Contract address for token approvals
+  const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
 
   // Handle close - let AnimatePresence handle the timing
   const handleClose = () => {
+    setOrderError(null); // Clear any error messages when closing
+    setApprovalError(null);
     onClose();
+  };
+
+  const handleApproveToken = async () => {
+    console.log('handleApproveToken called:', {
+      needsApproval,
+      sellToken: sellToken?.address,
+      sellAmountWei: sellAmountWei.toString(),
+      OTC_CONTRACT_ADDRESS
+    });
+
+    if (!needsApproval || !sellToken) {
+      setApprovalError('No token approval needed');
+      return;
+    }
+
+
+    setApprovalError(null);
+    setTransactionPending(true);
+
+    try {
+      console.log('Calling approveToken with:', {
+        tokenAddress: sellToken.address,
+        spenderAddress: OTC_CONTRACT_ADDRESS,
+        amount: sellAmountWei.toString()
+      });
+      
+      const txHash = await approveToken();
+      console.log('Approval transaction sent:', txHash);
+      
+      // Wait for the approval transaction to be confirmed
+      console.log('Waiting for approval transaction to be confirmed...');
+      
+      // Wait for the allowance to be updated (this indicates approval is complete)
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max wait
+      
+      const waitForApproval = async () => {
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          attempts++;
+          
+          // Check if approval is now complete
+          if (tokenNeedsApproval === false || isApproved === true) {
+            console.log('Approval confirmed, proceeding to create order...');
+            handleCreateDeal();
+            return;
+          }
+          
+          console.log(`Waiting for approval... attempt ${attempts}/${maxAttempts}`);
+        }
+        
+        // If we get here, approval didn't complete in time
+        console.log('Approval timeout, but proceeding anyway...');
+        handleCreateDeal();
+      };
+      
+      waitForApproval();
+    } catch (error: any) {
+      console.error('Token approval failed:', error);
+      setApprovalError(error.message || 'Failed to approve token. Please try again.');
+    } finally {
+      setTransactionPending(false);
+    }
   };
 
   const [sellToken, setSellToken] = useState<TokenOption | null>(() => {
@@ -70,7 +165,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
           address: stored,
           ticker: tokenInfo.ticker,
           name: tokenInfo.name,
-          logo: tokenInfo.logo
+          logo: tokenInfo.logo,
+          decimals: tokenInfo.decimals
         };
       }
     }
@@ -79,7 +175,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       address: DEFAULT_SELL_TOKEN,
       ticker: tokenInfo.ticker,
       name: tokenInfo.name,
-      logo: tokenInfo.logo
+      logo: tokenInfo.logo,
+      decimals: tokenInfo.decimals
     };
   });
   
@@ -92,7 +189,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
           address: stored,
           ticker: tokenInfo.ticker,
           name: tokenInfo.name,
-          logo: tokenInfo.logo
+          logo: tokenInfo.logo,
+          decimals: tokenInfo.decimals
         };
       }
     }
@@ -101,7 +199,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       address: DEFAULT_BUY_TOKEN,
       ticker: tokenInfo.ticker,
       name: tokenInfo.name,
-      logo: tokenInfo.logo
+      logo: tokenInfo.logo,
+      decimals: tokenInfo.decimals
     };
   });
   
@@ -125,6 +224,40 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     }
     return 7;
   });
+
+  // Token approval state
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  
+  // Helper function to remove commas for calculations
+  const removeCommas = (value: string): string => {
+    return value.replace(/,/g, '');
+  };
+  
+  // Token approval hook - only for ERC20 tokens (not native PLS)
+  const sellAmountWei = sellToken && sellAmount ? parseTokenAmount(removeCommas(sellAmount), sellToken.decimals) : 0n;
+  const needsApproval = Boolean(sellToken && !isNativeToken(sellToken.address) && sellAmountWei > 0n);
+  
+  // Debug logging for approval
+  console.log('Approval Debug:', {
+    sellToken: sellToken?.address,
+    sellAmount,
+    sellAmountWei: sellAmountWei.toString(),
+    needsApproval,
+    isNative: sellToken ? isNativeToken(sellToken.address) : false,
+    OTC_CONTRACT_ADDRESS
+  });
+  
+  const { 
+    allowance, 
+    needsApproval: tokenNeedsApproval, 
+    isApproved, 
+    isApproving, 
+    approveToken 
+  } = useTokenApproval(
+    needsApproval && sellToken ? sellToken.address as `0x${string}` : '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    OTC_CONTRACT_ADDRESS,
+    sellAmountWei
+  );
 
   // State for order creation
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
@@ -176,11 +309,6 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     const num = parseFloat(value);
     if (isNaN(num)) return value;
     return num.toLocaleString();
-  };
-
-  // Helper function to remove commas for calculations
-  const removeCommas = (value: string): string => {
-    return value.replace(/,/g, '');
   };
 
   // Helper function to preserve cursor position during formatting
@@ -251,20 +379,41 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   const showBuyStats = shouldShowTokenStats(buyToken);
   const gridColsClass = (showSellStats && showBuyStats) ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1';
 
-  // Get whitelisted token options
-  const tokenOptions: TokenOption[] = WHITELISTED_TOKENS.map(address => {
+  // Get whitelisted token options for sell side
+  const sellTokenOptions: TokenOption[] = SELL_WHITELISTED_TOKENS.map(address => {
     const tokenInfo = getTokenInfo(address);
     return {
       address,
       ticker: tokenInfo.ticker,
       name: tokenInfo.name,
-      logo: tokenInfo.logo
+      logo: tokenInfo.logo,
+      decimals: tokenInfo.decimals
     };
   }).filter(token => token.ticker); // Filter out any invalid tokens
 
-  // Helper function to get token index from address
-  const getTokenIndex = (address: string): number => {
-    const index = WHITELISTED_TOKENS.findIndex(tokenAddress => 
+  // Get whitelisted token options for buy side
+  const buyTokenOptions: TokenOption[] = BUY_WHITELISTED_TOKENS.map(address => {
+    const tokenInfo = getTokenInfo(address);
+    return {
+      address,
+      ticker: tokenInfo.ticker,
+      name: tokenInfo.name,
+      logo: tokenInfo.logo,
+      decimals: tokenInfo.decimals
+    };
+  }).filter(token => token.ticker); // Filter out any invalid tokens
+
+  // Helper function to get token index from address (for sell tokens)
+  const getSellTokenIndex = (address: string): number => {
+    const index = SELL_WHITELISTED_TOKENS.findIndex(tokenAddress => 
+      tokenAddress.toLowerCase() === address.toLowerCase()
+    );
+    return index;
+  };
+
+  // Helper function to get token index from address (for buy tokens)
+  const getBuyTokenIndex = (address: string): number => {
+    const index = BUY_WHITELISTED_TOKENS.findIndex(tokenAddress => 
       tokenAddress.toLowerCase() === address.toLowerCase()
     );
     return index;
@@ -328,19 +477,28 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       return;
     }
 
+    // Check if the same token is selected for both offer and ask
+    if (sellToken.address === buyToken.address) {
+      setOrderError(`Cannot trade ${sellToken.ticker} for ${buyToken.ticker}. Please select different tokens for your offer and ask.`);
+      return;
+    }
+
+
     setIsCreatingOrder(true);
     setOrderError(null);
+    setApprovalError(null);
+    setTransactionPending(true);
 
     try {
-      // Convert amounts to wei (assuming 18 decimals for most tokens)
-      const sellAmountWei = parseEther(removeCommas(sellAmount));
-      const buyAmountWei = parseEther(removeCommas(buyAmount));
+      // Convert amounts to wei using correct token decimals
+      const sellAmountWei = parseTokenAmount(removeCommas(sellAmount), sellToken.decimals);
+      const buyAmountWei = parseTokenAmount(removeCommas(buyAmount), buyToken.decimals);
       
       // Calculate expiration time (current time + expiration days)
       const expirationTime = BigInt(Math.floor(Date.now() / 1000) + (expirationDays * 24 * 60 * 60));
       
       // Map buy token to its index
-      const buyTokenIndex = getTokenIndex(buyToken.address);
+      const buyTokenIndex = getBuyTokenIndex(buyToken.address);
       if (buyTokenIndex === -1) {
         throw new Error('Invalid buy token selected');
       }
@@ -370,6 +528,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       setOrderError(error.message || 'Failed to create order. Please try again.');
     } finally {
       setIsCreatingOrder(false);
+      setTransactionPending(false);
     }
   };
 
@@ -530,7 +689,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                   {/* Dropdown */}
                   {showSellDropdown && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
-                      {tokenOptions.map((token) => (
+                      {sellTokenOptions.map((token) => (
                         <button
                           key={token.address}
                           onClick={() => handleSellTokenSelect(token)}
@@ -650,7 +809,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                   {/* Dropdown */}
                   {showBuyDropdown && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
-                      {tokenOptions.map((token) => (
+                      {buyTokenOptions.map((token) => (
                         <button
                           key={token.address}
                           onClick={() => handleBuyTokenSelect(token)}
@@ -1036,8 +1195,43 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
 
             {/* Error Display */}
             {orderError && (
-              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg max-h-40 overflow-y-auto">
-                <p className="text-red-400 text-sm break-words whitespace-pre-wrap">{orderError}</p>
+              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg max-h-32 overflow-y-auto">
+                <p className="text-red-400 text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere">{orderError}</p>
+              </div>
+            )}
+
+            {/* Same Token Warning */}
+            {sellToken && buyToken && sellToken.address === buyToken.address && (
+              <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                <p className="text-yellow-400 text-sm">
+                  ⚠️ Cannot trade {sellToken.ticker} for {buyToken.ticker}. Please select different tokens for your offer and ask.
+                </p>
+              </div>
+            )}
+
+            {/* Approval Error Display */}
+            {approvalError && (
+              <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg max-h-32 overflow-y-auto">
+                <p className="text-red-400 text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere">{approvalError}</p>
+              </div>
+            )}
+
+
+
+            {/* Approval Status Info */}
+            {needsApproval && sellToken && (
+              <div className="mt-4 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg">
+                <p className="text-blue-300 text-sm">
+                  {tokenNeedsApproval 
+                    ? `Approve ${sellToken.ticker} tokens to create your order`
+                    : `${sellToken.ticker} tokens are approved and ready`
+                  }
+                </p>
+                {allowance !== undefined && (
+                  <p className="text-blue-200 text-xs mt-1">
+                    Current allowance: {formatTokenAmount(allowance, sellToken.decimals)} {sellToken.ticker}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1051,11 +1245,31 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                 Cancel
               </button>
               <button
-                onClick={handleCreateDeal}
-                disabled={!sellToken || !buyToken || !sellAmount || !buyAmount || isCreatingOrder || !isWalletConnected}
-                className="px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={needsApproval && tokenNeedsApproval ? handleApproveToken : handleCreateDeal}
+                disabled={!sellToken || !buyToken || !sellAmount || !buyAmount || !!isCreatingOrder || !!isApproving || !isWalletConnected || (sellToken && buyToken && sellToken.address === buyToken.address)}
+                className={`px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  needsApproval && tokenNeedsApproval
+                    ? isApproving
+                      ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white text-black hover:bg-gray-200'
+                }`}
               >
-                {isCreatingOrder ? 'Creating Order...' : 'Create Deal'}
+                {isCreatingOrder ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Creating Order...</span>
+                  </div>
+                ) : isApproving ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Approving Token...</span>
+                  </div>
+                ) : needsApproval && tokenNeedsApproval ? (
+                  'Approve & Create Deal'
+                ) : (
+                  'Create Deal'
+                )}
               </button>
             </div>
           </motion.div>

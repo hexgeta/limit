@@ -3,12 +3,16 @@ import { Address } from 'viem';
 
 // Whitelist of allowed WRITE functions (non-admin only)
 const WHITELISTED_WRITE_FUNCTIONS = [
-  'cancelOrder',           // Cancel a user's own trading order
+  'placeOrder',            // Create a new trading order (sell tokens for buy tokens)
+  'cancelOrder',           // cancel your order after you make it
+
+  'redeemOrder',           // Redeem tokens from a single executed order
+  
+  'redeemMultipleOrders',  // Redeem tokens from multiple executed orders
+
   'executeMultipleOrder',  // Execute multiple orders in a single transaction
   'executeOrder',          // Execute/fulfill a single trading order
-  'placeOrder',            // Create a new trading order (sell tokens for buy tokens)
-  'redeemMultipleOrders',  // Redeem tokens from multiple executed orders
-  'redeemOrder',           // Redeem tokens from a single executed order
+
   
   'updateOrderExpirationTime', // Update the expiration time of user's own order
   'updateOrderInfo',       // Update order details (sell amount, buy tokens, amounts)
@@ -39,7 +43,7 @@ export type WhitelistedWriteFunction = typeof WHITELISTED_WRITE_FUNCTIONS[number
 export type ReadFunction = typeof READ_FUNCTIONS[number];
 
 // Contract configuration
-const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_OTC_CONTRACT_ADDRESS as Address;
+const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
 
 // Full contract ABI with all write functions
 const OTC_ABI = [
@@ -542,6 +546,8 @@ export function useContractWhitelist() {
         functionName,
         args,
         value,
+        // Add transaction metadata for better wallet display
+        gas: 2000000n, // Set a reasonable gas limit
       });
 
       return result;

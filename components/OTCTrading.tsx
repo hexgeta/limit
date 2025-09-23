@@ -6,7 +6,7 @@ import { parseEther, formatEther, Address } from 'viem';
 import { useOTCTrade } from '../hooks/contracts/useOTCTrade';
 
 // Contract address - update with actual deployed address
-const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_OTC_CONTRACT_ADDRESS as Address;
+const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
 
 // Import the contract ABI
 const OTC_ABI = [

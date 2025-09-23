@@ -3,7 +3,7 @@ import { parseEther, formatEther, Address } from 'viem';
 import { useContractWhitelist } from './useContractWhitelist';
 
 // We'll need to update this with the actual deployed contract address
-const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_OTC_CONTRACT_ADDRESS as Address;
+const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
 
 // Import the contract ABI - using the correct ABI from the contract
 const OTC_ABI = [
@@ -95,7 +95,7 @@ const OTC_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
-  }
+  },
 ] as const;
 
 export interface OrderDetails {
@@ -135,3 +135,4 @@ export function useOTCTrade() {
     isConnected,
   };
 }
+

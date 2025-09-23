@@ -16,7 +16,7 @@ export interface TokenConfig {
 
 export const TOKEN_CONSTANTS = [{
   chain: 369,
-  a: "0x0",
+  a: "0x000000000000000000000000000000000000dEaD",
   dexs: "0xe56043671df55de5cdf8459710433c10324de0ae",
   ticker: "PLS",
   decimals: 18,

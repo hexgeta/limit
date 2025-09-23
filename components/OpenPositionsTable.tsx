@@ -7,7 +7,9 @@ import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
 import { formatEther, parseEther } from 'viem';
-import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker } from '@/utils/tokenUtils';
+import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
+import { useAccount } from 'wagmi';
+import { useTransaction } from '@/context/TransactionContext';
 
 // Sorting types
 type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date';
@@ -159,9 +161,12 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
 }
 
 export function OpenPositionsTable() {
-  const { executeOrder, isWalletConnected } = useContractWhitelist();
+  const { executeOrder, cancelOrder, updateOrderInfo, updateOrderPrice, updateOrderExpirationTime, isWalletConnected } = useContractWhitelist();
+  const { address } = useAccount();
+  const { setTransactionPending } = useTransaction();
+  
   const [activeTab, setActiveTab] = useState<'all' | 'featured'>('featured');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled' | 'my-orders'>('active');
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
@@ -182,6 +187,20 @@ export function OpenPositionsTable() {
   // State for executing orders
   const [executingOrders, setExecutingOrders] = useState<Set<string>>(new Set());
   const [executeErrors, setExecuteErrors] = useState<{[orderId: string]: string}>({});
+  
+  // State for canceling orders
+  const [cancelingOrders, setCancelingOrders] = useState<Set<string>>(new Set());
+  const [cancelErrors, setCancelErrors] = useState<{[orderId: string]: string}>({});
+  
+  // State for editing orders
+  const [editingOrder, setEditingOrder] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<{
+    sellAmount: string;
+    buyAmounts: {[tokenIndex: string]: string};
+    expirationTime: string;
+  }>({ sellAmount: '', buyAmounts: {}, expirationTime: '' });
+  const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set());
+  const [updateErrors, setUpdateErrors] = useState<{[orderId: string]: string}>({});
   
   const { 
     contractName, 
@@ -339,7 +358,8 @@ export function OpenPositionsTable() {
       });
       
       if (tokenIndex !== -1 && buyAmounts[tokenIndex]) {
-        maxAllowedAmount = formatEther(buyAmounts[tokenIndex]);
+        const tokenInfo = getTokenInfoByIndex(Number(buyTokensIndex[tokenIndex]));
+        maxAllowedAmount = formatTokenAmount(buyAmounts[tokenIndex], tokenInfo.decimals);
       }
     }
     
@@ -366,7 +386,7 @@ export function OpenPositionsTable() {
         buyTokensIndex.forEach((idx: bigint, idxNum: number) => {
           if (idxNum !== tokenIndex) {
             const otherTokenInfo = getTokenInfoByIndex(Number(idx));
-            const otherMaxAmount = parseFloat(formatEther(buyAmounts[idxNum]));
+            const otherMaxAmount = parseFloat(formatTokenAmount(buyAmounts[idxNum], otherTokenInfo.decimals));
             const otherAmount = (otherMaxAmount * percentage).toString();
             newInputs[otherTokenInfo.address] = otherAmount;
           }
@@ -409,7 +429,7 @@ export function OpenPositionsTable() {
     buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
       if (tokenInfo.address && buyAmounts[idx]) {
-        const maxAmount = parseFloat(formatEther(buyAmounts[idx]));
+        const maxAmount = parseFloat(formatTokenAmount(buyAmounts[idx], tokenInfo.decimals));
         const fillAmount = (maxAmount * percentage).toString();
         newInputs[tokenInfo.address] = fillAmount;
       }
@@ -487,6 +507,7 @@ export function OpenPositionsTable() {
       delete newErrors[orderId];
       return newErrors;
     });
+    setTransactionPending(true);
 
     try {
       // For now, we'll execute with the first token that has an input
@@ -540,6 +561,139 @@ export function OpenPositionsTable() {
         newSet.delete(orderId);
         return newSet;
       });
+      setTransactionPending(false);
+    }
+  };
+
+  const handleCancelOrder = async (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    
+    if (cancelingOrders.has(orderId)) return;
+    
+    setCancelingOrders(prev => new Set(prev).add(orderId));
+    setCancelErrors(prev => ({ ...prev, [orderId]: '' }));
+    setTransactionPending(true);
+    
+    try {
+      await cancelOrder(order.orderDetailsWithId.orderId);
+      
+      // Clear any previous errors
+      setCancelErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[orderId];
+        return newErrors;
+      });
+      
+    } catch (error: any) {
+      console.error('Error canceling order:', error);
+      setCancelErrors(prev => ({ 
+        ...prev, 
+        [orderId]: error?.message || 'Failed to cancel order' 
+      }));
+    } finally {
+      setCancelingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+      setTransactionPending(false);
+    }
+  };
+
+  const handleEditOrder = (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    setEditingOrder(orderId);
+    
+    // Initialize form data with current order values
+    const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+    const sellAmount = formatTokenAmount(
+      order.orderDetailsWithId.orderDetails.sellAmount,
+      sellTokenInfo.decimals
+    );
+    
+    const buyAmounts: {[tokenIndex: string]: string} = {};
+    order.orderDetailsWithId.orderDetails.buyTokensIndex.forEach((tokenIndex: bigint, i: number) => {
+      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+      const amount = formatTokenAmount(
+        order.orderDetailsWithId.orderDetails.buyAmounts[i],
+        tokenInfo.decimals
+      );
+      buyAmounts[tokenIndex.toString()] = amount;
+    });
+    
+    const expirationDate = new Date(order.orderDetailsWithId.orderDetails.expirationTime * 1000);
+    const expirationTime = expirationDate.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM format
+    
+    setEditFormData({
+      sellAmount,
+      buyAmounts,
+      expirationTime
+    });
+  };
+
+  const handleSaveOrder = async (order: any) => {
+    const orderId = order.orderDetailsWithId.orderId.toString();
+    
+    if (updatingOrders.has(orderId)) return;
+    
+    setUpdatingOrders(prev => new Set(prev).add(orderId));
+    setUpdateErrors(prev => ({ ...prev, [orderId]: '' }));
+    setTransactionPending(true);
+    
+    try {
+      // Update order info (sell amount, buy tokens, amounts)
+      const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+      const newSellAmount = parseTokenAmount(editFormData.sellAmount, sellTokenInfo.decimals);
+      
+      const newBuyTokensIndex: bigint[] = [];
+      const newBuyAmounts: bigint[] = [];
+      
+      Object.entries(editFormData.buyAmounts).forEach(([tokenIndex, amount]) => {
+        if (amount && parseFloat(amount) > 0) {
+          const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+          newBuyTokensIndex.push(BigInt(tokenIndex));
+          newBuyAmounts.push(parseTokenAmount(amount, tokenInfo.decimals));
+        }
+      });
+      
+      await updateOrderInfo(
+        order.orderDetailsWithId.orderId,
+        newSellAmount,
+        newBuyTokensIndex,
+        newBuyAmounts
+      );
+      
+      // Update expiration time
+      const newExpirationTime = Math.floor(new Date(editFormData.expirationTime).getTime() / 1000);
+      await updateOrderExpirationTime(
+        order.orderDetailsWithId.orderId,
+        BigInt(newExpirationTime)
+      );
+      
+      // Clear form and close edit mode
+      setEditingOrder(null);
+      setEditFormData({ sellAmount: '', buyAmounts: {}, expirationTime: '' });
+      
+      // Clear any previous errors
+      setUpdateErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[orderId];
+        return newErrors;
+      });
+      
+    } catch (error: any) {
+      console.error('Error updating order:', error);
+      setUpdateErrors(prev => ({ 
+        ...prev, 
+        [orderId]: error?.message || 'Failed to update order' 
+      }));
+    } finally {
+      setUpdatingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+      setTransactionPending(false);
     }
   };
 
@@ -590,6 +744,11 @@ export function OpenPositionsTable() {
         break;
       case 'cancelled':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 1);
+        break;
+      case 'my-orders':
+        filteredOrders = orders.filter(order => 
+          address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
+        );
         break;
       case 'all':
       default:
@@ -833,6 +992,31 @@ export function OpenPositionsTable() {
       } : {})}
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
+      {/* Token Type Filter - All vs Featured (MAXI tokens) */}
+      <div className="flex justify-center gap-3 mb-6">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-6 py-3 rounded-lg transition-all duration-300 border ${
+            activeTab === 'all'
+              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          All Tokens ({allOrders.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('featured')}
+          className={`px-6 py-3 rounded-lg transition-all duration-300 border ${
+            activeTab === 'featured'
+              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          MAXI Tokens ({getOrdersForCurrentTokenFilter().length})
+        </button>
+      </div>
+
+
       {/* Status Filter - Centered with Label Styling */}
       <StatusFilter 
         {...(showMotion ? {
@@ -876,6 +1060,18 @@ export function OpenPositionsTable() {
         >
           Cancelled ({cancelledCountForCurrentToken})
         </button>
+        {address && (
+          <button
+            onClick={() => setStatusFilter('my-orders')}
+            className={`px-4 py-2 rounded-full transition-all duration-300 border ${
+              statusFilter === 'my-orders'
+                ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+                : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+            }`}
+          >
+            My Orders ({currentTokenOrders?.filter(order => order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()).length || 0})
+          </button>
+        )}
       </StatusFilter>
 
       <TableContainer 
@@ -912,16 +1108,22 @@ export function OpenPositionsTable() {
         <div className="overflow-x-auto scrollbar-hide">
           {!displayOrders || displayOrders.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400 mb-2">No {activeTab} {statusFilter} orders found</p>
-              <p className="text-sm text-gray-500 mb-4">
-                The contract shows {orderCounter ? orderCounter.toString() : 'unknown'} total orders, but there's a bug in the contract's view functions.
-              </p>
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                <p className="text-yellow-400 text-sm">
-                  <strong>Contract Issue:</strong> The `_viewUserOrdersWithStatus` function has a bug on line 711 
-                  where it checks `userOrders[index].status` instead of `orders[_user][index].status`.
-                </p>
-              </div>
+              {statusFilter === 'my-orders' ? (
+                <p className="text-gray-400 mb-2">No orders found</p>
+              ) : (
+                <>
+                  <p className="text-gray-400 mb-2">No {activeTab} {statusFilter} orders found</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    The contract shows {orderCounter ? orderCounter.toString() : 'unknown'} total orders, but there's a bug in the contract's view functions.
+                  </p>
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                    <p className="text-yellow-400 text-sm">
+                      <strong>Contract Issue:</strong> The `_viewUserOrdersWithStatus` function has a bug on line 711 
+                      where it checks `userOrders[index].status` instead of `orders[_user][index].status`.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="w-full min-w-[800px] text-lg">
@@ -959,7 +1161,7 @@ export function OpenPositionsTable() {
               {/* COLUMN 3: Fill Status % */}
               <button 
                 onClick={() => handleSort('progress')}
-                className={`text-sm font-medium text-center ml-4 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
                   sortField === 'progress' ? 'text-white' : 'text-gray-400'
                 }`}
               >
@@ -969,7 +1171,7 @@ export function OpenPositionsTable() {
               {/* COLUMN 4: Seller */}
               <button 
                 onClick={() => handleSort('owner')}
-                className={`text-sm font-medium text-center ml-4 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
                   sortField === 'owner' ? 'text-white' : 'text-gray-400'
                 }`}
               >
@@ -979,7 +1181,7 @@ export function OpenPositionsTable() {
               {/* COLUMN 5: Status */}
               <button 
                 onClick={() => handleSort('status')}
-                className={`text-sm font-medium text-center ml-4 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
                   sortField === 'status' ? 'text-white' : 'text-gray-400'
                 }`}
               >
@@ -989,7 +1191,7 @@ export function OpenPositionsTable() {
               {/* COLUMN 6: Expires */}
               <button 
                 onClick={() => handleSort('date')}
-                className={`text-sm font-medium text-left ml-4 hover:text-white transition-colors ${
+                className={`text-sm font-medium text-left hover:text-white transition-colors ${
                   sortField === 'date' ? 'text-white' : 'text-gray-400'
                 }`}
               >
@@ -997,7 +1199,7 @@ export function OpenPositionsTable() {
               </button>
               
               {/* COLUMN 7: Actions */}
-              <div className="text-sm font-medium text-right ml-4 text-gray-400">
+              <div className="text-sm font-medium text-right text-gray-400">
                 {/* Actions header removed - left blank */}
             </div>
             </motion.div>
@@ -1086,7 +1288,7 @@ export function OpenPositionsTable() {
                       if (buyTokensIndex && buyAmounts && Array.isArray(buyTokensIndex) && Array.isArray(buyAmounts)) {
                         buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-                          const tokenAmount = parseFloat(formatEther(buyAmounts[idx]));
+                          const tokenAmount = parseFloat(formatTokenAmount(buyAmounts[idx], tokenInfo.decimals));
                           const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                           totalUsdValue += usdValue;
@@ -1102,7 +1304,7 @@ export function OpenPositionsTable() {
                           <div className="w-1/2 h-px bg-white/10 my-2"></div>
                           {buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-                            const tokenAmount = parseFloat(formatEther(buyAmounts[idx]));
+                            const tokenAmount = parseFloat(formatTokenAmount(buyAmounts[idx], tokenInfo.decimals));
                             const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                             const usdValue = tokenAmount * tokenPrice;
                             
@@ -1119,7 +1321,7 @@ export function OpenPositionsTable() {
                                     {formatTokenTicker(tokenInfo.ticker)}
                           </span>
                                   <span className="text-gray-400 text-xs">
-                            {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.buyAmounts[idx]))}
+                            {formatAmount(formatTokenAmount(order.orderDetailsWithId.orderDetails.buyAmounts[idx], tokenInfo.decimals))}
                           </span>
                                   {tokenPrice > 0 && (
                                     <span className="text-gray-500 text-xs">
@@ -1350,6 +1552,45 @@ export function OpenPositionsTable() {
                             <div className="text-xs text-gray-500 mt-1">
                               Order ID: {order.orderDetailsWithId.orderId.toString()}
                             </div>
+                            
+                            {/* Owner Actions - Only show for user's own orders */}
+                            {address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase() && (
+                              <div className="mt-3 pt-3 border-t border-white/10">
+                                <div className="flex gap-2">
+                                  {/* Cancel Button */}
+                                  <button
+                                    onClick={() => handleCancelOrder(order)}
+                                    disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) || order.orderDetailsWithId.status !== 0}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? 'Canceling...' : 'Cancel Order'}
+                                  </button>
+                                  
+                                  {/* Edit Button */}
+                                  <button
+                                    onClick={() => handleEditOrder(order)}
+                                    disabled={order.orderDetailsWithId.status !== 0}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Edit Order
+                                  </button>
+                                </div>
+                                
+                                {/* Cancel Error Display */}
+                                {cancelErrors[order.orderDetailsWithId.orderId.toString()] && (
+                                  <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                    <p className="text-red-400 text-xs">{cancelErrors[order.orderDetailsWithId.orderId.toString()]}</p>
+                                  </div>
+                                )}
+                                
+                                {/* Update Error Display */}
+                                {updateErrors[order.orderDetailsWithId.orderId.toString()] && (
+                                  <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                    <p className="text-red-400 text-xs">{updateErrors[order.orderDetailsWithId.orderId.toString()]}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
         </div>
       </motion.div>
@@ -1363,6 +1604,95 @@ export function OpenPositionsTable() {
         )}
         </div>
       </TableContainer>
+      
+      {/* Edit Order Modal */}
+      {editingOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-white mb-4">Edit Order</h3>
+            
+            <div className="space-y-4">
+              {/* Sell Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Sell Amount
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.sellAmount}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, sellAmount: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  placeholder="Enter sell amount"
+                />
+              </div>
+              
+              {/* Buy Amounts */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Buy Amounts
+                </label>
+                {Object.entries(editFormData.buyAmounts).map(([tokenIndex, amount]) => {
+                  const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                  return (
+                    <div key={tokenIndex} className="mb-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <img src={tokenInfo.logo} alt={tokenInfo.ticker} className="w-4 h-4" />
+                        <span className="text-sm text-gray-300">{tokenInfo.ticker}</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={amount}
+                        onChange={(e) => setEditFormData(prev => ({
+                          ...prev,
+                          buyAmounts: { ...prev.buyAmounts, [tokenIndex]: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                        placeholder={`Enter ${tokenInfo.ticker} amount`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Expiration Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Expiration Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editFormData.expirationTime}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, expirationTime: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setEditingOrder(null);
+                  setEditFormData({ sellAmount: '', buyAmounts: {}, expirationTime: '' });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const order = allOrders?.find(o => o.orderDetailsWithId.orderId.toString() === editingOrder);
+                  if (order) handleSaveOrder(order);
+                }}
+                disabled={updatingOrders.has(editingOrder)}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {updatingOrders.has(editingOrder) ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Container>
   );
 }
