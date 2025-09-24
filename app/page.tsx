@@ -4,10 +4,14 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { OpenPositionsTable } from '@/components/OpenPositionsTable';
 import { CreatePositionModal } from '@/components/CreatePositionModal';
+import { WhitelistDebugger } from '@/components/WhitelistDebugger';
 
 export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { isConnected } = useAccount();
+  
+  // Set to false to hide the whitelist debugger
+  const SHOW_WHITELIST_DEBUGGER = false;
   
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
@@ -24,9 +28,9 @@ export default function Home() {
             <div className="flex justify-center">
               <button 
                 onClick={() => setShowCreateModal(true)}
-                className="px-8 py-3 border border-white text-white rounded-full font-semibold hover:bg-white hover:text-black transition-colors"
+                className="px-8 py-3 border border-white text-white rounded-full font-semibold transition-colors duration-0 create-deal-button"
               >
-                Open Position
+                + Create New OTC Deal
               </button>
             </div>
           )}
@@ -36,6 +40,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="w-full px-8 py-2">
                 <div className="max-w-6xl mx-auto">
+                  {SHOW_WHITELIST_DEBUGGER && <WhitelistDebugger />}
                   <OpenPositionsTable />
                 </div>
       </div>

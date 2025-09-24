@@ -629,6 +629,12 @@ w3m-modal w3m-footer-branding {
   opacity: 0 !important;
 }
 
+/* Create Deal Button hover effect */
+.create-deal-button:hover {
+  background-color: white !important;
+  color: black !important;
+}
+
 /* Also target any parent containers */
 * .wui-ux-by-reown,
 w3m-modal .wui-ux-by-reown,

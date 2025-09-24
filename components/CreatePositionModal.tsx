@@ -13,9 +13,29 @@ import { useBalance, usePublicClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
 
-// Whitelisted tokens for OTC trading - SELL SIDE (what you can offer)
-const SELL_WHITELISTED_TOKENS = [
-  '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // pHEX
+// Contract whitelist mapping - index to token address
+const CONTRACT_WHITELIST_MAP = {
+  0: '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX - PulseX
+  1: '0xefd766ccb38eaf1dfd701853bfce31359239f305', // weDAI - Wrapped DAI from Eth
+  2: '0x000000000000000000000000000000000000dead', // PLS - Pulse
+  3: '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d', // INC - Incentive
+  4: '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX - HEX on Pls
+  5: '0x0deed1486bc52aa0d3e6f8849cec5add6598a162', // stPLS (Liquid Loans) - Not added to dropdown
+  6: '0x02dcdd04e3f455d838cd1249292c58f3b79e3c3c', // weWETH - Wrapped WETH from Eth
+  7: '0x15d38573d2feeb82e7ad5187ab8c1d52810b1f07', // weUSDC - Wrapped USDC from Eth (INACTIVE) Not added to dropdown
+  8: '0x0cb6f5a34ad42ec934882a05265a7d5f59b51a2f', // weUSDT - Wrapped USDT from Eth (INACTIVE) Not added to dropdown
+  9: '0x115f3fa979a936167f9d208a7b7c4d85081e84bd', // 2PHUX - 2PHUX Governance Token Not added to dropdown
+} as const;
+
+// Active tokens only (for trading)
+const ACTIVE_CONTRACT_INDICES = [0, 1, 2, 3, 4, 5, 6, 9];
+
+// Inactive tokens
+const INACTIVE_CONTRACT_INDICES = [7, 8];
+
+// MAXI tokens (not in contract whitelist but kept for reference)
+const MAXI_TOKENS = [
+  '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
   '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b', // pMAXI
   '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // pDECI
   '0x6b0956258ff7bd7645aa35369b55b61b8e6d6140', // pLUCKY
@@ -27,32 +47,40 @@ const SELL_WHITELISTED_TOKENS = [
   '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
   '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
   '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
-  '0x000000000000000000000000000000000000dEaD', // PLS (native token)
-  '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
-  '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
 ];
 
-// Whitelisted tokens for OTC trading - BUY SIDE (what you can request)
-// Based on contract validation, some tokens like MAXI are not accepted on buy side
-const BUY_WHITELISTED_TOKENS = [
-  '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // pHEX
-  // '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b', // pMAXI - NOT ALLOWED ON BUY SIDE
-  '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // pDECI
-  '0x6b0956258ff7bd7645aa35369b55b61b8e6d6140', // pLUCKY
-  '0xf55cd1e399e1cc3d95303048897a680be3313308', // pTRIO
-  '0xe9f84d418b008888a992ff8c6d22389c2c3504e0', // pBASE
-  // '0x352511c9bc5d47dbc122883ed9353e987d10a3ba', // weMAXI - NOT ALLOWED ON BUY SIDE
-  '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI
-  '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
-  '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
-  '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
-  '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
-  '0x000000000000000000000000000000000000dEaD', // PLS (native token)
-  '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
-  '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
-  // Add DAI and other stablecoins that are commonly accepted
-  '0xefd766ccb38eaf1dfd701853bfce31359239f305', // weDAI
+// Custom dropdown order - specify the order you want tokens to appear
+const DROPDOWN_ORDER = [
+  4, // HEX first
+  2, // PLS fourth
+  0, // PLSX second
+  1, // weDAI third
+  3, // INC fifth
+  6, // weWETH seventh
+  // Inactive tokens
+  // 7, // weUSDC
+  // 8, // weUSDT
 ];
+
+// Combined buy side whitelist - ordered by DROPDOWN_ORDER, then MAXI tokens
+const BUY_WHITELISTED_TOKENS = [
+  // Contract tokens in custom order
+  ...DROPDOWN_ORDER.map(index => CONTRACT_WHITELIST_MAP[index]),
+  
+  // MAXI tokens at the end
+  ...MAXI_TOKENS,
+];
+
+// Whitelisted tokens for OTC trading - SELL SIDE (what you can offer)
+// Uses the same contract whitelist mapping and dropdown order as buy side
+const SELL_WHITELISTED_TOKENS = [
+  // Contract tokens in custom order (same as buy side)
+  ...DROPDOWN_ORDER.map(index => CONTRACT_WHITELIST_MAP[index]),
+  
+  // MAXI tokens at the end
+  ...MAXI_TOKENS,
+];
+
 
 
 interface CreatePositionModalProps {
@@ -266,7 +294,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   // Get wallet balances for selected tokens
   const { data: sellTokenBalance, isLoading: sellBalanceLoading, error: sellBalanceError } = useBalance({
     address: address,
-    token: sellToken?.address === '0x0' ? undefined : sellToken?.address as `0x${string}`,
+    token: isNativeToken(sellToken?.address || '') ? undefined : sellToken?.address as `0x${string}`,
     chainId: 369, // PulseChain
     query: {
       enabled: !!address && !!sellToken,
@@ -276,7 +304,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
   
   const { data: buyTokenBalance, isLoading: buyBalanceLoading, error: buyBalanceError } = useBalance({
     address: address,
-    token: buyToken?.address === '0x0' ? undefined : buyToken?.address as `0x${string}`,
+    token: isNativeToken(buyToken?.address || '') ? undefined : buyToken?.address as `0x${string}`,
     chainId: 369, // PulseChain
     query: {
       enabled: !!address && !!buyToken,
@@ -904,8 +932,8 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
                     </div>
                      <div className="flex justify-between items-center">
                        <div>
-                         <span className="text-gray-400">Fee:</span>
-                         <div className="text-xs text-gray-500 mt-1">(1% platform fee deducted from buyer at sale)</div>
+                         <span className="text-gray-400">MAX Fee:</span>
+                         <div className="text-xs text-gray-500 mt-1">Max 1% fee deducted from buyer at sale (0.5% with NFT)</div>
                        </div>
                        <span className="text-red-400 font-medium">-{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.01).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
                      </div>

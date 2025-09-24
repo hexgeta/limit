@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CircleDollarSign, ChevronDown } from 'lucide-react';
+import { CircleDollarSign, ChevronDown, Trash2 } from 'lucide-react';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
@@ -166,7 +166,7 @@ export function OpenPositionsTable() {
   const { setTransactionPending } = useTransaction();
   
   const [activeTab, setActiveTab] = useState<'all' | 'featured'>('featured');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled' | 'my-orders'>('active');
+  const [statusFilter, setStatusFilter] = useState<'my-positions' | 'all-positions' | 'active' | 'completed' | 'cancelled'>('active');
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
@@ -339,6 +339,25 @@ export function OpenPositionsTable() {
       }
       return newSet;
     });
+  };
+
+  // Clear all expanded positions
+  const clearExpandedPositions = () => {
+    setExpandedPositions(new Set());
+  };
+
+  // Simplify error messages for user rejections
+  const simplifyErrorMessage = (error: any) => {
+    const errorMessage = error?.message || error?.toString() || '';
+    
+    // Check if it's a user rejection
+    if (errorMessage.toLowerCase().includes('user rejected') || 
+        errorMessage.toLowerCase().includes('user denied') ||
+        errorMessage.toLowerCase().includes('rejected the request')) {
+      return 'User rejected the request';
+    }
+    
+    return errorMessage;
   };
 
 
@@ -553,7 +572,7 @@ export function OpenPositionsTable() {
       console.error('Error executing order:', error);
       setExecuteErrors(prev => ({
         ...prev,
-        [orderId]: error.message || 'Failed to execute order. Please try again.'
+        [orderId]: simplifyErrorMessage(error) || 'Failed to execute order. Please try again.'
       }));
     } finally {
       setExecutingOrders(prev => {
@@ -588,7 +607,7 @@ export function OpenPositionsTable() {
       console.error('Error canceling order:', error);
       setCancelErrors(prev => ({ 
         ...prev, 
-        [orderId]: error?.message || 'Failed to cancel order' 
+        [orderId]: simplifyErrorMessage(error) || 'Failed to cancel order' 
       }));
     } finally {
       setCancelingOrders(prev => {
@@ -685,7 +704,7 @@ export function OpenPositionsTable() {
       console.error('Error updating order:', error);
       setUpdateErrors(prev => ({ 
         ...prev, 
-        [orderId]: error?.message || 'Failed to update order' 
+        [orderId]: simplifyErrorMessage(error) || 'Failed to update order' 
       }));
     } finally {
       setUpdatingOrders(prev => {
@@ -736,6 +755,14 @@ export function OpenPositionsTable() {
     // Then filter by status
     let filteredOrders = [];
     switch (statusFilter) {
+      case 'my-positions':
+        filteredOrders = orders.filter(order => 
+          address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
+        );
+        break;
+      case 'all-positions':
+        filteredOrders = orders;
+        break;
       case 'active':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 0);
         break;
@@ -745,12 +772,6 @@ export function OpenPositionsTable() {
       case 'cancelled':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 1);
         break;
-      case 'my-orders':
-        filteredOrders = orders.filter(order => 
-          address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
-        );
-        break;
-      case 'all':
       default:
         filteredOrders = orders;
     }
@@ -843,6 +864,15 @@ export function OpenPositionsTable() {
     [currentTokenOrders]
   );
 
+  // Separate count for MAXI tokens (always calculated independently)
+  const maxiTokenOrders = useMemo(() => {
+    return allOrders.filter(order => {
+      const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
+      const sellTokenInfo = getTokenInfo(sellTokenAddress);
+      return sellTokenInfo.isMaxiToken;
+    });
+  }, [allOrders]);
+
   // Loading state - only for initial load
   if (!mounted || isTableLoading) {
     return (
@@ -859,7 +889,7 @@ export function OpenPositionsTable() {
             className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
           >
             <div className="text-gray-400 text-lg">
-              Loading OTC positions
+              Loading marketplace data
               <span className="w-[24px] text-left inline-block">
                 {'.'.repeat(loadingDots)}
               </span>
@@ -942,27 +972,6 @@ export function OpenPositionsTable() {
       default: return 'text-gray-400';
     }
   };
-  
-  // Calculate MAXI token orders count
-  const maxiTokenOrders = allOrders.filter(order => {
-    const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
-    
-    // Check if sell token is in MAXI tokens
-    const sellTokenInList = maxiTokenAddresses.some(addr => 
-      sellToken === addr.toLowerCase()
-    );
-    
-    // Check if any buy token is in MAXI tokens
-    const buyTokensInList = order.orderDetailsWithId.orderDetails.buyTokensIndex.some(buyTokenIndex => {
-      const buyTokenInfo = getTokenInfoByIndex(Number(buyTokenIndex));
-      const buyTokenAddress = buyTokenInfo.address?.toLowerCase() || '';
-      return maxiTokenAddresses.some(addr => 
-        buyTokenAddress === addr.toLowerCase()
-      );
-    });
-    
-    return sellTokenInList || buyTokensInList;
-  });
 
   // Debug: Log some sample orders to see their structure
   if (allOrders.length > 0) {
@@ -993,10 +1002,13 @@ export function OpenPositionsTable() {
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
       {/* Token Type Filter - All vs Featured (MAXI tokens) */}
-      <div className="flex justify-center gap-3 mb-6">
+      <div className="flex justify-left gap-3 mb-6">
         <button
-          onClick={() => setActiveTab('all')}
-          className={`px-6 py-3 rounded-lg transition-all duration-300 border ${
+          onClick={() => {
+            setActiveTab('all');
+            clearExpandedPositions();
+          }}
+          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
             activeTab === 'all'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1005,14 +1017,17 @@ export function OpenPositionsTable() {
           All Tokens ({allOrders.length})
         </button>
         <button
-          onClick={() => setActiveTab('featured')}
-          className={`px-6 py-3 rounded-lg transition-all duration-300 border ${
+          onClick={() => {
+            setActiveTab('featured');
+            clearExpandedPositions();
+          }}
+          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
             activeTab === 'featured'
               ? 'bg-purple-500/20 text-purple-400 border-purple-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          MAXI Tokens ({getOrdersForCurrentTokenFilter().length})
+          MAXI Tokens ({maxiTokenOrders.length})
         </button>
       </div>
 
@@ -1031,8 +1046,39 @@ export function OpenPositionsTable() {
         className="flex justify-right gap-3 mb-4"
       >
         <button
-          onClick={() => setStatusFilter('active')}
-          className={`px-4 py-2 rounded-full transition-all duration-300 border ${
+          onClick={() => {
+            setStatusFilter('my-positions');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+            statusFilter === 'my-positions'
+              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          My Positions ({address ? currentTokenOrders?.filter(order => 
+            order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
+          ).length || 0 : 0})
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('all-positions');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+            statusFilter === 'all-positions'
+              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          All Positions ({currentTokenOrders?.length || 0})
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('active');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
             statusFilter === 'active'
               ? 'bg-green-500/20 text-green-400 border-green-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1041,8 +1087,11 @@ export function OpenPositionsTable() {
           Active ({activeCountForCurrentToken})
         </button>
         <button
-          onClick={() => setStatusFilter('completed')}
-          className={`px-4 py-2 rounded-full transition-all duration-300 border ${
+          onClick={() => {
+            setStatusFilter('completed');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
             statusFilter === 'completed'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1051,8 +1100,11 @@ export function OpenPositionsTable() {
           Completed ({completedCountForCurrentToken})
         </button>
         <button
-          onClick={() => setStatusFilter('cancelled')}
-          className={`px-4 py-2 rounded-full transition-all duration-300 border ${
+          onClick={() => {
+            setStatusFilter('cancelled');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
             statusFilter === 'cancelled'
               ? 'bg-red-500/20 text-red-400 border-red-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1060,18 +1112,6 @@ export function OpenPositionsTable() {
         >
           Cancelled ({cancelledCountForCurrentToken})
         </button>
-        {address && (
-          <button
-            onClick={() => setStatusFilter('my-orders')}
-            className={`px-4 py-2 rounded-full transition-all duration-300 border ${
-              statusFilter === 'my-orders'
-                ? 'bg-purple-500/20 text-purple-400 border-purple-400'
-                : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-            }`}
-          >
-            My Orders ({currentTokenOrders?.filter(order => order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()).length || 0})
-          </button>
-        )}
       </StatusFilter>
 
       <TableContainer 
@@ -1079,9 +1119,7 @@ export function OpenPositionsTable() {
           initial: { opacity: 0, y: 15 },
           animate: { 
             opacity: 1, 
-            y: 0,
-            scale: expandedPositions.size > 0 ? 0.95 : 1,
-            height: expandedPositions.size > 0 ? 'fit-content' : 'auto'
+            y: 0
           },
           transition: { 
           duration: 0.5,
@@ -1094,22 +1132,16 @@ export function OpenPositionsTable() {
           expandedPositions.size > 0 ? 'shadow-2xl shadow-white/10' : ''
         }`}
         style={{ 
-          height: expandedPositions.size > 0 ? 'fit-content' : 'auto',
-          minHeight: expandedPositions.size > 0 ? 'auto' : '400px',
-          maxHeight: expandedPositions.size > 0 ? 'fit-content' : 'none',
-          width: expandedPositions.size > 0 ? 'fit-content' : '100%',
-          margin: expandedPositions.size > 0 ? '0 auto' : '0',
-          transform: expandedPositions.size > 0 ? 'scale(0.95)' : 'scale(1)',
-          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)',
-          padding: expandedPositions.size > 0 ? '1rem' : '1.5rem'
+          minHeight: '200px',
+          width: '100%'
         }}
       >
         {/* Horizontal scroll container with hidden scrollbar */}
         <div className="overflow-x-auto scrollbar-hide">
           {!displayOrders || displayOrders.length === 0 ? (
             <div className="text-center py-8">
-              {statusFilter === 'my-orders' ? (
-                <p className="text-gray-400 mb-2">No orders found</p>
+              {statusFilter === 'my-positions' || statusFilter === 'all-positions' ? (
+                <p className="text-gray-400 mb-2">No {statusFilter.replace('-', ' ')} found</p>
               ) : (
                 <>
                   <p className="text-gray-400 mb-2">No {activeTab} {statusFilter} orders found</p>
@@ -1133,7 +1165,6 @@ export function OpenPositionsTable() {
                 expandedPositions.size > 0 ? 'px-2' : ''
               }`}
               animate={{
-                scale: expandedPositions.size > 0 ? 0.98 : 1,
                 opacity: expandedPositions.size > 0 ? 0.9 : 1
               }}
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
@@ -1216,25 +1247,24 @@ export function OpenPositionsTable() {
                 const hasAnyExpanded = expandedPositions.size > 0;
                 const shouldShow = !hasAnyExpanded || isExpanded;
                 
+                // Don't render at all if shouldn't show
+                if (!shouldShow) return null;
+                
                 return (
                   <div key={index} data-order-id={orderId}>
                 <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0 }}
                       animate={{ 
-                        opacity: shouldShow ? 1 : 0,
-                        y: shouldShow ? 0 : -20,
-                        scale: shouldShow ? 1 : 0.9
+                        opacity: 1
                       }}
                   transition={{ 
-                    duration: 0.4,
-                        delay: shouldShow ? 0.1 : 0,
-                    ease: [0.23, 1, 0.32, 1]
+                    duration: 0.2
                   }}
                       className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-start gap-4 ${
-                        expandedPositions.size > 0 && shouldShow ? 'py-4' : 'py-8'
+                        expandedPositions.size > 0 ? 'py-4' : 'py-8'
                       } ${
-                        index < displayOrders.length - 1 && shouldShow ? 'border-b border-white/10' : ''
-                      } ${expandedPositions.size > 0 && shouldShow ? 'px-2' : ''}`}
+                        index < displayOrders.length - 1 ? 'border-b border-white/10' : ''
+                      } ${expandedPositions.size > 0 ? 'px-2' : ''}`}
                     >
                     {/* COLUMN 1: Token For Sale Content */}
                     <div className="flex flex-col items-start space-y-1">
@@ -1382,17 +1412,27 @@ export function OpenPositionsTable() {
                   
                   {/* COLUMN 7: Actions Content */}
                     <div className="text-right">
-                      <button
-                        onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                        className="p-2 rounded-full hover:text-white transition-colors"
-                      >
-                        <ChevronDown 
-                          className={`w-4 h-4 transition-transform duration-200 ${
-                            expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
-                          }`}
-                        />
-                      </button>
-                  </div>
+                      {statusFilter === 'my-positions' && order.orderDetailsWithId.status === 0 ? (
+                        <button
+                          onClick={() => handleCancelOrder(order)}
+                          disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
+                          className="p-2 rounded-full hover:text-red-400 transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                          className="p-2 rounded-full hover:text-white transition-colors"
+                        >
+                          <ChevronDown 
+                            className={`w-4 h-4 transition-transform duration-200 ${
+                              expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
                 </motion.div>
                   
                   {/* Expandable Actions Shelf */}
@@ -1413,24 +1453,24 @@ export function OpenPositionsTable() {
                             {/* Offer Input Fields */}
                             <div className="mt-3 pt-3 border-t border-white/10">
                               <h5 className="text-white font-medium text-xs mb-2">You pay:</h5>
-                              <div className="flex flex-wrap gap-2">
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                                   const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                                   const orderId = order.orderDetailsWithId.orderId.toString();
                                   const currentAmount = offerInputs[orderId]?.[tokenInfo.address] || '';
                                   
                                   return (
-                                    <div key={tokenInfo.address} className="flex items-center space-x-2 bg-white/5 rounded-lg px-3 py-2">
-                                      <div className="flex items-center space-x-2">
+                                    <div key={tokenInfo.address} className="flex items-center space-x-2 bg-gray-400/5 rounded-lg px-3 py-2 min-h-[60px]">
+                                      <div className="flex items-center space-x-2 flex-1">
                                         <TokenLogo 
                                           src={tokenInfo.logo}
                                           alt={formatTokenTicker(tokenInfo.ticker)}
-                                          className="w-6 h-6 rounded-full"
+                                          className="w-6 h-6 rounded-full flex-shrink-0"
                                         />
-                                        <span className="text-white text-md font-medium">
+                                        <span className="text-white text-sm font-medium">
                                           {formatTokenTicker(tokenInfo.ticker)}
                                         </span>
-            </div>
+                                      </div>
                                       <div className="flex flex-col">
                                         <input
                                           type="text"
@@ -1441,10 +1481,10 @@ export function OpenPositionsTable() {
                                             removeCommas(e.target.value),
                                             order
                                           )}
-                                          className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-md max-w-32 focus:border-white/40 focus:outline-none"
+                                          className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-sm w-26 md:w-20 focus:border-white/40 focus:outline-none"
                                           placeholder="0"
                                         />
-          </div>
+                                      </div>
                                     </div>
                                   );
                                 })}
@@ -1570,7 +1610,7 @@ export function OpenPositionsTable() {
                                   <button
                                     onClick={() => handleEditOrder(order)}
                                     disabled={order.orderDetailsWithId.status !== 0}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="hidden px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     Edit Order
                                   </button>

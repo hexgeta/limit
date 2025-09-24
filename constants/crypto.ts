@@ -98,7 +98,7 @@ export const TOKEN_CONSTANTS = [{
   dexs: "0xe56043671df55de5cdf8459710433c10324de0ae",
   ticker: "WPLS",
   decimals: 18,
-  name: "Wrapped PLS",
+  name: "Wrapped PLS, from here these arent whitelisted",
   origin: [369, "0x0"]
 }, {
   chain: 369,
