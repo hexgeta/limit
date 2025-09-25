@@ -1,17 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import { OpenPositionsTable } from '@/components/OpenPositionsTable';
 import { CreatePositionModal } from '@/components/CreatePositionModal';
 import { WhitelistDebugger } from '@/components/WhitelistDebugger';
+import useToast from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isTransactionLoading, setIsTransactionLoading] = useState(false);
   const { isConnected } = useAccount();
+  const { toast } = useToast();
+  const openPositionsTableRef = useRef<any>(null);
   
   // Set to false to hide the whitelist debugger
   const SHOW_WHITELIST_DEBUGGER = false;
+
+  // Test functions for toast notifications
+  const testSuccessToast = () => {
+    toast({
+      title: "Transaction Successful!",
+      description: "Your order has been created successfully.",
+      variant: "success",
+    });
+  };
+
+  const testErrorToast = () => {
+    toast({
+      title: "Transaction Failed",
+      description: "otc:not enough tokens provided",
+      variant: "destructive",
+    });
+  };
+
+  const testLoadingState = () => {
+    setIsTransactionLoading(true);
+    // Simulate a transaction
+    setTimeout(() => {
+      setIsTransactionLoading(false);
+      toast({
+        title: "Transaction Complete!",
+        description: "Your transaction has been processed.",
+        variant: "success",
+      });
+    }, 3000);
+  };
   
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
@@ -25,13 +60,45 @@ export default function Home() {
             Peer-to-peer. At scale. On your own terms.
           </p>
           {isConnected && (
-            <div className="flex justify-center">
-              <button 
-                onClick={() => setShowCreateModal(true)}
-                className="px-8 py-3 border border-white text-white rounded-full font-semibold transition-colors duration-0 create-deal-button"
-              >
-                + Create New OTC Deal
-              </button>
+            <div className="flex flex-col items-center gap-4">
+              {/* Main Create Deal Button with Loading State */}
+              <div className="flex justify-center">
+                {isTransactionLoading ? (
+                  <div className="px-8 py-3 border border-white text-white rounded-full font-semibold flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing Transaction...
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setShowCreateModal(true)}
+                    className="px-8 py-3 border border-white text-white rounded-full font-semibold transition-colors duration-0 create-deal-button"
+                  >
+                    + Create New OTC Deal
+                  </button>
+                )}
+              </div>
+              
+              {/* Test Buttons */}
+              <div className="flex gap-2 text-sm">
+                <button 
+                  onClick={testSuccessToast}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Test Success Toast
+                </button>
+                <button 
+                  onClick={testErrorToast}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Test Error Toast
+                </button>
+                <button 
+                  onClick={testLoadingState}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Test Loading Wheel
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -41,7 +108,7 @@ export default function Home() {
       <div className="w-full px-8 py-2">
                 <div className="max-w-6xl mx-auto">
                   {SHOW_WHITELIST_DEBUGGER && <WhitelistDebugger />}
-                  <OpenPositionsTable />
+                  <OpenPositionsTable ref={openPositionsTableRef} />
                 </div>
       </div>
 
@@ -49,6 +116,28 @@ export default function Home() {
       <CreatePositionModal 
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        onTransactionStart={() => setIsTransactionLoading(true)}
+        onTransactionEnd={() => setIsTransactionLoading(false)}
+        onTransactionSuccess={(message) => {
+          toast({
+            title: "Transaction Successful!",
+            description: message || "Your order has been created successfully.",
+            variant: "success",
+          });
+        }}
+        onTransactionError={(error) => {
+          toast({
+            title: "Transaction Failed",
+            description: error || "An error occurred while creating your order.",
+            variant: "destructive",
+          });
+        }}
+        onOrderCreated={() => {
+          // Refresh the orders table and navigate to "My Deals" > "Active"
+          if (openPositionsTableRef.current) {
+            openPositionsTableRef.current.refreshAndNavigateToMyActiveOrders();
+          }
+        }}
       />
     </main>
   );

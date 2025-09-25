@@ -86,6 +86,11 @@ const SELL_WHITELISTED_TOKENS = [
 interface CreatePositionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onTransactionStart?: () => void;
+  onTransactionEnd?: () => void;
+  onTransactionSuccess?: (message?: string) => void;
+  onTransactionError?: (error?: string) => void;
+  onOrderCreated?: () => void; // Callback to refresh data and navigate
 }
 
 interface TokenOption {
@@ -96,7 +101,15 @@ interface TokenOption {
   decimals: number;
 }
 
-export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProps) {
+export function CreatePositionModal({ 
+  isOpen, 
+  onClose, 
+  onTransactionStart, 
+  onTransactionEnd, 
+  onTransactionSuccess, 
+  onTransactionError,
+  onOrderCreated
+}: CreatePositionModalProps) {
   // Default initial tokens
   const DEFAULT_SELL_TOKEN = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
   const DEFAULT_BUY_TOKEN = '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b'; // MAXI
@@ -134,9 +147,10 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       return;
     }
 
-
+    setIsApproving(true);
     setApprovalError(null);
     setTransactionPending(true);
+    onTransactionStart?.();
 
     try {
       console.log('Calling approveToken with:', {
@@ -178,9 +192,13 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       waitForApproval();
     } catch (error: any) {
       console.error('Token approval failed:', error);
-      setApprovalError(error.message || 'Failed to approve token. Please try again.');
+      const errorMessage = error.message || 'Failed to approve token. Please try again.';
+      setApprovalError(errorMessage);
+      onTransactionError?.(errorMessage);
     } finally {
+      setIsApproving(false);
       setTransactionPending(false);
+      onTransactionEnd?.();
     }
   };
 
@@ -519,6 +537,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
     setOrderError(null);
     setApprovalError(null);
     setTransactionPending(true);
+    onTransactionStart?.();
 
     try {
       // Convert amounts to wei using correct token decimals
@@ -547,20 +566,34 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       console.log('Creating order with details:', orderDetails);
       
       // Call the contract function - only send value if selling native PLS
-      const value = sellToken.address === '0x0' ? sellAmountWei : undefined;
+      const value = sellToken.address === '0x000000000000000000000000000000000000dead' ? sellAmountWei : undefined;
       const txResult = await placeOrder(orderDetails, value);
+      
+      console.log('Transaction sent:', txResult);
+      
+      // Wait for transaction confirmation
+      console.log('Waiting for transaction confirmation...');
+      await txResult.wait(); // Wait for the transaction to be mined
       
       console.log('Order created successfully:', txResult);
       
-      // Close modal on success
+      // Show success toast and close modal only after confirmation
+      onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.');
+      
+      // Refresh data and navigate to show the new order
+      onOrderCreated?.();
+      
       handleClose();
       
     } catch (error: any) {
       console.error('Error creating order:', error);
-      setOrderError(error.message || 'Failed to create order. Please try again.');
+      const errorMessage = error.message || 'Failed to create order. Please try again.';
+      setOrderError(errorMessage);
+      onTransactionError?.(errorMessage);
     } finally {
       setIsCreatingOrder(false);
       setTransactionPending(false);
+      onTransactionEnd?.();
     }
   };
 

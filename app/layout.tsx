@@ -4,6 +4,7 @@ import NavBar from '@/components/NavBar'
 import Footer from '@/components/Footer'
 import { Providers } from '@/components/Providers'
 import AppKitProvider from '@/context/AppKitProvider'
+import { Toaster } from '@/components/ui/toaster'
 import { headers } from 'next/headers'
 
 // Static layout with revalidation
@@ -50,6 +51,7 @@ export default async function RootLayout({
               <main className="flex-grow">{children}</main>
               <Footer />
             </div>
+            <Toaster />
           </Providers>
         </AppKitProvider>
       </body>

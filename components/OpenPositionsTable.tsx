@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CircleDollarSign, ChevronDown, Trash2 } from 'lucide-react';
+import { CircleDollarSign, ChevronDown, Trash2, Loader2 } from 'lucide-react';
+import useToast from '@/hooks/use-toast';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
@@ -160,10 +161,27 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
   );
 }
 
-export function OpenPositionsTable() {
+export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const { executeOrder, cancelOrder, updateOrderInfo, updateOrderPrice, updateOrderExpirationTime, isWalletConnected } = useContractWhitelist();
   const { address } = useAccount();
   const { setTransactionPending } = useTransaction();
+  const { toast } = useToast();
+  
+  // Expose refresh function to parent component
+  useImperativeHandle(ref, () => ({
+    refreshAndNavigateToMyActiveOrders: () => {
+      // Set filters to show "My Deals" > "Active" orders
+      setTokenFilter('maxi');
+      setOwnershipFilter('mine');
+      setStatusFilter('active');
+      
+      // Clear any expanded positions
+      setExpandedPositions(new Set());
+      
+      // The useOpenPositions hook will automatically refetch when dependencies change
+      console.log('Navigated to My Deals > Active orders');
+    }
+  }));
   
   // Level 1: Token type filter
   const [tokenFilter, setTokenFilter] = useState<'maxi' | 'non-maxi'>('maxi');
@@ -535,10 +553,29 @@ export function OpenPositionsTable() {
         buyAmount
       );
 
+      console.log('Transaction sent:', txResult);
+      
+      // Wait for transaction confirmation
+      console.log('Waiting for transaction confirmation...');
+      await txResult.wait(); // Wait for the transaction to be mined
+      
       console.log('Order executed successfully:', txResult);
+      
+      // Show success toast only after confirmation
+      toast({
+        title: "Order Fulfilled!",
+        description: "You have successfully completed this trade.",
+        variant: "success",
+      });
       
       // Clear the inputs for this order
       handleClearInputs(order);
+      
+      // Navigate to "My Deals" > "Completed" to show the fulfilled order
+      setTokenFilter('maxi');
+      setOwnershipFilter('mine');
+      setStatusFilter('completed');
+      setExpandedPositions(new Set());
       
       // Optionally refresh the orders
       // refetch();
@@ -562,14 +599,42 @@ export function OpenPositionsTable() {
   const handleCancelOrder = async (order: any) => {
     const orderId = order.orderDetailsWithId.orderId.toString();
     
-    if (cancelingOrders.has(orderId)) return;
+    console.log('handleCancelOrder called for order:', orderId);
     
+    if (cancelingOrders.has(orderId)) {
+      console.log('Order already being cancelled, returning');
+      return;
+    }
+    
+    console.log('Setting canceling state for order:', orderId);
     setCancelingOrders(prev => new Set(prev).add(orderId));
     setCancelErrors(prev => ({ ...prev, [orderId]: '' }));
     setTransactionPending(true);
     
     try {
-      await cancelOrder(order.orderDetailsWithId.orderId);
+      const txResult = await cancelOrder(order.orderDetailsWithId.orderId);
+      
+      console.log('Transaction sent:', txResult);
+      
+      // Wait for transaction confirmation
+      console.log('Waiting for transaction confirmation...');
+      await txResult.wait(); // Wait for the transaction to be mined
+      
+      console.log('Order cancelled successfully:', txResult);
+      
+      // Show success toast only after confirmation
+      console.log('Showing success toast for cancelled order');
+      toast({
+        title: "Order Cancelled!",
+        description: "Your order has been cancelled and tokens returned.",
+        variant: "success",
+      });
+      
+      // Navigate to "My Deals" > "Cancelled" to show the cancelled order
+      setTokenFilter('maxi');
+      setOwnershipFilter('mine');
+      setStatusFilter('cancelled');
+      setExpandedPositions(new Set());
       
       // Clear any previous errors
       setCancelErrors(prev => {
@@ -585,6 +650,7 @@ export function OpenPositionsTable() {
         [orderId]: simplifyErrorMessage(error) || 'Failed to cancel order' 
       }));
     } finally {
+      console.log('Clearing canceling state for order:', orderId);
       setCancelingOrders(prev => {
         const newSet = new Set(prev);
         newSet.delete(orderId);
@@ -650,19 +716,42 @@ export function OpenPositionsTable() {
         }
       });
       
-      await updateOrderInfo(
+      const txResult1 = await updateOrderInfo(
         order.orderDetailsWithId.orderId,
         newSellAmount,
         newBuyTokensIndex,
         newBuyAmounts
       );
       
+      console.log('Update info transaction sent:', txResult1);
+      
       // Update expiration time
       const newExpirationTime = Math.floor(new Date(editFormData.expirationTime).getTime() / 1000);
-      await updateOrderExpirationTime(
+      const txResult2 = await updateOrderExpirationTime(
         order.orderDetailsWithId.orderId,
         BigInt(newExpirationTime)
       );
+      
+      console.log('Update expiration transaction sent:', txResult2);
+      
+      // Wait for both transactions to be confirmed
+      console.log('Waiting for transaction confirmations...');
+      await Promise.all([txResult1.wait(), txResult2.wait()]);
+      
+      console.log('Order updated successfully');
+      
+      // Show success toast only after both transactions are confirmed
+      toast({
+        title: "Order Updated!",
+        description: "Your order details have been successfully updated.",
+        variant: "success",
+      });
+      
+      // Navigate to "My Deals" > "Active" to show the updated order
+      setTokenFilter('maxi');
+      setOwnershipFilter('mine');
+      setStatusFilter('active');
+      setExpandedPositions(new Set());
       
       // Clear form and close edit mode
       setEditingOrder(null);
@@ -1452,7 +1541,11 @@ export function OpenPositionsTable() {
                           disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
                           className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       ) : (
                       <button
@@ -1770,4 +1863,4 @@ export function OpenPositionsTable() {
       )}
     </Container>
   );
-}
+});
