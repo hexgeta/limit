@@ -441,10 +441,13 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
 
   // Helper function to get token index from address (for buy tokens)
   const getBuyTokenIndex = (address: string): number => {
-    const index = BUY_WHITELISTED_TOKENS.findIndex(tokenAddress => 
-      tokenAddress.toLowerCase() === address.toLowerCase()
-    );
-    return index;
+    // Find the contract index, not the position in BUY_WHITELISTED_TOKENS
+    for (const [index, tokenAddress] of Object.entries(CONTRACT_WHITELIST_MAP)) {
+      if (tokenAddress.toLowerCase() === address.toLowerCase()) {
+        return parseInt(index);
+      }
+    }
+    return -1;
   };
 
   // Handle MAX button clicks
@@ -521,6 +524,7 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
       // Convert amounts to wei using correct token decimals
       const sellAmountWei = parseTokenAmount(removeCommas(sellAmount), sellToken.decimals);
       const buyAmountWei = parseTokenAmount(removeCommas(buyAmount), buyToken.decimals);
+      
       
       // Calculate expiration time (current time + expiration days)
       const expirationTime = BigInt(Math.floor(Date.now() / 1000) + (expirationDays * 24 * 60 * 60));
@@ -1247,21 +1251,6 @@ export function CreatePositionModal({ isOpen, onClose }: CreatePositionModalProp
 
 
             {/* Approval Status Info */}
-            {needsApproval && sellToken && (
-              <div className="mt-4 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg">
-                <p className="text-blue-300 text-sm">
-                  {tokenNeedsApproval 
-                    ? `Approve ${sellToken.ticker} tokens to create your order`
-                    : `${sellToken.ticker} tokens are approved and ready`
-                  }
-                </p>
-                {allowance !== undefined && (
-                  <p className="text-blue-200 text-xs mt-1">
-                    Current allowance: {formatTokenAmount(allowance, sellToken.decimals)} {sellToken.ticker}
-                  </p>
-                )}
-              </div>
-            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-4 mt-6">

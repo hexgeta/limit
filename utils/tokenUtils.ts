@@ -161,20 +161,16 @@ export function getTokenInfoByIndex(index: number) {
   // Map contract token indices to actual token addresses
   // Based on the contract's whitelist order
   const contractTokenMap: Record<number, string> = {
-    0: '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
-    1: '0xefd766ccb38eaf1dfd701853bfce31359239f305', // weDAI
-    2: '0x6b0956258ff7bd7645aa35369b55b61b8e6d6140', // LUCKY
-    3: '0xf55cd1e399e1cc3d95303048897a680be3313308', // TRIO
-    4: '0xe9f84d418b008888a992ff8c6d22389c2c3504e0', // BASE
-    5: '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI
-    6: '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
-    7: '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
-    8: '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
-    9: '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
-    10: '0x000000000000000000000000000000000000dEaD', // PLS (native)
-    11: '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
-    12: '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
-    13: '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // DECI
+    0: '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX - PulseX
+    1: '0xefd766ccb38eaf1dfd701853bfce31359239f305', // weDAI - Wrapped DAI from Eth
+    2: '0x000000000000000000000000000000000000dead', // PLS - Pulse
+    3: '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d', // INC - Incentive
+    4: '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX - HEX on Pls
+    5: '0x0deed1486bc52aa0d3e6f8849cec5add6598a162', // stPLS (Liquid Loans)
+    6: '0x02dcdd04e3f455d838cd1249292c58f3b79e3c3c', // weWETH - Wrapped WETH from Eth
+    7: '0x15d38573d2feeb82e7ad5187ab8c1d52810b1f07', // weUSDC - Wrapped USDC from Eth (INACTIVE)
+    8: '0x0cb6f5a34ad42ec934882a05265a7d5f59b51a2f', // weUSDT - Wrapped USDT from Eth (INACTIVE)
+    9: '0x115f3fa979a936167f9d208a7b7c4d85081e84bd', // 2PHUX - 2PHUX Governance Token
   };
   
   const address = contractTokenMap[index];

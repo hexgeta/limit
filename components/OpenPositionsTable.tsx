@@ -165,8 +165,12 @@ export function OpenPositionsTable() {
   const { address } = useAccount();
   const { setTransactionPending } = useTransaction();
   
-  const [activeTab, setActiveTab] = useState<'all' | 'featured'>('featured');
-  const [statusFilter, setStatusFilter] = useState<'my-positions' | 'all-positions' | 'active' | 'completed' | 'cancelled'>('active');
+  // Level 1: Token type filter
+  const [tokenFilter, setTokenFilter] = useState<'maxi' | 'non-maxi'>('maxi');
+  // Level 2: Ownership filter  
+  const [ownershipFilter, setOwnershipFilter] = useState<'mine' | 'non-mine'>('mine');
+  // Level 3: Status filter
+  const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'inactive' | 'cancelled'>('active');
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
@@ -257,35 +261,6 @@ export function OpenPositionsTable() {
     }
   }, []);
   
-  // Debug: Log the token addresses we're trying to fetch prices for
-  useEffect(() => {
-    if (sellTokenAddresses.length > 0) {
-      console.log('Fetching prices for token addresses:', sellTokenAddresses);
-    }
-  }, [sellTokenAddresses]);
-  
-  // Debug: Log the fetched prices
-  useEffect(() => {
-    if (Object.keys(tokenPrices).length > 0) {
-      console.log('Fetched token prices:', tokenPrices);
-    }
-  }, [tokenPrices]);
-
-  // Debug: Log token info for specific tokens
-  useEffect(() => {
-    if (sellTokenAddresses.length > 0) {
-      console.log('Token info debug:');
-      sellTokenAddresses.forEach(address => {
-        const tokenInfo = getTokenInfo(address);
-        console.log(`${address} -> ${tokenInfo.ticker}:`, {
-          ticker: tokenInfo.ticker,
-          name: tokenInfo.name,
-          logo: tokenInfo.logo,
-          hasPrice: !!tokenPrices[address]
-        });
-      });
-    }
-  }, [sellTokenAddresses, tokenPrices]);
 
   useEffect(() => {
     setIsClient(true);
@@ -716,19 +691,15 @@ export function OpenPositionsTable() {
     }
   };
 
-  // Memoize the display orders to prevent unnecessary recalculations
+  // Memoize the display orders with 3-level filtering
   const displayOrders = useMemo(() => {
     if (!allOrders) return [];
     
-    let orders = [];
+    let orders = allOrders;
     
-    // First filter by token type (Maxi Tokens or All)
-    switch (activeTab) {
-      case 'all':
-        orders = allOrders;
-        break;
-      case 'featured': 
-        orders = allOrders.filter(order => {
+    // Level 1: Filter by token type (MAXI vs Non-MAXI)
+    if (tokenFilter === 'maxi') {
+      orders = orders.filter(order => {
           const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
           
           // Check if sell token is in MAXI tokens
@@ -747,27 +718,56 @@ export function OpenPositionsTable() {
           
           return sellTokenInList || buyTokensInList;
         });
-        break;
-      default:
-        orders = allOrders;
+    } else if (tokenFilter === 'non-maxi') {
+      orders = orders.filter(order => {
+        const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
+        
+        // Check if sell token is NOT in MAXI tokens
+        const sellTokenInList = maxiTokenAddresses.some(addr => 
+          sellToken === addr.toLowerCase()
+        );
+        
+        // Check if any buy token is NOT in MAXI tokens
+        const buyTokensInList = order.orderDetailsWithId.orderDetails.buyTokensIndex.some(buyTokenIndex => {
+          const buyTokenInfo = getTokenInfoByIndex(Number(buyTokenIndex));
+          const buyTokenAddress = buyTokenInfo.address?.toLowerCase() || '';
+          return maxiTokenAddresses.some(addr => 
+            buyTokenAddress === addr.toLowerCase()
+          );
+        });
+        
+        return !(sellTokenInList || buyTokensInList);
+      });
     }
     
-    // Then filter by status
+    // Level 2: Filter by ownership (Mine vs Non-Mine)
+    if (ownershipFilter === 'mine') {
+      orders = orders.filter(order => 
+        address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
+      );
+    } else if (ownershipFilter === 'non-mine') {
+      orders = orders.filter(order => 
+        !address || order.userDetails.orderOwner.toLowerCase() !== address.toLowerCase()
+      );
+    }
+    
+    // Level 3: Filter by status
     let filteredOrders = [];
     switch (statusFilter) {
-      case 'my-positions':
-        filteredOrders = orders.filter(order => 
-          address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
-        );
-        break;
-      case 'all-positions':
-        filteredOrders = orders;
-        break;
       case 'active':
-        filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 0);
+        filteredOrders = orders.filter(order => 
+          order.orderDetailsWithId.status === 0 && 
+          Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
+        );
         break;
       case 'completed':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 2);
+        break;
+      case 'inactive':
+        filteredOrders = orders.filter(order => 
+          order.orderDetailsWithId.status === 0 && 
+          Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
+        );
         break;
       case 'cancelled':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 1);
@@ -817,23 +817,18 @@ export function OpenPositionsTable() {
     });
     
     return sortedOrders;
-  }, [allOrders, activeTab, statusFilter, sortField, sortDirection, tokenPrices]);
+  }, [allOrders, tokenFilter, ownershipFilter, statusFilter, sortField, sortDirection, tokenPrices, address]);
 
   // Helper function to get orders for current token filter
-  const getOrdersForCurrentTokenFilter = () => {
-    switch (activeTab) {
-      case 'all':
-        return allOrders;
-      case 'featured': 
+
+  // Helper functions for cascading filter counts
+  const getLevel1Orders = (tokenType: 'maxi' | 'non-maxi') => {
+    if (tokenType === 'maxi') {
         return allOrders.filter(order => {
           const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
-          
-          // Check if sell token is in MAXI tokens
           const sellTokenInList = maxiTokenAddresses.some(addr => 
             sellToken === addr.toLowerCase()
           );
-          
-          // Check if any buy token is in MAXI tokens
           const buyTokensInList = order.orderDetailsWithId.orderDetails.buyTokensIndex.some(buyTokenIndex => {
             const buyTokenInfo = getTokenInfoByIndex(Number(buyTokenIndex));
             const buyTokenAddress = buyTokenInfo.address?.toLowerCase() || '';
@@ -841,28 +836,60 @@ export function OpenPositionsTable() {
               buyTokenAddress === addr.toLowerCase()
             );
           });
-          
           return sellTokenInList || buyTokensInList;
         });
-      default:
-        return allOrders;
+    } else {
+      return allOrders.filter(order => {
+        const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
+        const sellTokenInList = maxiTokenAddresses.some(addr => 
+          sellToken === addr.toLowerCase()
+        );
+        const buyTokensInList = order.orderDetailsWithId.orderDetails.buyTokensIndex.some(buyTokenIndex => {
+          const buyTokenInfo = getTokenInfoByIndex(Number(buyTokenIndex));
+          const buyTokenAddress = buyTokenInfo.address?.toLowerCase() || '';
+          return maxiTokenAddresses.some(addr => 
+            buyTokenAddress === addr.toLowerCase()
+          );
+        });
+        return !(sellTokenInList || buyTokensInList);
+      });
     }
   };
 
-  // Memoize counts for current token filter
-  const currentTokenOrders = useMemo(() => getOrdersForCurrentTokenFilter(), [allOrders, activeTab]);
-  const activeCountForCurrentToken = useMemo(() => 
-    currentTokenOrders.filter(order => order.orderDetailsWithId.status === 0).length, 
-    [currentTokenOrders]
-  );
-  const completedCountForCurrentToken = useMemo(() => 
-    currentTokenOrders.filter(order => order.orderDetailsWithId.status === 2).length, 
-    [currentTokenOrders]
-  );
-  const cancelledCountForCurrentToken = useMemo(() => 
-    currentTokenOrders.filter(order => order.orderDetailsWithId.status === 1).length, 
-    [currentTokenOrders]
-  );
+  const getLevel2Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'mine' | 'non-mine') => {
+    const level1Orders = getLevel1Orders(tokenType);
+    if (ownership === 'mine') {
+      return level1Orders.filter(order => 
+        address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
+      );
+    } else {
+      return level1Orders.filter(order => 
+        !address || order.userDetails.orderOwner.toLowerCase() !== address.toLowerCase()
+      );
+    }
+  };
+
+  const getLevel3Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'mine' | 'non-mine', status: 'active' | 'completed' | 'inactive' | 'cancelled') => {
+    const level2Orders = getLevel2Orders(tokenType, ownership);
+    switch (status) {
+      case 'active':
+        return level2Orders.filter(order => 
+          order.orderDetailsWithId.status === 0 && 
+          Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
+        );
+      case 'completed':
+        return level2Orders.filter(order => order.orderDetailsWithId.status === 2);
+      case 'inactive':
+        return level2Orders.filter(order => 
+          order.orderDetailsWithId.status === 0 && 
+          Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
+        );
+      case 'cancelled':
+        return level2Orders.filter(order => order.orderDetailsWithId.status === 1);
+      default:
+        return level2Orders;
+    }
+  };
 
   // Separate count for MAXI tokens (always calculated independently)
   const maxiTokenOrders = useMemo(() => {
@@ -955,7 +982,15 @@ export function OpenPositionsTable() {
     return `${percentage.toFixed(1)}%`;
   };
 
-  const getStatusText = (status: number) => {
+  const getStatusText = (order: any) => {
+    const status = order.orderDetailsWithId.status;
+    const expirationTime = Number(order.orderDetailsWithId.orderDetails.expirationTime);
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    if (status === 0 && expirationTime < currentTime) {
+      return 'Inactive';
+    }
+    
     switch (status) {
       case 0: return 'Active';
       case 1: return 'Cancelled';
@@ -964,7 +999,15 @@ export function OpenPositionsTable() {
     }
   };
 
-  const getStatusColor = (status: number) => {
+  const getStatusColor = (order: any) => {
+    const status = order.orderDetailsWithId.status;
+    const expirationTime = Number(order.orderDetailsWithId.orderDetails.expirationTime);
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    if (status === 0 && expirationTime < currentTime) {
+      return 'text-yellow-400';
+    }
+    
     switch (status) {
       case 0: return 'text-green-400';
       case 1: return 'text-red-400';
@@ -1001,78 +1044,68 @@ export function OpenPositionsTable() {
       } : {})}
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
-      {/* Token Type Filter - All vs Featured (MAXI tokens) */}
-      <div className="flex justify-left gap-3 mb-6">
+      {/* Level 1: Token Type Filter */}
+      <div className="flex justify-left gap-3 mb-4">
         <button
           onClick={() => {
-            setActiveTab('all');
+            setTokenFilter('maxi');
             clearExpandedPositions();
           }}
           className={`px-6 py-3 rounded-full transition-all duration-100 border ${
-            activeTab === 'all'
+            tokenFilter === 'maxi'
+              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          MAXI ({getLevel1Orders('maxi').length})
+        </button>
+        <button
+          onClick={() => {
+            setTokenFilter('non-maxi');
+            clearExpandedPositions();
+          }}
+          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
+            tokenFilter === 'non-maxi'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          All Tokens ({allOrders.length})
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('featured');
-            clearExpandedPositions();
-          }}
-          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
-            activeTab === 'featured'
-              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          MAXI Tokens ({maxiTokenOrders.length})
+          Non-MAXI ({getLevel1Orders('non-maxi').length})
         </button>
       </div>
 
+      {/* Level 2: Ownership Filter */}
+      <div className="flex justify-left gap-3 mb-4">
+        <button
+          onClick={() => {
+            setOwnershipFilter('mine');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+            ownershipFilter === 'mine'
+              ? 'bg-green-500/20 text-green-400 border-green-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          My Deals ({getLevel2Orders(tokenFilter, 'mine').length})
+        </button>
+        <button
+          onClick={() => {
+            setOwnershipFilter('non-mine');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+            ownershipFilter === 'non-mine'
+              ? 'bg-orange-500/20 text-orange-400 border-orange-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          Marketplace ({getLevel2Orders(tokenFilter, 'non-mine').length})
+        </button>
+      </div>
 
-      {/* Status Filter - Centered with Label Styling */}
-      <StatusFilter 
-        {...(showMotion ? {
-          initial: { opacity: 0, y: 10 },
-          animate: { opacity: 1, y: 0 },
-          transition: { 
-          duration: 0.4,
-          delay: 0.2,
-          ease: [0.23, 1, 0.32, 1]
-          }
-        } : {})}
-        className="flex justify-right gap-3 mb-4"
-      >
-        <button
-          onClick={() => {
-            setStatusFilter('my-positions');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            statusFilter === 'my-positions'
-              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          My Positions ({address ? currentTokenOrders?.filter(order => 
-            order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
-          ).length || 0 : 0})
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('all-positions');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            statusFilter === 'all-positions'
-              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          All Positions ({currentTokenOrders?.length || 0})
-        </button>
+      {/* Level 3: Status Filter */}
+      <div className="flex justify-left gap-3 mb-6">
         <button
           onClick={() => {
             setStatusFilter('active');
@@ -1084,7 +1117,7 @@ export function OpenPositionsTable() {
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          Active ({activeCountForCurrentToken})
+          Active ({getLevel3Orders(tokenFilter, ownershipFilter, 'active').length})
         </button>
         <button
           onClick={() => {
@@ -1097,7 +1130,20 @@ export function OpenPositionsTable() {
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          Completed ({completedCountForCurrentToken})
+          Completed ({getLevel3Orders(tokenFilter, ownershipFilter, 'completed').length})
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('inactive');
+            clearExpandedPositions();
+          }}
+          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+            statusFilter === 'inactive'
+              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
+              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
+          }`}
+        >
+          Inactive ({getLevel3Orders(tokenFilter, ownershipFilter, 'inactive').length})
         </button>
         <button
           onClick={() => {
@@ -1110,9 +1156,9 @@ export function OpenPositionsTable() {
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          Cancelled ({cancelledCountForCurrentToken})
+          Cancelled ({getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length})
         </button>
-      </StatusFilter>
+      </div>
 
       <TableContainer 
         {...(showMotion ? {
@@ -1140,22 +1186,7 @@ export function OpenPositionsTable() {
         <div className="overflow-x-auto scrollbar-hide">
           {!displayOrders || displayOrders.length === 0 ? (
             <div className="text-center py-8">
-              {statusFilter === 'my-positions' || statusFilter === 'all-positions' ? (
-                <p className="text-gray-400 mb-2">No {statusFilter.replace('-', ' ')} found</p>
-              ) : (
-                <>
-                  <p className="text-gray-400 mb-2">No {activeTab} {statusFilter} orders found</p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    The contract shows {orderCounter ? orderCounter.toString() : 'unknown'} total orders, but there's a bug in the contract's view functions.
-                  </p>
-                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                    <p className="text-yellow-400 text-sm">
-                      <strong>Contract Issue:</strong> The `_viewUserOrdersWithStatus` function has a bug on line 711 
-                      where it checks `userOrders[index].status` instead of `orders[_user][index].status`.
-                    </p>
-                  </div>
-                </>
-              )}
+              <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'mine' ? 'deals' : 'orders'} found</p>
             </div>
           ) : (
             <div className="w-full min-w-[800px] text-lg">
@@ -1395,13 +1426,15 @@ export function OpenPositionsTable() {
                   {/* COLUMN 5: Status Content */}
                   <div className="text-center">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                      order.orderDetailsWithId.status === 0 
+                      getStatusText(order) === 'Inactive'
+                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
+                        : order.orderDetailsWithId.status === 0 
                         ? 'bg-green-500/20 text-green-400 border-green-400' 
                         : order.orderDetailsWithId.status === 1
                         ? 'bg-red-500/20 text-red-400 border-red-400'
                         : 'bg-blue-500/20 text-blue-400 border-blue-400'
                     }`}>
-                      {getStatusText(order.orderDetailsWithId.status)}
+                      {getStatusText(order)}
                     </span>
                   </div>
                   
@@ -1412,27 +1445,28 @@ export function OpenPositionsTable() {
                   
                   {/* COLUMN 7: Actions Content */}
                     <div className="text-right">
-                      {statusFilter === 'my-positions' && order.orderDetailsWithId.status === 0 ? (
+                      {ownershipFilter === 'mine' && 
+                       order.orderDetailsWithId.status === 0 ? (
                         <button
                           onClick={() => handleCancelOrder(order)}
                           disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
-                          className="p-2 rounded-full hover:text-red-400 transition-colors disabled:opacity-50"
+                          className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       ) : (
-                        <button
-                          onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                          className="p-2 rounded-full hover:text-white transition-colors"
-                        >
-                          <ChevronDown 
-                            className={`w-4 h-4 transition-transform duration-200 ${
-                              expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
-                            }`}
-                          />
-                        </button>
+                      <button
+                        onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                        className="p-2 rounded-full hover:text-white transition-colors"
+                      >
+                        <ChevronDown 
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
+                          }`}
+                        />
+                      </button>
                       )}
-                    </div>
+                  </div>
                 </motion.div>
                   
                   {/* Expandable Actions Shelf */}
@@ -1470,7 +1504,7 @@ export function OpenPositionsTable() {
                                         <span className="text-white text-sm font-medium">
                                           {formatTokenTicker(tokenInfo.ticker)}
                                         </span>
-                                      </div>
+            </div>
                                       <div className="flex flex-col">
                                         <input
                                           type="text"
@@ -1484,7 +1518,7 @@ export function OpenPositionsTable() {
                                           className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-sm w-26 md:w-20 focus:border-white/40 focus:outline-none"
                                           placeholder="0"
                                         />
-                                      </div>
+          </div>
                                     </div>
                                   );
                                 })}
@@ -1600,7 +1634,8 @@ export function OpenPositionsTable() {
                                   {/* Cancel Button */}
                                   <button
                                     onClick={() => handleCancelOrder(order)}
-                                    disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) || order.orderDetailsWithId.status !== 0}
+                                    disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) || 
+                                             order.orderDetailsWithId.status !== 0}
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? 'Canceling...' : 'Cancel Order'}
