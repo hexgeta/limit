@@ -1073,19 +1073,19 @@ export function CreatePositionModal({
                                 <span className="text-white">{sellStats.token.priceHEX.toFixed(4)} HEX</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Current Discount / Premiumfrom Backing:</span>
+                                <span className="text-gray-400">Current Discount / Premium from Backing:</span>
                                 <span className={`font-medium ${sellStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                   {(sellStats.token.discountFromBacking * 100).toFixed(2)}%
                                 </span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Current Discount / Premiumfrom Mint:</span>
+                                <span className="text-gray-400">Current Discount / Premium from Mint:</span>
                                 <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                   {(sellStats.token.discountFromMint * 100).toFixed(2)}%
                                 </span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Progress:</span>
+                                <span className="text-gray-400">Progresiiii:</span>
                                 <span className="text-blue-400">{(sellStats.dates.progressPercentage * 100).toFixed(1)}%</span>
                               </div>
                               
