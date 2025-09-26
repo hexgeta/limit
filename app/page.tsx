@@ -78,27 +78,6 @@ export default function Home() {
                 )}
               </div>
               
-              {/* Test Buttons */}
-              <div className="flex gap-2 text-sm">
-                <button 
-                  onClick={testSuccessToast}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Test Success Toast
-                </button>
-                <button 
-                  onClick={testErrorToast}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Test Error Toast
-                </button>
-                <button 
-                  onClick={testLoadingState}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Test Loading Wheel
-                </button>
-              </div>
             </div>
           )}
         </div>

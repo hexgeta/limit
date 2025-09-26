@@ -1489,7 +1489,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {(() => {
                       const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
                       const sellTokenInfo = getTokenInfo(sellTokenAddress);
-                      const tokenAmount = parseFloat(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals));
+                      const formattedAmount = formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals);
+                      
+                      const rawRemainingPercentage = order.orderDetailsWithId.remainingExecutionPercentage;
+                      const remainingPercentage = Number(rawRemainingPercentage) / 1e18; // This gives us a decimal like 0.5 for 50%
+                      const originalAmount = order.orderDetailsWithId.orderDetails.sellAmount;
+                      const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                      const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, sellTokenInfo.decimals));
                       const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                       
@@ -1511,7 +1517,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                     </span>
                               <span className="text-gray-400 text-xs">
-                                {formatAmount(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals))}
+                                {tokenAmount.toFixed(2)}
                               </span>
                               {tokenPrice > 0 && (
                                 <span className="text-gray-500 text-xs">
@@ -1534,9 +1540,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
                       
                       if (buyTokensIndex && buyAmounts && Array.isArray(buyTokensIndex) && Array.isArray(buyAmounts)) {
+                        const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
+                        
                         buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-                          const tokenAmount = parseFloat(formatTokenAmount(buyAmounts[idx], tokenInfo.decimals));
+                          const originalAmount = buyAmounts[idx];
+                          const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                          const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                           const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                           totalUsdValue += usdValue;
@@ -1552,7 +1562,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           <div className="w-1/2 h-px bg-white/10 my-2"></div>
                           {buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-                            const tokenAmount = parseFloat(formatTokenAmount(buyAmounts[idx], tokenInfo.decimals));
+                            const originalAmount = buyAmounts[idx];
+                            const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
+                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                            const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                             const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                             const usdValue = tokenAmount * tokenPrice;
                             
@@ -1569,7 +1582,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                     {formatTokenTicker(tokenInfo.ticker)}
                           </span>
                                   <span className="text-gray-400 text-xs">
-                            {formatAmount(formatTokenAmount(order.orderDetailsWithId.orderDetails.buyAmounts[idx], tokenInfo.decimals))}
+                            {tokenAmount.toFixed(2)}
                           </span>
                                   {tokenPrice > 0 && (
                                     <span className="text-gray-500 text-xs">
