@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowLeftRight } from 'lucide-react';
+import { X, ArrowLeftRight, Lock } from 'lucide-react';
+import PaywallModal from './PaywallModal';
 import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { MORE_COINS } from '@/constants/more-coins';
@@ -66,7 +67,7 @@ const DROPDOWN_ORDER = [
 const BUY_WHITELISTED_TOKENS = [
   // Contract tokens in custom order
   ...DROPDOWN_ORDER.map(index => CONTRACT_WHITELIST_MAP[index]),
-  
+
   // MAXI tokens at the end
   ...MAXI_TOKENS,
 ];
@@ -76,7 +77,7 @@ const BUY_WHITELISTED_TOKENS = [
 const SELL_WHITELISTED_TOKENS = [
   // Contract tokens in custom order (same as buy side)
   ...DROPDOWN_ORDER.map(index => CONTRACT_WHITELIST_MAP[index]),
-  
+
   // MAXI tokens at the end
   ...MAXI_TOKENS,
 ];
@@ -101,29 +102,33 @@ interface TokenOption {
   decimals: number;
 }
 
-export function CreatePositionModal({ 
-  isOpen, 
-  onClose, 
-  onTransactionStart, 
-  onTransactionEnd, 
-  onTransactionSuccess, 
+export function CreatePositionModal({
+  isOpen,
+  onClose,
+  onTransactionStart,
+  onTransactionEnd,
+  onTransactionSuccess,
   onTransactionError,
   onOrderCreated
 }: CreatePositionModalProps) {
+  // Paywall configuration
+  const paywall_on = true; // Set to false to disable paywall
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
+
   // Default initial tokens
   const DEFAULT_SELL_TOKEN = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
   const DEFAULT_BUY_TOKEN = '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b'; // MAXI
 
   // Fetch token stats from LookIntoMaxi API
   const { tokenStats, isLoading: statsLoading, error: statsError } = useTokenStats();
-  
+
   // Contract functions
   const { placeOrder, isWalletConnected, address } = useContractWhitelist();
   const { setTransactionPending } = useTransaction();
-  
+
   // Public client for manual balance checks
   const publicClient = usePublicClient();
-  
+
   // Contract address for token approvals
   const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
 
@@ -157,33 +162,33 @@ export function CreatePositionModal({
         spenderAddress: OTC_CONTRACT_ADDRESS,
         amount: sellAmountWei.toString()
       });
-      
+
       const txHash = await approveToken();
       console.log('Approval transaction sent:', txHash);
-      
+
       // Wait for the approval transaction to be confirmed
       console.log('Waiting for approval transaction to be confirmed...');
-      
+
       // Wait for the allowance to be updated (this indicates approval is complete)
       let attempts = 0;
       const maxAttempts = 30; // 30 seconds max wait
-      
+
       const waitForApproval = async () => {
         try {
           while (attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
             attempts++;
-            
+
             // Check if approval is now complete
             if (tokenNeedsApproval === false || isApproved === true) {
               console.log('Approval confirmed, proceeding to create order...');
               handleCreateDeal();
               return;
             }
-            
+
             console.log(`Waiting for approval... attempt ${attempts}/${maxAttempts}`);
           }
-          
+
           // If we get here, approval didn't complete in time
           console.log('Approval timeout, but proceeding anyway...');
           handleCreateDeal();
@@ -193,7 +198,7 @@ export function CreatePositionModal({
           onTransactionEnd?.();
         }
       };
-      
+
       waitForApproval();
     } catch (error: any) {
       console.error('Token approval failed:', error);
@@ -228,7 +233,7 @@ export function CreatePositionModal({
       decimals: tokenInfo.decimals
     };
   });
-  
+
   const [buyToken, setBuyToken] = useState<TokenOption | null>(() => {
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('buyToken');
@@ -252,21 +257,21 @@ export function CreatePositionModal({
       decimals: tokenInfo.decimals
     };
   });
-  
+
   const [sellAmount, setSellAmount] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('sellAmount') || '';
     }
     return '';
   });
-  
+
   const [buyAmount, setBuyAmount] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('buyAmount') || '';
     }
     return '';
   });
-  
+
   const [expirationDays, setExpirationDays] = useState(() => {
     if (typeof window !== 'undefined') {
       return Number(sessionStorage.getItem('expirationDays')) || 7;
@@ -276,16 +281,16 @@ export function CreatePositionModal({
 
   // Token approval state
   const [approvalError, setApprovalError] = useState<string | null>(null);
-  
+
   // Helper function to remove commas for calculations
   const removeCommas = (value: string): string => {
     return value.replace(/,/g, '');
   };
-  
+
   // Token approval hook - only for ERC20 tokens (not native PLS)
   const sellAmountWei = sellToken && sellAmount ? parseTokenAmount(removeCommas(sellAmount), sellToken.decimals) : 0n;
   const needsApproval = Boolean(sellToken && !isNativeToken(sellToken.address) && sellAmountWei > 0n);
-  
+
   // Debug logging for approval
   console.log('Approval Debug:', {
     sellToken: sellToken?.address,
@@ -295,13 +300,13 @@ export function CreatePositionModal({
     isNative: sellToken ? isNativeToken(sellToken.address) : false,
     OTC_CONTRACT_ADDRESS
   });
-  
-  const { 
-    allowance, 
-    needsApproval: tokenNeedsApproval, 
-    isApproved, 
-    isApproving, 
-    approveToken 
+
+  const {
+    allowance,
+    needsApproval: tokenNeedsApproval,
+    isApproved,
+    isApproving,
+    approveToken
   } = useTokenApproval(
     needsApproval && sellToken ? sellToken.address as `0x${string}` : '0x0000000000000000000000000000000000000000' as `0x${string}`,
     OTC_CONTRACT_ADDRESS,
@@ -322,7 +327,7 @@ export function CreatePositionModal({
       retry: 3,
     }
   });
-  
+
   const { data: buyTokenBalance, isLoading: buyBalanceLoading, error: buyBalanceError } = useBalance({
     address: address,
     token: isNativeToken(buyToken?.address || '') ? undefined : buyToken?.address as `0x${string}`,
@@ -361,7 +366,7 @@ export function CreatePositionModal({
       if (isNaN(num)) return value;
       return num.toLocaleString() + '.';
     }
-    
+
     const num = parseFloat(value);
     if (isNaN(num)) return value;
     return num.toLocaleString();
@@ -375,10 +380,10 @@ export function CreatePositionModal({
   ) => {
     const input = e.target;
     const rawValue = removeCommas(input.value);
-    
+
     if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
       setter(rawValue);
-      
+
       // Use a more reliable approach with double requestAnimationFrame
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -387,7 +392,7 @@ export function CreatePositionModal({
             const formattedValue = formatNumberWithCommas(rawValue);
             const originalCursorPos = input.selectionStart || 0;
             const originalValue = input.value;
-            
+
             // If the user is typing at the end, keep cursor at the end
             if (originalCursorPos >= originalValue.length - 1) {
               inputRef.current.setSelectionRange(formattedValue.length, formattedValue.length);
@@ -409,7 +414,7 @@ export function CreatePositionModal({
     const tempToken = sellToken;
     setSellToken(buyToken);
     setBuyToken(tempToken);
-    
+
     // Swap amounts
     const tempAmount = sellAmount;
     setSellAmount(buyAmount);
@@ -417,7 +422,7 @@ export function CreatePositionModal({
   };
   const [showSellDropdown, setShowSellDropdown] = useState(false);
   const [showBuyDropdown, setShowBuyDropdown] = useState(false);
-  
+
   // Refs for dropdown containers
   const sellDropdownRef = useRef<HTMLDivElement>(null);
   const buyDropdownRef = useRef<HTMLDivElement>(null);
@@ -461,7 +466,7 @@ export function CreatePositionModal({
 
   // Helper function to get token index from address (for sell tokens)
   const getSellTokenIndex = (address: string): number => {
-    const index = SELL_WHITELISTED_TOKENS.findIndex(tokenAddress => 
+    const index = SELL_WHITELISTED_TOKENS.findIndex(tokenAddress =>
       tokenAddress.toLowerCase() === address.toLowerCase()
     );
     return index;
@@ -496,7 +501,7 @@ export function CreatePositionModal({
   // Manual balance check for debugging
   const checkBalanceManually = async () => {
     if (!address || !sellToken || !publicClient) return;
-    
+
     try {
       if (sellToken.address === '0x0') {
         // Native PLS balance
@@ -553,11 +558,11 @@ export function CreatePositionModal({
       // Convert amounts to wei using correct token decimals
       const sellAmountWei = parseTokenAmount(removeCommas(sellAmount), sellToken.decimals);
       const buyAmountWei = parseTokenAmount(removeCommas(buyAmount), buyToken.decimals);
-      
-      
+
+
       // Calculate expiration time (current time + expiration days)
       const expirationTime = BigInt(Math.floor(Date.now() / 1000) + (expirationDays * 24 * 60 * 60));
-      
+
       // Map buy token to its index
       const buyTokenIndex = getBuyTokenIndex(buyToken.address);
       if (buyTokenIndex === -1) {
@@ -574,30 +579,30 @@ export function CreatePositionModal({
       };
 
       console.log('Creating order with details:', orderDetails);
-      
+
       // Call the contract function - only send value if selling native PLS
       const value = sellToken.address === '0x000000000000000000000000000000000000dead' ? sellAmountWei : undefined;
       const txHash = await placeOrder(orderDetails, value);
-      
+
       console.log('Transaction sent:', txHash);
-      
+
       // Wait for transaction confirmation using public client
       console.log('Waiting for transaction confirmation...');
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: txHash as `0x${string}`,
         timeout: 60_000, // 60 second timeout
       });
-      
+
       console.log('Order created successfully:', receipt);
-      
+
       // Refresh data and navigate to show the new order
       onOrderCreated?.();
-      
+
       // Show success toast and close modal only after confirmation
       onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.');
-      
+
       handleClose();
-      
+
     } catch (error: any) {
       console.error('Error creating order:', error);
       const errorMessage = error.message || 'Failed to create order. Please try again.';
@@ -735,214 +740,214 @@ export function CreatePositionModal({
                 {/* You Offer Section */}
                 <div className="bg-white/5 rounded-xl p-6">
                   <h3 className="text-white font-semibold mb-4">Your Offer</h3>
-                
-                {/* Token Selector */}
-                <div className="relative mb-4" ref={sellDropdownRef}>
-                  <button
-                    onClick={handleSellDropdownToggle}
-                    className="w-full bg-black border border-gray-600 rounded-lg p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {sellToken ? (
-                        <>
-                          <img 
-                            src={sellToken.logo} 
-                            alt={sellToken.ticker}
-                            className="w-6 h-6 rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = '/coin-logos/default.svg';
-                            }}
-                          />
-                          <span className="text-white font-medium">{formatTokenTicker(sellToken.ticker)}</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-400">Select token</span>
-                      )}
-                    </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
 
-                  {/* Dropdown */}
-                  {showSellDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
-                      {sellTokenOptions.map((token) => (
-                        <button
-                          key={token.address}
-                          onClick={() => handleSellTokenSelect(token)}
-                          className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
-                        >
-                          <img 
-                            src={token.logo} 
-                            alt={token.ticker}
-                            className="w-6 h-6 rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = '/coin-logos/default.svg';
-                            }}
-                          />
-                          <div>
-                            <div className="text-white font-medium">{formatTokenTicker(token.ticker)}</div>
-                            <div className="text-gray-400 text-xs">{token.name}</div>
-                          </div>
-                        </button>
-                      ))}
+                  {/* Token Selector */}
+                  <div className="relative mb-4" ref={sellDropdownRef}>
+                    <button
+                      onClick={handleSellDropdownToggle}
+                      className="w-full bg-black border border-gray-600 rounded-lg p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {sellToken ? (
+                          <>
+                            <img
+                              src={sellToken.logo}
+                              alt={sellToken.ticker}
+                              className="w-6 h-6 rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/coin-logos/default.svg';
+                              }}
+                            />
+                            <span className="text-white font-medium">{formatTokenTicker(sellToken.ticker)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Select token</span>
+                        )}
+                      </div>
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown */}
+                    {showSellDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
+                        {sellTokenOptions.map((token) => (
+                          <button
+                            key={token.address}
+                            onClick={() => handleSellTokenSelect(token)}
+                            className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
+                          >
+                            <img
+                              src={token.logo}
+                              alt={token.ticker}
+                              className="w-6 h-6 rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/coin-logos/default.svg';
+                              }}
+                            />
+                            <div>
+                              <div className="text-white font-medium">{formatTokenTicker(token.ticker)}</div>
+                              <div className="text-gray-400 text-xs">{token.name}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Amount Input */}
+                  <input
+                    ref={sellAmountRef}
+                    type="text"
+                    placeholder="Enter amount"
+                    value={formatNumberWithCommas(sellAmount)}
+                    onChange={(e) => handleAmountChange(e, setSellAmount, sellAmountRef)}
+                    className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
+                  />
+
+                  {/* Balance and MAX button */}
+                  {sellToken && (
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-gray-400 text-xs">
+                        {sellBalanceLoading ? (
+                          'Loading balance...'
+                        ) : sellBalanceError ? (
+                          'Error loading balance'
+                        ) : sellTokenBalance ? (
+                          `Balance: ${formatNumberWithCommas(sellTokenBalance.formatted)} ${formatTokenTicker(sellToken.ticker)}`
+                        ) : (
+                          'Balance: --'
+                        )}
+                      </span>
+                      <div className="flex space-x-2">
+                        {sellTokenBalance && !sellBalanceLoading && !sellBalanceError && (
+                          <button
+                            type="button"
+                            onClick={handleMaxSellAmount}
+                            className="text-blue-400 hover:text-white text-xs font-medium transition-colors"
+                          >
+                            MAX
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price conversion display */}
+                  {sellAmount && buyAmount && sellToken && buyToken && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0 && (
+                    <div className="mt-2 text-xs text-gray-400">
+                      1 {formatTokenTicker(sellToken.ticker)} = {(() => {
+                        const ratio = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
+                        // Use toPrecision(4) and remove trailing zeros
+                        return parseFloat(ratio.toPrecision(4)).toString();
+                      })()} {formatTokenTicker(buyToken.ticker)}
                     </div>
                   )}
                 </div>
 
-                {/* Amount Input */}
-                <input
-                  ref={sellAmountRef}
-                  type="text"
-                  placeholder="Enter amount"
-                  value={formatNumberWithCommas(sellAmount)}
-                  onChange={(e) => handleAmountChange(e, setSellAmount, sellAmountRef)}
-                  className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
-                />
-                
-                {/* Balance and MAX button */}
-                {sellToken && (
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-400 text-xs">
-                      {sellBalanceLoading ? (
-                        'Loading balance...'
-                      ) : sellBalanceError ? (
-                        'Error loading balance'
-                      ) : sellTokenBalance ? (
-                        `Balance: ${formatNumberWithCommas(sellTokenBalance.formatted)} ${formatTokenTicker(sellToken.ticker)}`
-                      ) : (
-                        'Balance: --'
-                      )}
-                    </span>
-                    <div className="flex space-x-2">
-                      {sellTokenBalance && !sellBalanceLoading && !sellBalanceError && (
-                        <button
-                          type="button"
-                          onClick={handleMaxSellAmount}
-                          className="text-blue-400 hover:text-white text-xs font-medium transition-colors"
-                        >
-                          MAX
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Price conversion display */}
-                {sellAmount && buyAmount && sellToken && buyToken && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0 && (
-                  <div className="mt-2 text-xs text-gray-400">
-                    1 {formatTokenTicker(sellToken.ticker)} = {(() => {
-                      const ratio = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
-                      // Use toPrecision(4) and remove trailing zeros
-                      return parseFloat(ratio.toPrecision(4)).toString();
-                    })()} {formatTokenTicker(buyToken.ticker)}
-                  </div>
-                )}
-              </div>
-
-              {/* Swap Button - Middle Column */}
-              <div className="flex justify-center items-center w-fit mx-auto">
-                <button
-                  onClick={handleSwapTokens}
-                  className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                  title="Swap tokens and amounts"
-                >
-                  <ArrowLeftRight className="w-5 h-5 text-gray-400 hover:text-white transition-colors" />
-                </button>
-              </div>
+                {/* Swap Button - Middle Column */}
+                <div className="flex justify-center items-center w-fit mx-auto">
+                  <button
+                    onClick={handleSwapTokens}
+                    className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                    title="Swap tokens and amounts"
+                  >
+                    <ArrowLeftRight className="w-5 h-5 text-gray-400 hover:text-white transition-colors" />
+                  </button>
+                </div>
 
                 {/* You Want Section */}
                 <div className="bg-white/5 rounded-xl p-6">
                   <h3 className="text-white font-semibold mb-4">Your Ask</h3>
-                
-                {/* Token Selector */}
-                <div className="relative mb-4" ref={buyDropdownRef}>
-                  <button
-                    onClick={handleBuyDropdownToggle}
-                    className="w-full bg-black border border-gray-600 rounded-lg p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {buyToken ? (
-                        <>
-                          <img 
-                            src={buyToken.logo} 
-                            alt={buyToken.ticker}
-                            className="w-6 h-6 rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = '/coin-logos/default.svg';
-                            }}
-                          />
-                          <span className="text-white font-medium">{formatTokenTicker(buyToken.ticker)}</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-400">Select token</span>
-                      )}
-                    </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
 
-                  {/* Dropdown */}
-                  {showBuyDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
-                      {buyTokenOptions.map((token) => (
-                        <button
-                          key={token.address}
-                          onClick={() => handleBuyTokenSelect(token)}
-                          className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
-                        >
-                          <img 
-                            src={token.logo} 
-                            alt={token.ticker}
-                            className="w-6 h-6 rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = '/coin-logos/default.svg';
-                            }}
-                          />
-                          <div>
-                            <div className="text-white font-medium">{formatTokenTicker(token.ticker)}</div>
-                            <div className="text-gray-400 text-xs">{token.name}</div>
-                          </div>
-                        </button>
-                      ))}
+                  {/* Token Selector */}
+                  <div className="relative mb-4" ref={buyDropdownRef}>
+                    <button
+                      onClick={handleBuyDropdownToggle}
+                      className="w-full bg-black border border-gray-600 rounded-lg p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {buyToken ? (
+                          <>
+                            <img
+                              src={buyToken.logo}
+                              alt={buyToken.ticker}
+                              className="w-6 h-6 rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/coin-logos/default.svg';
+                              }}
+                            />
+                            <span className="text-white font-medium">{formatTokenTicker(buyToken.ticker)}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Select token</span>
+                        )}
+                      </div>
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown */}
+                    {showBuyDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
+                        {buyTokenOptions.map((token) => (
+                          <button
+                            key={token.address}
+                            onClick={() => handleBuyTokenSelect(token)}
+                            className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
+                          >
+                            <img
+                              src={token.logo}
+                              alt={token.ticker}
+                              className="w-6 h-6 rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/coin-logos/default.svg';
+                              }}
+                            />
+                            <div>
+                              <div className="text-white font-medium">{formatTokenTicker(token.ticker)}</div>
+                              <div className="text-gray-400 text-xs">{token.name}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Amount Input */}
+                  <input
+                    ref={buyAmountRef}
+                    type="text"
+                    placeholder="Enter amount"
+                    value={formatNumberWithCommas(buyAmount)}
+                    onChange={(e) => handleAmountChange(e, setBuyAmount, buyAmountRef)}
+                    className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
+                  />
+
+                  {/* Invisible placeholder to match height with YOUR OFFER section */}
+                  <div className="flex justify-between items-center mt-2 invisible">
+                    <span className="text-gray-400 text-xs">
+                      Balance: -- --
+                    </span>
+                    <div className="flex space-x-2">
+                      <span className="text-gray-400 hover:text-white text-xs font-medium">
+                        MAX
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Price conversion display */}
+                  {sellAmount && buyAmount && sellToken && buyToken && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0 && (
+                    <div className="mt-2 text-xs text-gray-400">
+                      1 {formatTokenTicker(buyToken.ticker)} = {(() => {
+                        const ratio = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
+                        // Use toPrecision(4) and remove trailing zeros
+                        return parseFloat(ratio.toPrecision(4)).toString();
+                      })()} {formatTokenTicker(sellToken.ticker)}
                     </div>
                   )}
-                </div>
-
-                {/* Amount Input */}
-                <input
-                  ref={buyAmountRef}
-                  type="text"
-                  placeholder="Enter amount"
-                  value={formatNumberWithCommas(buyAmount)}
-                  onChange={(e) => handleAmountChange(e, setBuyAmount, buyAmountRef)}
-                  className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
-                />
-                
-                {/* Invisible placeholder to match height with YOUR OFFER section */}
-                <div className="flex justify-between items-center mt-2 invisible">
-                  <span className="text-gray-400 text-xs">
-                    Balance: -- --
-                  </span>
-                  <div className="flex space-x-2">
-                    <span className="text-gray-400 hover:text-white text-xs font-medium">
-                      MAX
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Price conversion display */}
-                {sellAmount && buyAmount && sellToken && buyToken && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0 && (
-                  <div className="mt-2 text-xs text-gray-400">
-                    1 {formatTokenTicker(buyToken.ticker)} = {(() => {
-                      const ratio = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
-                      // Use toPrecision(4) and remove trailing zeros
-                      return parseFloat(ratio.toPrecision(4)).toString();
-                    })()} {formatTokenTicker(sellToken.ticker)}
-                  </div>
-                )}
                 </div>
               </div>
 
@@ -980,28 +985,47 @@ export function CreatePositionModal({
                       <span className="text-gray-400">Your Ask:</span>
                       <span className="text-white font-medium">{formatNumberWithCommas(removeCommas(buyAmount))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
                     </div>
-                     <div className="flex justify-between items-center">
-                       <div>
-                         <span className="text-gray-400">MAX Fee:</span>
-                         <div className="text-xs text-gray-500 mt-1">Max 1% fee deducted from buyer at sale (0.5% with NFT)</div>
-                       </div>
-                       <span className="text-red-400 font-medium">-{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.01).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
-                     </div>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-gray-400">MAX Fee:</span>
+                        <div className="text-xs text-gray-500 mt-1">Max 1% fee deducted from buyer at sale (0.5% with NFT)</div>
+                      </div>
+                      <span className="text-red-400 font-medium">-{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.01).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
+                    </div>
 
-                     <div className="border-t border-white/10 pt-3">
-                       <div className="flex justify-between items-center">
-                         <span className="text-white font-semibold">You Receive:</span>
-                         <span className="text-white font-bold">{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.99).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
-                       </div>
-                     </div>
+                    <div className="border-t border-white/10 pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-white font-semibold">You Receive:</span>
+                        <span className="text-white font-bold">{formatNumberWithCommas((parseFloat(removeCommas(buyAmount)) * 0.99).toFixed(2))} {buyToken ? formatTokenTicker(buyToken.ticker) : 'tokens'}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Pro Plan - Show token stats when both tokens are selected and at least one has stats */}
               {sellToken && buyToken && (showSellStats || showBuyStats) && (
-                <div className="bg-white/5 rounded-xl p-6 mt-6">
+                <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${paywall_on ? 'overflow-hidden' : ''}`}>
                   <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
+                  
+                  {/* Paywall Overlay */}
+                  {paywall_on && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowPaywallModal(true);
+                        }}
+                        className="flex flex-col items-center space-y-3 p-6 rounded-lg hover:bg-white/5 transition-colors"
+                      >
+                        <Lock className="w-12 h-12 text-gray-400 hover:text-white transition-colors" />
+                        <div className="text-center">
+                          <p className="text-white font-semibold">Premium Data Access</p>
+                          <p className="text-gray-400 text-sm">Click to unlock advanced analytics</p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
                   {statsLoading ? (
                     <div className="text-gray-400 text-center py-4">Loading token stats...</div>
                   ) : statsError ? (
@@ -1011,254 +1035,254 @@ export function CreatePositionModal({
                       {/* Sell Token Stats */}
                       {showSellStats && (
                         <div className="space-y-3">
-                        <h4 className="text-white font-medium flex items-center space-x-2">
-                          <img 
-                            src={sellToken.logo} 
-                            alt={sellToken.ticker}
-                            className="w-5 h-5 rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = '/coin-logos/default.svg';
-                            }}
-                          />
-                          <span>{formatTokenTicker(sellToken.ticker)} Stats</span>
-                        </h4>
-                        {(() => {
-                          const sellTokenKey = sellToken.ticker.startsWith('e') ? `e${sellToken.ticker.slice(1)}` : `p${sellToken.ticker}`;
-                          const sellStats = tokenStats[sellTokenKey];
-                          
-                          if (!sellStats) {
-                            return <div className="text-gray-400 text-sm">Stats not available</div>;
-                          }
+                          <h4 className="text-white font-medium flex items-center space-x-2">
+                            <img
+                              src={sellToken.logo}
+                              alt={sellToken.ticker}
+                              className="w-5 h-5 rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/coin-logos/default.svg';
+                              }}
+                            />
+                            <span>{formatTokenTicker(sellToken.ticker)} Stats</span>
+                          </h4>
+                          {(() => {
+                            const sellTokenKey = sellToken.ticker.startsWith('e') ? `e${sellToken.ticker.slice(1)}` : `p${sellToken.ticker}`;
+                            const sellStats = tokenStats[sellTokenKey];
 
-                          // Calculate your custom price in HEX terms
-                          let yourPriceInHEX: number | null = null;
-                          if (buyToken && sellAmount && buyAmount && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
-                            if (buyToken.ticker === 'HEX') {
-                              // If buying HEX, your price is buyAmount/sellAmount HEX per sellToken
-                              yourPriceInHEX = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
-                            } else {
-                              // If buying another token, we need to convert through HEX
-                              const buyTokenKey = buyToken.ticker.startsWith('e') ? `e${buyToken.ticker.slice(1)}` : `p${buyToken.ticker}`;
-                              const buyStats = tokenStats[buyTokenKey];
-                              if (buyStats && buyStats.token.priceHEX > 0) {
-                                // Convert: sellToken -> HEX -> buyToken
-                                const hexPerSellToken = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount)) * buyStats.token.priceHEX;
-                                yourPriceInHEX = hexPerSellToken;
+                            if (!sellStats) {
+                              return <div className="text-gray-400 text-sm">Stats not available</div>;
+                            }
+
+                            // Calculate your custom price in HEX terms
+                            let yourPriceInHEX: number | null = null;
+                            if (buyToken && sellAmount && buyAmount && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
+                              if (buyToken.ticker === 'HEX') {
+                                // If buying HEX, your price is buyAmount/sellAmount HEX per sellToken
+                                yourPriceInHEX = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
+                              } else {
+                                // If buying another token, we need to convert through HEX
+                                const buyTokenKey = buyToken.ticker.startsWith('e') ? `e${buyToken.ticker.slice(1)}` : `p${buyToken.ticker}`;
+                                const buyStats = tokenStats[buyTokenKey];
+                                if (buyStats && buyStats.token.priceHEX > 0) {
+                                  // Convert: sellToken -> HEX -> buyToken
+                                  const hexPerSellToken = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount)) * buyStats.token.priceHEX;
+                                  yourPriceInHEX = hexPerSellToken;
+                                }
                               }
                             }
-                          }
 
-                          // Calculate discounts based on your price
-                          let yourDiscountFromBacking: number | null = null;
-                          let yourDiscountFromMint: number | null = null;
+                            // Calculate discounts based on your price
+                            let yourDiscountFromBacking: number | null = null;
+                            let yourDiscountFromMint: number | null = null;
 
-                          if (yourPriceInHEX !== null && sellStats.token.backingPerToken > 0) {
-                            yourDiscountFromBacking = (yourPriceInHEX - sellStats.token.backingPerToken) / sellStats.token.backingPerToken;
-                          }
+                            if (yourPriceInHEX !== null && sellStats.token.backingPerToken > 0) {
+                              yourDiscountFromBacking = (yourPriceInHEX - sellStats.token.backingPerToken) / sellStats.token.backingPerToken;
+                            }
 
-                          if (yourPriceInHEX !== null && sellStats.token.priceHEX > 0) {
-                            // Calculate mint price from API data
-                            const mintPriceHEX = sellStats.token.priceHEX / (1 + sellStats.token.discountFromMint);
-                            yourDiscountFromMint = (yourPriceInHEX - mintPriceHEX) / mintPriceHEX;
-                          }
+                            if (yourPriceInHEX !== null && sellStats.token.priceHEX > 0) {
+                              // Calculate mint price from API data
+                              const mintPriceHEX = sellStats.token.priceHEX / (1 + sellStats.token.discountFromMint);
+                              yourDiscountFromMint = (yourPriceInHEX - mintPriceHEX) / mintPriceHEX;
+                            }
 
-                          return (
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Backing per Token:</span>
-                                <span className="text-white">{sellStats.token.backingPerToken.toFixed(4)} HEX</span>
+                            return (
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Backing per Token:</span>
+                                  <span className="text-white">{sellStats.token.backingPerToken.toFixed(4)} HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Current Market Price:</span>
+                                  <span className="text-white">{sellStats.token.priceHEX.toFixed(4)} HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Current Discount / Premium from Backing:</span>
+                                  <span className={`font-medium ${sellStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(sellStats.token.discountFromBacking * 100).toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Current Discount / Premium from Mint:</span>
+                                  <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(sellStats.token.discountFromMint * 100).toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Progresiiii:</span>
+                                  <span className="text-blue-400">{(sellStats.dates.progressPercentage * 100).toFixed(1)}%</span>
+                                </div>
+
+                                {/* Subtle divider */}
+                                <div className="border-t border-white/10 my-3"></div>
+
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your OTC Price:</span>
+                                  <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Backing:</span>
+                                  <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
+                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
+                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your position is:</span>
+                                  <span className={`font-medium ${yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ?
+                                    ((yourPriceInHEX - sellStats.token.priceHEX) / sellStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ?
+                                      (() => {
+                                        const marketDiff = (yourPriceInHEX - sellStats.token.priceHEX) / sellStats.token.priceHEX;
+                                        return marketDiff > 0 ?
+                                          `${(marketDiff * 100).toFixed(2)}% above current price` :
+                                          `${Math.abs(marketDiff * 100).toFixed(2)}% below current price`;
+                                      })() : 'N/A'}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Current Market Price:</span>
-                                <span className="text-white">{sellStats.token.priceHEX.toFixed(4)} HEX</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Current Discount / Premium from Backing:</span>
-                                <span className={`font-medium ${sellStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {(sellStats.token.discountFromBacking * 100).toFixed(2)}%
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Current Discount / Premium from Mint:</span>
-                                <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {(sellStats.token.discountFromMint * 100).toFixed(2)}%
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Progresiiii:</span>
-                                <span className="text-blue-400">{(sellStats.dates.progressPercentage * 100).toFixed(1)}%</span>
-                              </div>
-                              
-                              {/* Subtle divider */}
-                              <div className="border-t border-white/10 my-3"></div>
-                              
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Price:</span>
-                                <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount / Premium from Backing:</span>
-                                <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount / Premium from Mint:</span>
-                                <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
-                                <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your position is:</span>
-                                <span className={`font-medium ${yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ? 
-                                  ((yourPriceInHEX - sellStats.token.priceHEX) / sellStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ? 
-                                    (() => {
-                                      const marketDiff = (yourPriceInHEX - sellStats.token.priceHEX) / sellStats.token.priceHEX;
-                                      return marketDiff > 0 ? 
-                                        `${(marketDiff * 100).toFixed(2)}% above current price` : 
-                                        `${Math.abs(marketDiff * 100).toFixed(2)}% below current price`;
-                                    })() : 'N/A'}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                            );
+                          })()}
                         </div>
                       )}
 
                       {/* Buy Token Stats */}
                       {showBuyStats && (
                         <div className="space-y-3">
-                        <h4 className="text-white font-medium flex items-center space-x-2">
-                          <img 
-                            src={buyToken.logo} 
-                            alt={buyToken.ticker}
-                            className="w-5 h-5 rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = '/coin-logos/default.svg';
-                            }}
-                          />
-                          <span>{formatTokenTicker(buyToken.ticker)} Stats</span>
-                        </h4>
-                        {(() => {
-                          const buyTokenKey = buyToken.ticker.startsWith('e') ? `e${buyToken.ticker.slice(1)}` : `p${buyToken.ticker}`;
-                          const buyStats = tokenStats[buyTokenKey];
-                          
-                          if (!buyStats) {
-                            return <div className="text-gray-400 text-sm">Stats not available</div>;
-                          }
+                          <h4 className="text-white font-medium flex items-center space-x-2">
+                            <img
+                              src={buyToken.logo}
+                              alt={buyToken.ticker}
+                              className="w-5 h-5 rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/coin-logos/default.svg';
+                              }}
+                            />
+                            <span>{formatTokenTicker(buyToken.ticker)} Stats</span>
+                          </h4>
+                          {(() => {
+                            const buyTokenKey = buyToken.ticker.startsWith('e') ? `e${buyToken.ticker.slice(1)}` : `p${buyToken.ticker}`;
+                            const buyStats = tokenStats[buyTokenKey];
 
-                          // Calculate your custom price in HEX terms
-                          let yourPriceInHEX: number | null = null;
-                          if (sellToken && sellAmount && buyAmount && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
-                            if (sellToken.ticker === 'HEX') {
-                              // If selling HEX, your price is sellAmount/buyAmount HEX per buyToken
-                              yourPriceInHEX = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
-                            } else {
-                              // If selling another token, we need to convert through HEX
-                              const sellTokenKey = sellToken.ticker.startsWith('e') ? `e${sellToken.ticker.slice(1)}` : `p${sellToken.ticker}`;
-                              const sellStats = tokenStats[sellTokenKey];
-                              if (sellStats && sellStats.token.priceHEX > 0) {
-                                // Convert: buyToken -> HEX -> sellToken
-                                const hexPerBuyToken = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount)) * sellStats.token.priceHEX;
-                                yourPriceInHEX = hexPerBuyToken;
+                            if (!buyStats) {
+                              return <div className="text-gray-400 text-sm">Stats not available</div>;
+                            }
+
+                            // Calculate your custom price in HEX terms
+                            let yourPriceInHEX: number | null = null;
+                            if (sellToken && sellAmount && buyAmount && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
+                              if (sellToken.ticker === 'HEX') {
+                                // If selling HEX, your price is sellAmount/buyAmount HEX per buyToken
+                                yourPriceInHEX = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
+                              } else {
+                                // If selling another token, we need to convert through HEX
+                                const sellTokenKey = sellToken.ticker.startsWith('e') ? `e${sellToken.ticker.slice(1)}` : `p${sellToken.ticker}`;
+                                const sellStats = tokenStats[sellTokenKey];
+                                if (sellStats && sellStats.token.priceHEX > 0) {
+                                  // Convert: buyToken -> HEX -> sellToken
+                                  const hexPerBuyToken = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount)) * sellStats.token.priceHEX;
+                                  yourPriceInHEX = hexPerBuyToken;
+                                }
                               }
                             }
-                          }
 
-                          // Calculate discounts based on your price
-                          let yourDiscountFromBacking: number | null = null;
-                          let yourDiscountFromMint: number | null = null;
+                            // Calculate discounts based on your price
+                            let yourDiscountFromBacking: number | null = null;
+                            let yourDiscountFromMint: number | null = null;
 
-                          if (yourPriceInHEX !== null && buyStats.token.backingPerToken > 0) {
-                            yourDiscountFromBacking = (yourPriceInHEX - buyStats.token.backingPerToken) / buyStats.token.backingPerToken;
-                          }
+                            if (yourPriceInHEX !== null && buyStats.token.backingPerToken > 0) {
+                              yourDiscountFromBacking = (yourPriceInHEX - buyStats.token.backingPerToken) / buyStats.token.backingPerToken;
+                            }
 
-                          if (yourPriceInHEX !== null && buyStats.token.priceHEX > 0) {
-                            // Calculate mint price from API data
-                            const mintPriceHEX = buyStats.token.priceHEX / (1 + buyStats.token.discountFromMint);
-                            yourDiscountFromMint = (yourPriceInHEX - mintPriceHEX) / mintPriceHEX;
-                          }
+                            if (yourPriceInHEX !== null && buyStats.token.priceHEX > 0) {
+                              // Calculate mint price from API data
+                              const mintPriceHEX = buyStats.token.priceHEX / (1 + buyStats.token.discountFromMint);
+                              yourDiscountFromMint = (yourPriceInHEX - mintPriceHEX) / mintPriceHEX;
+                            }
 
-                          return (
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Backing per Token:</span>
-                                <span className="text-white">{buyStats.token.backingPerToken.toFixed(4)} HEX</span>
+                            return (
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Backing per Token:</span>
+                                  <span className="text-white">{buyStats.token.backingPerToken.toFixed(4)} HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Current Market Price:</span>
+                                  <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Market Discount from Backing:</span>
+                                  <span className={`font-medium ${buyStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(buyStats.token.discountFromBacking * 100).toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Market Discount from Mint:</span>
+                                  <span className={`font-medium ${buyStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(buyStats.token.discountFromMint * 100).toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Progress:</span>
+                                  <span className="text-white">{(buyStats.dates.progressPercentage * 100).toFixed(1)}%</span>
+                                </div>
+
+                                {/* Subtle divider */}
+                                <div className="border-t border-white/10 my-3"></div>
+
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Price:</span>
+                                  <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount from Backing:</span>
+                                  <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount from Mint:</span>
+                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your position is:</span>
+                                  <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromBacking !== null ?
+                                      (yourDiscountFromBacking > 0 ?
+                                        `${(yourDiscountFromBacking * 100).toFixed(2)}% above backing price` :
+                                        `${Math.abs(yourDiscountFromBacking * 100).toFixed(2)}% below backing price`
+                                      ) : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your position is:</span>
+                                  <span className={`font-medium ${yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
+                                    ((yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
+                                      (() => {
+                                        const marketDiff = (yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX;
+                                        return marketDiff > 0 ?
+                                          `${(marketDiff * 100).toFixed(2)}% above current price` :
+                                          `${Math.abs(marketDiff * 100).toFixed(2)}% below current price`;
+                                      })() : 'N/A'}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Current Market Price:</span>
-                                <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} HEX</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Market Discount from Backing:</span>
-                                <span className={`font-medium ${buyStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {(buyStats.token.discountFromBacking * 100).toFixed(2)}%
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Market Discount from Mint:</span>
-                                <span className={`font-medium ${buyStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {(buyStats.token.discountFromMint * 100).toFixed(2)}%
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Progress:</span>
-                                <span className="text-white">{(buyStats.dates.progressPercentage * 100).toFixed(1)}%</span>
-                              </div>
-                              
-                              {/* Subtle divider */}
-                              <div className="border-t border-white/10 my-3"></div>
-                              
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Price:</span>
-                                <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount from Backing:</span>
-                                <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount from Mint:</span>
-                                <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your position is:</span>
-                                <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromBacking !== null ? 
-                                    (yourDiscountFromBacking > 0 ? 
-                                      `${(yourDiscountFromBacking * 100).toFixed(2)}% above backing price` : 
-                                      `${Math.abs(yourDiscountFromBacking * 100).toFixed(2)}% below backing price`
-                                    ) : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Your position is:</span>
-                                <span className={`font-medium ${yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ? 
-                                  ((yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ? 
-                                    (() => {
-                                      const marketDiff = (yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX;
-                                      return marketDiff > 0 ? 
-                                        `${(marketDiff * 100).toFixed(2)}% above current price` : 
-                                        `${Math.abs(marketDiff * 100).toFixed(2)}% below current price`;
-                                    })() : 'N/A'}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -1306,13 +1330,12 @@ export function CreatePositionModal({
               <button
                 onClick={needsApproval && tokenNeedsApproval ? handleApproveToken : handleCreateDeal}
                 disabled={!sellToken || !buyToken || !sellAmount || !buyAmount || !!isCreatingOrder || !!isApproving || !isWalletConnected || (sellToken && buyToken && sellToken.address === buyToken.address)}
-                className={`px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  needsApproval && tokenNeedsApproval
+                className={`px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${needsApproval && tokenNeedsApproval
                     ? isApproving
                       ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
                       : 'bg-white text-black hover:bg-white/80'
                     : 'bg-white text-black hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 {isCreatingOrder ? (
                   <div className="flex items-center gap-2">
@@ -1334,6 +1357,16 @@ export function CreatePositionModal({
           </motion.div>
         </motion.div>
       )}
+
+      {/* Paywall Modal */}
+      <PaywallModal 
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        title="Premium Data Access"
+        description="Get access to advanced token analytics and market insights"
+        price="$99"
+        contactUrl="https://x.com/hexgeta"
+      />
     </AnimatePresence>
   );
 }
