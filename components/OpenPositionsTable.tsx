@@ -9,7 +9,8 @@ import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
 import { formatEther, parseEther } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
-import { useAccount } from 'wagmi';
+import { isNativeToken } from '@/utils/tokenApproval';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 
 // Sorting types
@@ -164,14 +165,16 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
 export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const { executeOrder, cancelOrder, updateOrderInfo, updateOrderPrice, updateOrderExpirationTime, isWalletConnected } = useContractWhitelist();
   const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const { setTransactionPending } = useTransaction();
   const { toast } = useToast();
   
   // Expose refresh function to parent component
   useImperativeHandle(ref, () => ({
     refreshAndNavigateToMyActiveOrders: () => {
-      // Set filters to show "My Deals" > "Active" orders
-      setTokenFilter('maxi');
+      // Set filters to show "Non-MAXI" > "My Deals" > "Active" orders
+      setTokenFilter('non-maxi');
       setOwnershipFilter('mine');
       setStatusFilter('active');
       
@@ -179,7 +182,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       setExpandedPositions(new Set());
       
       // The useOpenPositions hook will automatically refetch when dependencies change
-      console.log('Navigated to My Deals > Active orders');
+      console.log('Navigated to Non-MAXI > My Deals > Active orders');
     }
   }));
   
@@ -235,7 +238,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     completedOrders, 
     cancelledOrders, 
     isLoading, 
-    error 
+    error,
+    refetch
   } = useOpenPositions();
 
   // Get unique sell token addresses for price fetching
@@ -530,13 +534,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       let tokenIndexToExecute = -1;
       let buyAmount = BigInt(0);
       
+      let buyTokenInfo = null;
+      
       for (let i = 0; i < buyTokensIndex.length; i++) {
         const tokenInfo = getTokenInfoByIndex(Number(buyTokensIndex[i]));
         if (tokenInfo.address && currentInputs[tokenInfo.address]) {
           const inputAmount = parseFloat(removeCommas(currentInputs[tokenInfo.address]));
           if (inputAmount > 0) {
             tokenIndexToExecute = i;
-            buyAmount = parseEther(inputAmount.toString());
+            buyTokenInfo = tokenInfo;
+            buyAmount = parseTokenAmount(inputAmount.toString(), tokenInfo.decimals);
             break;
           }
         }
@@ -546,20 +553,91 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         throw new Error('No valid token amount found');
       }
 
+      // Check if the buy token is native PLS and send value accordingly
+      const value = isNativeToken(buyTokenInfo.address) ? buyAmount : undefined;
+
+      // For ERC20 tokens, check if we need to approve first
+      if (!isNativeToken(buyTokenInfo.address)) {
+        console.log('Checking allowance for ERC20 token:', buyTokenInfo.address);
+        
+        // Check current allowance
+        const allowance = await publicClient.readContract({
+          address: buyTokenInfo.address as `0x${string}`,
+          abi: [
+            {
+              "inputs": [
+                {"name": "owner", "type": "address"},
+                {"name": "spender", "type": "address"}
+              ],
+              "name": "allowance",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'allowance',
+          args: [address as `0x${string}`, '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as `0x${string}`]
+        });
+
+        console.log('Current allowance:', allowance.toString());
+        console.log('Required amount:', buyAmount.toString());
+
+        // If allowance is insufficient, approve the token
+        if (allowance < buyAmount) {
+          console.log('Insufficient allowance, approving token...');
+          
+          if (!walletClient) {
+            throw new Error('Wallet client not available');
+          }
+          
+          const approveTxHash = await walletClient.writeContract({
+            address: buyTokenInfo.address as `0x${string}`,
+            abi: [
+              {
+                "inputs": [
+                  {"name": "spender", "type": "address"},
+                  {"name": "amount", "type": "uint256"}
+                ],
+                "name": "approve",
+                "outputs": [{"name": "", "type": "bool"}],
+                "stateMutability": "nonpayable",
+                "type": "function"
+              }
+            ],
+            functionName: 'approve',
+            args: ['0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as `0x${string}`, buyAmount]
+          });
+
+          console.log('Approval transaction sent:', approveTxHash);
+          
+          // Wait for approval confirmation
+          await publicClient.waitForTransactionReceipt({
+            hash: approveTxHash,
+            timeout: 60_000,
+          });
+          
+          console.log('Token approved successfully');
+        }
+      }
+
       // Execute the order
-      const txResult = await executeOrder(
+      const txHash = await executeOrder(
         BigInt(orderId),
         BigInt(tokenIndexToExecute),
-        buyAmount
+        buyAmount,
+        value
       );
 
-      console.log('Transaction sent:', txResult);
+      console.log('Transaction sent:', txHash);
       
       // Wait for transaction confirmation
       console.log('Waiting for transaction confirmation...');
-      await txResult.wait(); // Wait for the transaction to be mined
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash as `0x${string}`,
+        timeout: 60_000, // 60 second timeout
+      });
       
-      console.log('Order executed successfully:', txResult);
+      console.log('Order executed successfully:', receipt);
       
       // Show success toast only after confirmation
       toast({
@@ -577,8 +655,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       setStatusFilter('completed');
       setExpandedPositions(new Set());
       
-      // Optionally refresh the orders
-      // refetch();
+      // Refresh the orders to show updated amounts
+      refetch();
       
     } catch (error: any) {
       console.error('Error executing order:', error);
@@ -612,15 +690,18 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     setTransactionPending(true);
     
     try {
-      const txResult = await cancelOrder(order.orderDetailsWithId.orderId);
+      const txHash = await cancelOrder(order.orderDetailsWithId.orderId);
       
-      console.log('Transaction sent:', txResult);
+      console.log('Transaction sent:', txHash);
       
       // Wait for transaction confirmation
       console.log('Waiting for transaction confirmation...');
-      await txResult.wait(); // Wait for the transaction to be mined
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash as `0x${string}`,
+        timeout: 60_000, // 60 second timeout
+      });
       
-      console.log('Order cancelled successfully:', txResult);
+      console.log('Order cancelled successfully:', receipt);
       
       // Show success toast only after confirmation
       console.log('Showing success toast for cancelled order');
@@ -635,6 +716,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       setOwnershipFilter('mine');
       setStatusFilter('cancelled');
       setExpandedPositions(new Set());
+      
+      // Refresh the orders to show updated status
+      refetch();
       
       // Clear any previous errors
       setCancelErrors(prev => {
@@ -716,27 +800,36 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         }
       });
       
-      const txResult1 = await updateOrderInfo(
+      const txHash1 = await updateOrderInfo(
         order.orderDetailsWithId.orderId,
         newSellAmount,
         newBuyTokensIndex,
         newBuyAmounts
       );
       
-      console.log('Update info transaction sent:', txResult1);
+      console.log('Update info transaction sent:', txHash1);
       
       // Update expiration time
       const newExpirationTime = Math.floor(new Date(editFormData.expirationTime).getTime() / 1000);
-      const txResult2 = await updateOrderExpirationTime(
+      const txHash2 = await updateOrderExpirationTime(
         order.orderDetailsWithId.orderId,
         BigInt(newExpirationTime)
       );
       
-      console.log('Update expiration transaction sent:', txResult2);
+      console.log('Update expiration transaction sent:', txHash2);
       
       // Wait for both transactions to be confirmed
       console.log('Waiting for transaction confirmations...');
-      await Promise.all([txResult1.wait(), txResult2.wait()]);
+      const [receipt1, receipt2] = await Promise.all([
+        publicClient.waitForTransactionReceipt({
+          hash: txHash1 as `0x${string}`,
+          timeout: 60_000,
+        }),
+        publicClient.waitForTransactionReceipt({
+          hash: txHash2 as `0x${string}`,
+          timeout: 60_000,
+        })
+      ]);
       
       console.log('Order updated successfully');
       
@@ -752,6 +845,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       setOwnershipFilter('mine');
       setStatusFilter('active');
       setExpandedPositions(new Set());
+      
+      // Refresh the orders to show updated details
+      refetch();
       
       // Clear form and close edit mode
       setEditingOrder(null);
@@ -873,8 +969,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         case 'sellAmount':
           const aSellTokenAddress = a.orderDetailsWithId.orderDetails.sellToken;
           const bSellTokenAddress = b.orderDetailsWithId.orderDetails.sellToken;
-          const aTokenAmount = parseFloat(formatEther(a.orderDetailsWithId.orderDetails.sellAmount));
-          const bTokenAmount = parseFloat(formatEther(b.orderDetailsWithId.orderDetails.sellAmount));
+          const aSellTokenInfo = getTokenInfo(aSellTokenAddress);
+          const bSellTokenInfo = getTokenInfo(bSellTokenAddress);
+          const aTokenAmount = parseFloat(formatTokenAmount(a.orderDetailsWithId.orderDetails.sellAmount, aSellTokenInfo.decimals));
+          const bTokenAmount = parseFloat(formatTokenAmount(b.orderDetailsWithId.orderDetails.sellAmount, bSellTokenInfo.decimals));
           const aTokenPrice = tokenPrices[aSellTokenAddress]?.price || 0;
           const bTokenPrice = tokenPrices[bSellTokenAddress]?.price || 0;
           const aUsdValue = aTokenAmount * aTokenPrice;
@@ -1391,7 +1489,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {(() => {
                       const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
                       const sellTokenInfo = getTokenInfo(sellTokenAddress);
-                      const tokenAmount = parseFloat(formatEther(order.orderDetailsWithId.orderDetails.sellAmount));
+                      const tokenAmount = parseFloat(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals));
                       const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                       
@@ -1413,7 +1511,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                     </span>
                               <span className="text-gray-400 text-xs">
-                                {formatAmount(formatEther(order.orderDetailsWithId.orderDetails.sellAmount))}
+                                {formatAmount(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals))}
                               </span>
                               {tokenPrice > 0 && (
                                 <span className="text-gray-500 text-xs">

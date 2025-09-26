@@ -495,5 +495,6 @@ export function useOpenPositions() {
     cancelledOrders: data?.cancelledOrders || [],
     isLoading: !isClient || isLoading,
     error,
+    refetch: fetchData,
   };
 }

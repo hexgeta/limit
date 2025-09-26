@@ -147,7 +147,6 @@ export function CreatePositionModal({
       return;
     }
 
-    setIsApproving(true);
     setApprovalError(null);
     setTransactionPending(true);
     onTransactionStart?.();
@@ -170,23 +169,29 @@ export function CreatePositionModal({
       const maxAttempts = 30; // 30 seconds max wait
       
       const waitForApproval = async () => {
-        while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-          attempts++;
-          
-          // Check if approval is now complete
-          if (tokenNeedsApproval === false || isApproved === true) {
-            console.log('Approval confirmed, proceeding to create order...');
-            handleCreateDeal();
-            return;
+        try {
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+            attempts++;
+            
+            // Check if approval is now complete
+            if (tokenNeedsApproval === false || isApproved === true) {
+              console.log('Approval confirmed, proceeding to create order...');
+              handleCreateDeal();
+              return;
+            }
+            
+            console.log(`Waiting for approval... attempt ${attempts}/${maxAttempts}`);
           }
           
-          console.log(`Waiting for approval... attempt ${attempts}/${maxAttempts}`);
+          // If we get here, approval didn't complete in time
+          console.log('Approval timeout, but proceeding anyway...');
+          handleCreateDeal();
+        } finally {
+          // Only clear loading state after approval process is complete
+          setTransactionPending(false);
+          onTransactionEnd?.();
         }
-        
-        // If we get here, approval didn't complete in time
-        console.log('Approval timeout, but proceeding anyway...');
-        handleCreateDeal();
       };
       
       waitForApproval();
@@ -195,8 +200,6 @@ export function CreatePositionModal({
       const errorMessage = error.message || 'Failed to approve token. Please try again.';
       setApprovalError(errorMessage);
       onTransactionError?.(errorMessage);
-    } finally {
-      setIsApproving(false);
       setTransactionPending(false);
       onTransactionEnd?.();
     }
@@ -352,6 +355,13 @@ export function CreatePositionModal({
 
   // Helper function to format numbers with commas
   const formatNumberWithCommas = (value: string): string => {
+    // If the value ends with a decimal point, preserve it
+    if (value.endsWith('.')) {
+      const num = parseFloat(value.slice(0, -1));
+      if (isNaN(num)) return value;
+      return num.toLocaleString() + '.';
+    }
+    
     const num = parseFloat(value);
     if (isNaN(num)) return value;
     return num.toLocaleString();
@@ -567,21 +577,24 @@ export function CreatePositionModal({
       
       // Call the contract function - only send value if selling native PLS
       const value = sellToken.address === '0x000000000000000000000000000000000000dead' ? sellAmountWei : undefined;
-      const txResult = await placeOrder(orderDetails, value);
+      const txHash = await placeOrder(orderDetails, value);
       
-      console.log('Transaction sent:', txResult);
+      console.log('Transaction sent:', txHash);
       
-      // Wait for transaction confirmation
+      // Wait for transaction confirmation using public client
       console.log('Waiting for transaction confirmation...');
-      await txResult.wait(); // Wait for the transaction to be mined
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash as `0x${string}`,
+        timeout: 60_000, // 60 second timeout
+      });
       
-      console.log('Order created successfully:', txResult);
-      
-      // Show success toast and close modal only after confirmation
-      onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.');
+      console.log('Order created successfully:', receipt);
       
       // Refresh data and navigate to show the new order
       onOrderCreated?.();
+      
+      // Show success toast and close modal only after confirmation
+      onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.');
       
       handleClose();
       
@@ -1313,12 +1326,12 @@ export function CreatePositionModal({
                 ) : isApproving ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Approving Token...</span>
+                    <span>APPROVING & CREATING DEAL...</span>
                   </div>
                 ) : needsApproval && tokenNeedsApproval ? (
-                  'Approve & Create Deal'
+                  `APPROVE ${sellToken?.symbol || 'TOKEN'} & CREATE DEAL`
                 ) : (
-                  'Create Deal'
+                  'CREATE DEAL'
                 )}
               </button>
             </div>
