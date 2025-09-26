@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CircleDollarSign, ChevronDown, Trash2, Loader2 } from 'lucide-react';
+import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search } from 'lucide-react';
+import PaywallModal from './PaywallModal';
 import useToast from '@/hooks/use-toast';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
@@ -15,7 +16,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 
 // Sorting types
-type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date';
+type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date' | 'backingPrice' | 'currentPrice';
 type SortDirection = 'asc' | 'desc';
 
 // Copy to clipboard function
@@ -193,12 +194,18 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const [ownershipFilter, setOwnershipFilter] = useState<'mine' | 'non-mine'>('mine');
   // Level 3: Status filter
   const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'inactive' | 'cancelled'>('active');
+  // Search filter
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
   const [showMotion, setShowMotion] = useState(true);
   const animationCompleteRef = useRef(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Paywall configuration
+  const paywall_on = true; // Set to false to disable paywall
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
   
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('date');
@@ -949,25 +956,45 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     let filteredOrders = [];
     switch (statusFilter) {
       case 'active':
-        filteredOrders = orders.filter(order => 
-          order.orderDetailsWithId.status === 0 && 
-          Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
-        );
+          filteredOrders = orders.filter(order => 
+            order.orderDetailsWithId.status === 0 && 
+            Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
+          );
         break;
       case 'completed':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 2);
         break;
-      case 'inactive':
-        filteredOrders = orders.filter(order => 
-          order.orderDetailsWithId.status === 0 && 
-          Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
-        );
+        case 'inactive':
+          filteredOrders = orders.filter(order => 
+            order.orderDetailsWithId.status === 0 && 
+            Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
+          );
         break;
       case 'cancelled':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 1);
         break;
       default:
         filteredOrders = orders;
+    }
+
+    // Level 4: Filter by search query (ticker names)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filteredOrders = filteredOrders.filter(order => {
+        // Get sell token info
+        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+        const sellTicker = sellTokenInfo.ticker.toLowerCase();
+        
+        // Get buy token info(s)
+        const buyTokensMatch = order.orderDetailsWithId.orderDetails.buyTokensIndex.some(tokenIndex => {
+          const buyTokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+          const buyTicker = buyTokenInfo.ticker.toLowerCase();
+          return buyTicker.includes(query);
+        });
+        
+        // Return true if either sell or buy token matches
+        return sellTicker.includes(query) || buyTokensMatch;
+      });
     }
     
     // Apply sorting
@@ -1007,13 +1034,43 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         case 'date':
           comparison = Number(a.orderDetailsWithId.orderDetails.expirationTime) - Number(b.orderDetailsWithId.orderDetails.expirationTime);
           break;
+        case 'backingPrice':
+          const aBackingPrice = (() => {
+            const sellTokenInfo = getTokenInfo(a.orderDetailsWithId.orderDetails.sellToken);
+            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
+            return sellTokenStat?.token?.backingPerToken || 0;
+          })();
+          const bBackingPrice = (() => {
+            const sellTokenInfo = getTokenInfo(b.orderDetailsWithId.orderDetails.sellToken);
+            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
+            return sellTokenStat?.token?.backingPerToken || 0;
+          })();
+          comparison = aBackingPrice - bBackingPrice;
+          break;
+        case 'currentPrice':
+          const aCurrentPrice = (() => {
+            const sellTokenInfo = getTokenInfo(a.orderDetailsWithId.orderDetails.sellToken);
+            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
+            return sellTokenStat?.token?.priceHEX || 0;
+          })();
+          const bCurrentPrice = (() => {
+            const sellTokenInfo = getTokenInfo(b.orderDetailsWithId.orderDetails.sellToken);
+            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
+            return sellTokenStat?.token?.priceHEX || 0;
+          })();
+          comparison = aCurrentPrice - bCurrentPrice;
+          break;
       }
       
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     
     return sortedOrders;
-  }, [allOrders, tokenFilter, ownershipFilter, statusFilter, sortField, sortDirection, tokenPrices, address]);
+  }, [allOrders, tokenFilter, ownershipFilter, statusFilter, searchQuery, sortField, sortDirection, tokenPrices, tokenStats, address]);
 
   // Helper function to get orders for current token filter
 
@@ -1301,7 +1358,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       </div>
 
       {/* Level 3: Status Filter */}
-      <div className="flex justify-left gap-3 mb-6">
+        <div className="flex justify-left gap-3 mb-6">
         <button
           onClick={() => {
             setStatusFilter('active');
@@ -1354,6 +1411,20 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         >
           Cancelled ({getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length})
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-black border border-gray-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-gray-600 focus:bg-gray-black transition-colors"
+          />
+        </div>
       </div>
 
       <TableContainer 
@@ -1426,7 +1497,27 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 4: Status */}
+              {/* COLUMN 4: Backing Price */}
+              <button 
+                onClick={() => handleSort('backingPrice')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'backingPrice' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Backing Price {sortField === 'backingPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              
+              {/* COLUMN 5: Current Price */}
+              <button 
+                onClick={() => handleSort('currentPrice')}
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
+                  sortField === 'currentPrice' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                Market Price {sortField === 'currentPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              
+              {/* COLUMN 6: Status */}
               <button 
                 onClick={() => handleSort('status')}
                 className={`text-sm font-medium text-center hover:text-white transition-colors ${
@@ -1436,7 +1527,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 5: Expires */}
+              {/* COLUMN 7: Expires */}
               <button 
                 onClick={() => handleSort('date')}
                 className={`text-sm font-medium text-left hover:text-white transition-colors ${
@@ -1445,16 +1536,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               >
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
-              
-              {/* COLUMN 6: Backing Price */}
-              <div className="text-sm font-medium text-center text-gray-400">
-                Backing Price
-              </div>
-              
-              {/* COLUMN 7: Current Price */}
-              <div className="text-sm font-medium text-center text-gray-400">
-                Current Price
-              </div>
               
               {/* COLUMN 7: Actions */}
               <div className="text-sm font-medium text-right text-gray-400">
@@ -1503,7 +1584,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       const rawRemainingPercentage = order.orderDetailsWithId.remainingExecutionPercentage;
                       const remainingPercentage = Number(rawRemainingPercentage) / 1e18; // This gives us a decimal like 0.5 for 50%
                       const originalAmount = order.orderDetailsWithId.orderDetails.sellAmount;
-                      const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                        const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                       const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, sellTokenInfo.decimals));
                       const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
@@ -1554,7 +1635,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                           const originalAmount = buyAmounts[idx];
-                          const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                           const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                           const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
@@ -1573,7 +1654,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                             const originalAmount = buyAmounts[idx];
                             const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
-                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                              const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                             const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                             const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                             const usdValue = tokenAmount * tokenPrice;
@@ -1642,28 +1723,54 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
                   
-                  {/* COLUMN 6: Backing Price Content */}
+                  {/* COLUMN 4: Backing Price Content */}
+                  <div className="text-center">
+                    <div className="text-sm text-white">
+                      {paywall_on ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPaywallModal(true);
+                          }}
+                          className="p-2 rounded hover:bg-gray-700/50 transition-colors"
+                        >
+                          <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
+                        </button>
+                      ) : (
+                        (() => {
+                          const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+                          
+                          // Get sell token stats for backing price
+                          const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+                          const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
+                          
+                          if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
+                            return (
+                              <span className="text-white">
+                                {sellTokenStat.token.backingPerToken.toFixed(4)} HEX
+                              </span>
+                            );
+                          }
+                          return '--';
+                        })()
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* COLUMN 5: Current Price Content */}
                   <div className="text-center">
                     <div className="text-sm text-white">
                       {(() => {
                         const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                        const tokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.address.toLowerCase() === sellTokenInfo.address.toLowerCase()) : null;
                         
-                        console.log('Debug tokenStats:', {
-                          sellTokenAddress: sellTokenInfo.address,
-                          sellTokenTicker: sellTokenInfo.ticker,
-                          tokenStats: tokenStats,
-                          tokenStat: tokenStat,
-                          found: !!tokenStat
-                        });
+                        // Get sell token stats for current market price
+                        const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+                        const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
                         
-                        if (tokenStat && tokenStat.token.discountFromBacking !== undefined) {
-                          const discount = tokenStat.token.discountFromBacking * 100;
-                          const color = discount > 0 ? 'text-green-400' : 'text-red-400';
-                          const sign = discount > 0 ? '+' : '';
+                        if (sellTokenStat && sellTokenStat.token.priceHEX > 0) {
                           return (
-                            <span className={color}>
-                              {sign}{discount.toFixed(1)}%
+                            <span className="text-white">
+                              {sellTokenStat.token.priceHEX.toFixed(4)} HEX
                             </span>
                           );
                         }
@@ -1672,62 +1779,52 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </div>
                   </div>
                   
-                  {/* COLUMN 7: Current Price Content */}
+                  {/* COLUMN 6: Status Content */}
                   <div className="text-center">
-                    <div className="text-sm text-white">
-                      {(() => {
-                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                        const tokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.address.toLowerCase() === sellTokenInfo.address.toLowerCase()) : null;
-                        
-                        console.log('Debug tokenStats:', {
-                          sellTokenAddress: sellTokenInfo.address,
-                          sellTokenTicker: sellTokenInfo.ticker,
-                          tokenStats: tokenStats,
-                          tokenStat: tokenStat,
-                          found: !!tokenStat
-                        });
-                        
-                        if (tokenStat && tokenStat.token.discountFromBacking !== undefined) {
-                          const discount = tokenStat.token.discountFromBacking * 100;
-                          const color = discount > 0 ? 'text-green-400' : 'text-red-400';
-                          const sign = discount > 0 ? '+' : '';
-                          return (
-                            <span className={color}>
-                              {sign}{discount.toFixed(1)}%
-                            </span>
-                          );
-                        }
-                        return '--';
-                      })()}
-                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                      getStatusText(order) === 'Inactive'
+                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
+                        : order.orderDetailsWithId.status === 0 
+                        ? 'bg-green-500/20 text-green-400 border-green-400' 
+                        : order.orderDetailsWithId.status === 1
+                        ? 'bg-red-500/20 text-red-400 border-red-400'
+                        : 'bg-blue-500/20 text-blue-400 border-blue-400'
+                    }`}>
+                      {getStatusText(order)}
+                    </span>
+                  </div>
+                  
+                  {/* COLUMN 7: Expires Content */}
+                  <div className="text-gray-400 text-sm text-right">
+                    {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
                   
                   {/* COLUMN 8: Actions Content */}
                     <div className="text-right">
                       {ownershipFilter === 'mine' && 
                        order.orderDetailsWithId.status === 0 ? (
-                        <button
-                          onClick={() => handleCancelOrder(order)}
-                          disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
+                          <button
+                            onClick={() => handleCancelOrder(order)}
+                            disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
                           className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                        >
-                          {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      ) : (
-                      <button
-                        onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                        className="p-2 rounded-full hover:text-white transition-colors"
-                      >
-                        <ChevronDown 
-                          className={`w-4 h-4 transition-transform duration-200 ${
-                            expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
-                          }`}
-                        />
+                          >
+                            {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                       </button>
+                      ) : (
+                          <button
+                            onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                        className="p-2 rounded-full hover:text-white transition-colors"
+                          >
+                            <ChevronDown 
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                                expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
+                              }`}
+                            />
+                          </button>
                       )}
                   </div>
                 </motion.div>
@@ -2107,7 +2204,19 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             </div>
           </div>
         </div>
-      )}
-    </Container>
-  );
-});
+        )}
+
+      {/* Paywall Modal */}
+      <PaywallModal 
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        title="Premium Data Access"
+        description="Get access to backing price data and advanced analytics"
+        price="$99"
+        contactUrl="https://x.com/hexgeta"
+      />
+      </Container>
+    );
+  });
+
+export default OpenPositionsTable;
