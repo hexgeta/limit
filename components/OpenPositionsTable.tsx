@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search } from 'lucide-react';
-import PaywallModal from './PaywallModal';
+import { CircleDollarSign, ChevronDown, Trash2, Loader2 } from 'lucide-react';
 import useToast from '@/hooks/use-toast';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
@@ -16,7 +15,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 
 // Sorting types
-type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date' | 'backingPrice' | 'currentPrice';
+type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date';
 type SortDirection = 'asc' | 'desc';
 
 // Copy to clipboard function
@@ -191,21 +190,15 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   // Level 1: Token type filter
   const [tokenFilter, setTokenFilter] = useState<'maxi' | 'non-maxi'>('maxi');
   // Level 2: Ownership filter  
-  const [ownershipFilter, setOwnershipFilter] = useState<'my-deals' | 'purchase-history' | 'marketplace'>('my-deals');
+  const [ownershipFilter, setOwnershipFilter] = useState<'mine' | 'non-mine'>('mine');
   // Level 3: Status filter
   const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'inactive' | 'cancelled'>('active');
-  // Search filter
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
   const [showMotion, setShowMotion] = useState(true);
   const animationCompleteRef = useRef(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  
-  // Paywall configuration
-  const paywall_on = true; // Set to false to disable paywall
-  const [showPaywallModal, setShowPaywallModal] = useState(false);
   
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('date');
@@ -370,10 +363,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
   // Handle input change for offer amounts
   const handleOfferInputChange = (orderId: string, tokenAddress: string, value: string, order: any) => {
-    // Find the maximum allowed amount for this token (remaining amount)
+    // Find the maximum allowed amount for this token
     const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
     const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
-    const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
     
     let maxAllowedAmount = '';
     let tokenIndex = -1;
@@ -385,43 +377,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       
       if (tokenIndex !== -1 && buyAmounts[tokenIndex]) {
         const tokenInfo = getTokenInfoByIndex(Number(buyTokensIndex[tokenIndex]));
-        // Calculate remaining amount based on remaining execution percentage
-        const originalAmount = buyAmounts[tokenIndex];
-        const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-        maxAllowedAmount = formatTokenAmount(remainingAmount, tokenInfo.decimals);
+        maxAllowedAmount = formatTokenAmount(buyAmounts[tokenIndex], tokenInfo.decimals);
       }
     }
     
-    // Block invalid characters (only allow numbers, decimal point, and empty)
-    if (value !== '' && !/^\d*\.?\d*$/.test(value)) {
-      return; // Block invalid characters
-    }
-    
-    // Only validate amount if we have a complete number (not ending with decimal point)
-    if (value !== '' && value !== '.' && !value.endsWith('.')) {
+    // Validate the input amount
     const inputAmount = parseFloat(value);
     const maxAmount = parseFloat(maxAllowedAmount);
     
-      console.log('Input validation:', {
-        value,
-        inputAmount,
-        maxAmount,
-        maxAllowedAmount,
-        remainingPercentage,
-        tokenAddress
-      });
-      
-      // If input exceeds maximum allowed amount, don't allow it
-      if (!isNaN(inputAmount) && maxAmount > 0 && inputAmount > maxAmount) {
-        console.log('Input blocked - exceeds maximum:', inputAmount, '>', maxAmount);
-        return; // Block the input
-      }
-    }
-    
-    // Input is valid, proceed with setting the value
-    const inputAmount = parseFloat(value) || 0;
-    const maxAmount = parseFloat(maxAllowedAmount) || 0;
-    
+    // If input is valid and within limits, or if it's empty, allow it
+    if (value === '' || (!isNaN(inputAmount) && inputAmount <= maxAmount)) {
       // Calculate the percentage for this token
       let percentage = 0;
       if (inputAmount > 0 && maxAmount > 0) {
@@ -456,6 +421,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         ...prev,
         [orderId]: newInputs
       }));
+    }
+    // If input exceeds maximum, don't update the state (effectively preventing the input)
   };
 
   // Handle percentage fill
@@ -967,79 +934,40 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       });
     }
     
-    // Level 2: Filter by ownership (My Deals vs Purchase History vs Marketplace)
-    if (ownershipFilter === 'my-deals') {
-      // Show orders created by the user
+    // Level 2: Filter by ownership (Mine vs Non-Mine)
+    if (ownershipFilter === 'mine') {
       orders = orders.filter(order => 
         address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
       );
-    } else if (ownershipFilter === 'purchase-history') {
-      // Show orders where the connected wallet has participated as a buyer
-      // For now, we'll show orders where the user is not the original owner but has interacted
-      // This would need to be enhanced with actual transaction history tracking
-      orders = orders.filter(order => {
-        // Show orders that are not owned by the user and have been partially filled
-        // This is a placeholder - in reality you'd track actual purchase history
-        const isNotOwner = !address || order.userDetails.orderOwner.toLowerCase() !== address.toLowerCase();
-        const isPartiallyFilled = Number(order.orderDetailsWithId.remainingExecutionPercentage) < 1e18;
-        return isNotOwner && isPartiallyFilled;
-      });
-    } else if (ownershipFilter === 'marketplace') {
-      // Show orders not owned by the user
+    } else if (ownershipFilter === 'non-mine') {
       orders = orders.filter(order => 
         !address || order.userDetails.orderOwner.toLowerCase() !== address.toLowerCase()
       );
     }
     
-    // Level 3: Filter by status (skip for purchase history)
+    // Level 3: Filter by status
     let filteredOrders = [];
-    if (ownershipFilter === 'purchase-history') {
-      // For purchase history, show all orders regardless of status
-      filteredOrders = orders;
-    } else {
-      // For My Deals and Marketplace, apply status filtering
     switch (statusFilter) {
       case 'active':
-          filteredOrders = orders.filter(order => 
-            order.orderDetailsWithId.status === 0 && 
-            Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
-          );
+        filteredOrders = orders.filter(order => 
+          order.orderDetailsWithId.status === 0 && 
+          Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
+        );
         break;
       case 'completed':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 2);
         break;
-        case 'inactive':
-          filteredOrders = orders.filter(order => 
-            order.orderDetailsWithId.status === 0 && 
-            Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
-          );
+      case 'inactive':
+        filteredOrders = orders.filter(order => 
+          order.orderDetailsWithId.status === 0 && 
+          Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
+        );
         break;
       case 'cancelled':
         filteredOrders = orders.filter(order => order.orderDetailsWithId.status === 1);
         break;
       default:
         filteredOrders = orders;
-      }
-    }
-
-    // Level 4: Filter by search query (ticker names)
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filteredOrders = filteredOrders.filter(order => {
-        // Get sell token info
-        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-        const sellTicker = sellTokenInfo.ticker.toLowerCase();
-        
-        // Get buy token info(s)
-        const buyTokensMatch = order.orderDetailsWithId.orderDetails.buyTokensIndex.some(tokenIndex => {
-          const buyTokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-          const buyTicker = buyTokenInfo.ticker.toLowerCase();
-          return buyTicker.includes(query);
-        });
-        
-        // Return true if either sell or buy token matches
-        return sellTicker.includes(query) || buyTokensMatch;
-      });
     }
     
     // Apply sorting
@@ -1079,43 +1007,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         case 'date':
           comparison = Number(a.orderDetailsWithId.orderDetails.expirationTime) - Number(b.orderDetailsWithId.orderDetails.expirationTime);
           break;
-        case 'backingPrice':
-          const aBackingPrice = (() => {
-            const sellTokenInfo = getTokenInfo(a.orderDetailsWithId.orderDetails.sellToken);
-            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-            return sellTokenStat?.token?.backingPerToken || 0;
-          })();
-          const bBackingPrice = (() => {
-            const sellTokenInfo = getTokenInfo(b.orderDetailsWithId.orderDetails.sellToken);
-            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-            return sellTokenStat?.token?.backingPerToken || 0;
-          })();
-          comparison = aBackingPrice - bBackingPrice;
-          break;
-        case 'currentPrice':
-          const aCurrentPrice = (() => {
-            const sellTokenInfo = getTokenInfo(a.orderDetailsWithId.orderDetails.sellToken);
-            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-            return sellTokenStat?.token?.priceHEX || 0;
-          })();
-          const bCurrentPrice = (() => {
-            const sellTokenInfo = getTokenInfo(b.orderDetailsWithId.orderDetails.sellToken);
-            const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-            const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-            return sellTokenStat?.token?.priceHEX || 0;
-          })();
-          comparison = aCurrentPrice - bCurrentPrice;
-          break;
       }
       
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     
     return sortedOrders;
-  }, [allOrders, tokenFilter, ownershipFilter, statusFilter, searchQuery, sortField, sortDirection, tokenPrices, tokenStats, address]);
+  }, [allOrders, tokenFilter, ownershipFilter, statusFilter, sortField, sortDirection, tokenPrices, address]);
 
   // Helper function to get orders for current token filter
 
@@ -1154,29 +1052,21 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     }
   };
 
-  const getLevel2Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'my-deals' | 'purchase-history' | 'marketplace') => {
+  const getLevel2Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'mine' | 'non-mine') => {
     const level1Orders = getLevel1Orders(tokenType);
-    if (ownership === 'my-deals') {
+    if (ownership === 'mine') {
       return level1Orders.filter(order => 
         address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
       );
-    } else if (ownership === 'purchase-history') {
-      return level1Orders.filter(order => {
-        const isNotOwner = !address || order.userDetails.orderOwner.toLowerCase() !== address.toLowerCase();
-        const isPartiallyFilled = Number(order.orderDetailsWithId.remainingExecutionPercentage) < 1e18;
-        return isNotOwner && isPartiallyFilled;
-      });
-    } else if (ownership === 'marketplace') {
+    } else {
       return level1Orders.filter(order => 
         !address || order.userDetails.orderOwner.toLowerCase() !== address.toLowerCase()
       );
     }
-    return level1Orders;
   };
 
-  const getLevel3Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'my-deals' | 'purchase-history' | 'marketplace', status: 'active' | 'completed' | 'inactive' | 'cancelled') => {
+  const getLevel3Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'mine' | 'non-mine', status: 'active' | 'completed' | 'inactive' | 'cancelled') => {
     const level2Orders = getLevel2Orders(tokenType, ownership);
-    
     switch (status) {
       case 'active':
         return level2Orders.filter(order => 
@@ -1332,28 +1222,24 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     });
   }
 
-  // Remove dynamic component assignment - use conditional rendering instead
-
-  // Temporarily disable motion to fix compilation
-  // if (showMotion) {
-  //   return (
-  //     <motion.div
-  //       initial={{ opacity: 0, y: 20 }}
-  //       animate={{ opacity: 1, y: 0 }}
-  //       transition={{ 
-  //         duration: 0.6,
-  //         ease: [0.23, 1, 0.32, 1]
-  //       }}
-  //       onAnimationComplete={handleAnimationComplete}
-  //       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
-  //     >
-  //     {/* Motion content */}
-  //     </motion.div>
-  //   );
-  // }
+  // Container component - motion or regular div
+  const Container = showMotion ? motion.div : 'div';
+  const StatusFilter = showMotion ? motion.div : 'div';
+  const TableContainer = showMotion ? motion.div : 'div';
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto mb-8 mt-8">
+    <Container 
+      {...(showMotion ? {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        transition: { 
+        duration: 0.6,
+        ease: [0.23, 1, 0.32, 1]
+        },
+        onAnimationComplete: handleAnimationComplete
+      } : {})}
+      className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
+    >
       {/* Level 1: Token Type Filter */}
       <div className="flex justify-left gap-3 mb-4">
         <button
@@ -1374,7 +1260,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setTokenFilter('non-maxi');
             clearExpandedPositions();
           }}
-          className={`px-6 py-2 rounded-full transition-all duration-100 border ${
+          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
             tokenFilter === 'non-maxi'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1388,48 +1274,34 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       <div className="flex justify-left gap-3 mb-4">
         <button
           onClick={() => {
-            setOwnershipFilter('my-deals');
+            setOwnershipFilter('mine');
             clearExpandedPositions();
           }}
           className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'my-deals'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
+            ownershipFilter === 'mine'
+              ? 'bg-green-500/20 text-green-400 border-green-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          My Deals ({getLevel2Orders(tokenFilter, 'my-deals').length})
+          My Deals ({getLevel2Orders(tokenFilter, 'mine').length})
         </button>
         <button
           onClick={() => {
-            setOwnershipFilter('purchase-history');
+            setOwnershipFilter('non-mine');
             clearExpandedPositions();
           }}
           className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'purchase-history'
-              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+            ownershipFilter === 'non-mine'
+              ? 'bg-orange-500/20 text-orange-400 border-orange-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          Purchase History ({getLevel2Orders(tokenFilter, 'purchase-history').length})
-        </button>
-        <button
-          onClick={() => {
-            setOwnershipFilter('marketplace');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'marketplace'
-              ? 'bg-gray-500/20 text-gray-400 border-gray-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Marketplace ({getLevel2Orders(tokenFilter, 'marketplace').length})
+          Marketplace ({getLevel2Orders(tokenFilter, 'non-mine').length})
         </button>
       </div>
 
-      {/* Level 3: Status Filter (only show for My Deals and Marketplace) */}
-      {ownershipFilter !== 'purchase-history' && (
-        <div className="flex justify-left gap-3 mb-6">
+      {/* Level 3: Status Filter */}
+      <div className="flex justify-left gap-3 mb-6">
         <button
           onClick={() => {
             setStatusFilter('active');
@@ -1482,21 +1354,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         >
           Cancelled ({getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length})
         </button>
-        </div>
-      )}
-
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-black border border-gray-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-gray-600 focus:bg-gray-black transition-colors"
-          />
-        </div>
       </div>
 
       <TableContainer 
@@ -1514,7 +1371,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           layout: true
         } : {})}
         className={`bg-black border-2 border-white/10 rounded-2xl p-6 transition-all duration-500 ease-out ${
-          expandedPositions.size > 0 ? '' : ''
+          expandedPositions.size > 0 ? 'shadow-2xl shadow-white/10' : ''
         }`}
         style={{ 
           minHeight: '200px',
@@ -1525,7 +1382,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         <div className="overflow-x-auto scrollbar-hide">
           {!displayOrders || displayOrders.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'my-deals' ? 'deals' : ownershipFilter === 'purchase-history' ? 'orders' : 'orders'} found</p>
+              <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'mine' ? 'deals' : 'orders'} found</p>
             </div>
           ) : (
             <div className="w-full min-w-[800px] text-lg">
@@ -1569,27 +1426,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 4: Backing Price */}
-              <button 
-                onClick={() => handleSort('backingPrice')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'backingPrice' ? 'text-white' : 'text-gray-400'
-                }`}
-              >
-                Backing Price {sortField === 'backingPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </button>
-              
-              {/* COLUMN 5: Current Price */}
-              <button 
-                onClick={() => handleSort('currentPrice')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'currentPrice' ? 'text-white' : 'text-gray-400'
-                }`}
-              >
-                Market Price {sortField === 'currentPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </button>
-              
-              {/* COLUMN 6: Status */}
+              {/* COLUMN 4: Status */}
               <button 
                 onClick={() => handleSort('status')}
                 className={`text-sm font-medium text-center hover:text-white transition-colors ${
@@ -1599,7 +1436,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 7: Expires */}
+              {/* COLUMN 5: Expires */}
               <button 
                 onClick={() => handleSort('date')}
                 className={`text-sm font-medium text-left hover:text-white transition-colors ${
@@ -1608,6 +1445,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               >
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 6: Backing Price */}
+              <div className="text-sm font-medium text-center text-gray-400">
+                Backing Price
+              </div>
+              
+              {/* COLUMN 7: Current Price */}
+              <div className="text-sm font-medium text-center text-gray-400">
+                Current Price
+              </div>
               
               {/* COLUMN 7: Actions */}
               <div className="text-sm font-medium text-right text-gray-400">
@@ -1656,18 +1503,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       const rawRemainingPercentage = order.orderDetailsWithId.remainingExecutionPercentage;
                       const remainingPercentage = Number(rawRemainingPercentage) / 1e18; // This gives us a decimal like 0.5 for 50%
                       const originalAmount = order.orderDetailsWithId.orderDetails.sellAmount;
-                      
-                      let tokenAmount;
-                      if (ownershipFilter === 'purchase-history') {
-                        // For purchase history, show the amount that was purchased (filled amount)
-                        const filledPercentage = 1 - remainingPercentage; // How much was filled
-                        const purchasedAmount = (originalAmount * BigInt(Math.floor(filledPercentage * 1e18))) / BigInt(1e18);
-                        tokenAmount = parseFloat(formatTokenAmount(purchasedAmount, sellTokenInfo.decimals));
-                      } else {
-                        // For other filters, show remaining amount
-                        const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                        tokenAmount = parseFloat(formatTokenAmount(remainingAmount, sellTokenInfo.decimals));
-                      }
+                      const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                      const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, sellTokenInfo.decimals));
                       const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                       
@@ -1717,18 +1554,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                           const originalAmount = buyAmounts[idx];
-                          
-                          let tokenAmount;
-                          if (ownershipFilter === 'purchase-history') {
-                            // For purchase history, show the amount that was purchased (filled amount)
-                            const filledPercentage = 1 - remainingPercentage; // How much was filled
-                            const purchasedAmount = (originalAmount * BigInt(Math.floor(filledPercentage * 1e18))) / BigInt(1e18);
-                            tokenAmount = parseFloat(formatTokenAmount(purchasedAmount, tokenInfo.decimals));
-                          } else {
-                            // For other filters, show remaining amount
-                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                            tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
-                          }
+                          const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                          const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                           const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                       const usdValue = tokenAmount * tokenPrice;
                           totalUsdValue += usdValue;
@@ -1746,18 +1573,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                             const originalAmount = buyAmounts[idx];
                             const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
-                            
-                            let tokenAmount;
-                            if (ownershipFilter === 'purchase-history') {
-                              // For purchase history, show the amount that was purchased (filled amount)
-                              const filledPercentage = 1 - remainingPercentage; // How much was filled
-                              const purchasedAmount = (originalAmount * BigInt(Math.floor(filledPercentage * 1e18))) / BigInt(1e18);
-                              tokenAmount = parseFloat(formatTokenAmount(purchasedAmount, tokenInfo.decimals));
-                            } else {
-                              // For other filters, show remaining amount
-                              const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                              tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
-                            }
+                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                            const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                             const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
                             const usdValue = tokenAmount * tokenPrice;
                             
@@ -1805,63 +1622,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </div>
                   </div>
                   
-                  {/* COLUMN 4: Backing Price Content */}
-                  <div className="text-center">
-                    <div className="text-sm text-white">
-                      {paywall_on ? (
-                    <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowPaywallModal(true);
-                          }}
-                          className="p-2 rounded hover:bg-gray-700/50 transition-colors"
-                        >
-                          <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
-                    </button>
-                      ) : (
-                        (() => {
-                          const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                          
-                          // Get sell token stats for backing price
-                          const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-                          const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-                          
-                          if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
-                            return (
-                              <span className="text-white">
-                                {sellTokenStat.token.backingPerToken.toFixed(4)} HEX
-                              </span>
-                            );
-                          }
-                          return '--';
-                        })()
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* COLUMN 5: Current Price Content */}
-                  <div className="text-center">
-                    <div className="text-sm text-white">
-                      {(() => {
-                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                        
-                        // Get sell token stats for current market price
-                        const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-                        const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-                        
-                        if (sellTokenStat && sellTokenStat.token.priceHEX > 0) {
-                          return (
-                            <span className="text-white">
-                              {sellTokenStat.token.priceHEX.toFixed(4)} HEX
-                    </span>
-                          );
-                        }
-                        return '--';
-                      })()}
-                    </div>
-                  </div>
-                  
-                  {/* COLUMN 6: Status Content */}
+                  {/* COLUMN 4: Status Content */}
                   <div className="text-center">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
                       getStatusText(order) === 'Inactive'
@@ -1876,63 +1637,97 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </span>
                   </div>
                   
-                  {/* COLUMN 7: Expires Content */}
+                  {/* COLUMN 5: Expires Content */}
                   <div className="text-gray-400 text-sm text-right">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
+                  </div>
+                  
+                  {/* COLUMN 6: Backing Price Content */}
+                  <div className="text-center">
+                    <div className="text-sm text-white">
+                      {(() => {
+                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+                        const tokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.address.toLowerCase() === sellTokenInfo.address.toLowerCase()) : null;
+                        
+                        console.log('Debug tokenStats:', {
+                          sellTokenAddress: sellTokenInfo.address,
+                          sellTokenTicker: sellTokenInfo.ticker,
+                          tokenStats: tokenStats,
+                          tokenStat: tokenStat,
+                          found: !!tokenStat
+                        });
+                        
+                        if (tokenStat && tokenStat.token.discountFromBacking !== undefined) {
+                          const discount = tokenStat.token.discountFromBacking * 100;
+                          const color = discount > 0 ? 'text-green-400' : 'text-red-400';
+                          const sign = discount > 0 ? '+' : '';
+                          return (
+                            <span className={color}>
+                              {sign}{discount.toFixed(1)}%
+                            </span>
+                          );
+                        }
+                        return '--';
+                      })()}
+                    </div>
+                  </div>
+                  
+                  {/* COLUMN 7: Current Price Content */}
+                  <div className="text-center">
+                    <div className="text-sm text-white">
+                      {(() => {
+                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+                        const tokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.address.toLowerCase() === sellTokenInfo.address.toLowerCase()) : null;
+                        
+                        console.log('Debug tokenStats:', {
+                          sellTokenAddress: sellTokenInfo.address,
+                          sellTokenTicker: sellTokenInfo.ticker,
+                          tokenStats: tokenStats,
+                          tokenStat: tokenStat,
+                          found: !!tokenStat
+                        });
+                        
+                        if (tokenStat && tokenStat.token.discountFromBacking !== undefined) {
+                          const discount = tokenStat.token.discountFromBacking * 100;
+                          const color = discount > 0 ? 'text-green-400' : 'text-red-400';
+                          const sign = discount > 0 ? '+' : '';
+                          return (
+                            <span className={color}>
+                              {sign}{discount.toFixed(1)}%
+                            </span>
+                          );
+                        }
+                        return '--';
+                      })()}
+                    </div>
                   </div>
                   
                   {/* COLUMN 8: Actions Content */}
                     <div className="text-right">
                       {ownershipFilter === 'mine' && 
                        order.orderDetailsWithId.status === 0 ? (
-                        <div className="flex items-center gap-0 justify-end">
-                          <button
-                            onClick={() => handleCancelOrder(order)}
-                            disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
-                            className="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                          >
-                            {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </button>
-                      {ownershipFilter !== 'purchase-history' ? (
+                        <button
+                          onClick={() => handleCancelOrder(order)}
+                          disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
+                          className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                        >
+                          {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      ) : (
                       <button
                         onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                          className="flex items-center gap-1 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
+                        className="p-2 rounded-full hover:text-white transition-colors"
                       >
-                          <span>Buy</span>
                         <ChevronDown 
-                            className={`w-5 h-5 transition-transform duration-200 ${
+                          className={`w-4 h-4 transition-transform duration-200 ${
                             expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
                           }`}
                         />
                       </button>
-                      ) : (
-                        <div className="text-xs text-gray-400">
-                          Purchased
-                        </div>
-                      )}
-                        </div>
-                      ) : (
-                        {ownershipFilter !== 'purchase-history' ? (
-                          <button
-                            onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                            className="flex items-center gap-1 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
-                          >
-                            <span>Buy</span>
-                            <ChevronDown 
-                              className={`w-3 h-3 transition-transform duration-200 ${
-                                expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
-                              }`}
-                            />
-                          </button>
-                        ) : (
-                          <div className="text-xs text-gray-400">
-                            Purchased
-                          </div>
-                        )}
                       )}
                   </div>
                 </motion.div>
@@ -1962,8 +1757,18 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                   const currentAmount = offerInputs[orderId]?.[tokenInfo.address] || '';
                                   
                                   return (
-                                    <div key={tokenInfo.address} className="flex items-center space-x-3 bg-gray-400/5 rounded-lg px-3 py-2 min-h-[60px]">
-                                      <div className="flex-1">
+                                    <div key={tokenInfo.address} className="flex items-center space-x-2 bg-gray-400/5 rounded-lg px-3 py-2 min-h-[60px]">
+                                      <div className="flex items-center space-x-2 flex-1">
+                                        <TokenLogo 
+                                          src={tokenInfo.logo}
+                                          alt={formatTokenTicker(tokenInfo.ticker)}
+                                          className="w-6 h-6 rounded-full flex-shrink-0"
+                                        />
+                                        <span className="text-white text-sm font-medium">
+                                          {formatTokenTicker(tokenInfo.ticker)}
+                                        </span>
+            </div>
+                                      <div className="flex flex-col">
                                         <input
                                           type="text"
                                           value={formatNumberWithCommas(currentAmount)}
@@ -1973,41 +1778,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                             removeCommas(e.target.value),
                                             order
                                           )}
-                                          className="bg-transparent border border-white/20 rounded px-3 py-2 text-white text-sm w-full focus:border-white/40 focus:outline-none"
+                                          className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-sm w-26 md:w-20 focus:border-white/40 focus:outline-none"
                                           placeholder="0"
                                         />
-                                        {(() => {
-                                          // Calculate and show max available amount
-                                          const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
-                                          const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
-                                          const tokenIndexInOrder = order.orderDetailsWithId.orderDetails.buyTokensIndex.findIndex((idx: bigint) => {
-                                            const info = getTokenInfoByIndex(Number(idx));
-                                            return info.address === tokenInfo.address;
-                                          });
-                                          
-                                          if (tokenIndexInOrder !== -1 && buyAmounts[tokenIndexInOrder]) {
-                                            const originalAmount = buyAmounts[tokenIndexInOrder];
-                                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                                            const maxAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
-                                            
-                                            return (
-                                              <div className="text-xs text-gray-400 mt-1">
-                                                Max: {maxAmount.toFixed(2)}
-                                              </div>
-                                            );
-                                          }
-                                          return null;
-                                        })()}
-          </div>
-                                      <div className="flex items-center space-x-2 flex-shrink-0">
-                                        <TokenLogo 
-                                          src={tokenInfo.logo}
-                                          alt={formatTokenTicker(tokenInfo.ticker)}
-                                          className="w-6 h-6 rounded-full flex-shrink-0"
-                                        />
-                                        <span className="text-white text-sm font-medium">
-                                          {formatTokenTicker(tokenInfo.ticker)}
-                                        </span>
           </div>
                                     </div>
                                   );
@@ -2186,12 +1959,12 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               </div>
                             </div>
                             
-                            <div className="text-xs text-gray-500 mt-2">
+                            <div className="text-xs text-gray-500 mt-4">
                               Order ID: {order.orderDetailsWithId.orderId.toString()}
                             </div>
                             
                             <div className="text-xs text-gray-500 mt-1">
-                              Seller: {order.userDetails.orderOwner}
+                              Seller: {formatAddress(order.userDetails.orderOwner)}
                             </div>
                             
                             {/* Owner Actions - Only show for user's own orders */}
@@ -2249,7 +2022,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       
       {/* Edit Order Modal */}
       {editingOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-100 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-white mb-4">Edit Order</h3>
             
@@ -2335,191 +2108,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           </div>
         </div>
       )}
-
-      {/* Paywall Modal */}
-      <PaywallModal 
-        isOpen={showPaywallModal}
-        onClose={() => setShowPaywallModal(false)}
-        title="Premium Data Access"
-        description="Get access to backing price data and advanced analytics"
-        price="$99"
-        contactUrl="https://x.com/hexgeta"
-      />
-    </div>
-  );
-});
-
-export default OpenPositionsTable;
-      {/* Level 1: Token Type Filter */}
-      <div className="flex justify-left gap-3 mb-4">
-        <button
-          onClick={() => {
-            setTokenFilter('maxi');
-            clearExpandedPositions();
-          }}
-          className={`px-6 py-2 rounded-full transition-all duration-100 border ${
-            tokenFilter === 'maxi'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          MAXI ({getLevel1Orders('maxi').length})
-        </button>
-        <button
-          onClick={() => {
-            setTokenFilter('non-maxi');
-            clearExpandedPositions();
-          }}
-          className={`px-6 py-2 rounded-full transition-all duration-100 border ${
-            tokenFilter === 'non-maxi'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          NON-MAXI ({getLevel1Orders('non-maxi').length})
-        </button>
-      </div>
-
-      {/* Level 2: Ownership Filter */}
-      <div className="flex justify-left gap-3 mb-4">
-        <button
-          onClick={() => {
-            setOwnershipFilter('my-deals');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'my-deals'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          My Deals ({getLevel2Orders(tokenFilter, 'my-deals').length})
-        </button>
-        <button
-          onClick={() => {
-            setOwnershipFilter('purchase-history');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'purchase-history'
-              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Purchase History ({getLevel2Orders(tokenFilter, 'purchase-history').length})
-        </button>
-        <button
-          onClick={() => {
-            setOwnershipFilter('marketplace');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'marketplace'
-              ? 'bg-gray-500/20 text-gray-400 border-gray-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Marketplace ({getLevel2Orders(tokenFilter, 'marketplace').length})
-        </button>
-      </div>
-
-      {/* Level 3: Status Filter (only show for My Deals and Marketplace) */}
-      {ownershipFilter !== 'purchase-history' && (
-        <div className="flex justify-left gap-3 mb-6">
-        <button
-          onClick={() => {
-            setStatusFilter('active');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            statusFilter === 'active'
-              ? 'bg-green-500/20 text-green-400 border-green-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Active ({getLevel3Orders(tokenFilter, ownershipFilter, 'active').length})
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('completed');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            statusFilter === 'completed'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Completed ({getLevel3Orders(tokenFilter, ownershipFilter, 'completed').length})
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('inactive');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            statusFilter === 'inactive'
-              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Inactive ({getLevel3Orders(tokenFilter, ownershipFilter, 'inactive').length})
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('cancelled');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            statusFilter === 'cancelled'
-              ? 'bg-red-500/20 text-red-400 border-red-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Cancelled ({getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length})
-        </button>
-        </div>
-      )}
-
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-black border border-gray-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-gray-600 focus:bg-gray-black transition-colors"
-          />
-        </div>
-      </div>
-
-      <div className={`bg-black border-2 border-white/10 rounded-2xl p-6 transition-all duration-500 ease-out ${
-        expandedPositions.size > 0 ? '' : ''
-      }`}>
-        {/* Horizontal scroll container with hidden scrollbar */}
-        <div className="overflow-x-auto scrollbar-hide">
-          {!displayOrders || displayOrders.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'my-deals' ? 'deals' : ownershipFilter === 'purchase-history' ? 'orders' : 'orders'} found</p>
-            </div>
-          ) : (
-            <div className="w-full min-w-[800px] text-lg">
-            {/* Table content would go here */}
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <PaywallModal 
-        isOpen={showPaywallModal}
-        onClose={() => setShowPaywallModal(false)}
-        title="Premium Data Access"
-        description="Get access to backing price data and advanced analytics"
-        price="$99"
-        contactUrl="https://x.com/hexgeta"
-      />
-    </div>
+    </Container>
   );
 });
