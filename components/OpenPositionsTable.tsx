@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search } from 'lucide-react';
 import PaywallModal from './PaywallModal';
 import useToast from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
@@ -14,6 +15,7 @@ import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker, pa
 import { isNativeToken } from '@/utils/tokenApproval';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
+import { PAYWALL_ENABLED } from '@/config/paywall';
 
 // Sorting types
 type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date' | 'backingPrice' | 'currentPrice';
@@ -203,8 +205,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const animationCompleteRef = useRef(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Paywall configuration
-  const paywall_on = true; // Set to false to disable paywall
   const [showPaywallModal, setShowPaywallModal] = useState(false);
   
   // Sorting state
@@ -660,6 +660,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         title: "Order Fulfilled!",
         description: "You have successfully completed this trade.",
         variant: "success",
+        action: (
+          <ToastAction
+            altText="View transaction"
+            onClick={() => window.open(`https://otter.pulsechain.com/tx/${txHash}`, '_blank')}
+          >
+            View TX
+          </ToastAction>
+        ),
       });
       
       // Clear the inputs for this order
@@ -725,6 +733,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         title: "Order Cancelled!",
         description: "Your order has been cancelled and tokens returned.",
         variant: "success",
+        action: (
+          <ToastAction
+            altText="View transaction"
+            onClick={() => window.open(`https://otter.pulsechain.com/tx/${txHash}`, '_blank')}
+          >
+            View TX
+          </ToastAction>
+        ),
       });
       
       // Navigate to "My Deals" > "Cancelled" to show the cancelled order
@@ -854,6 +870,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         title: "Order Updated!",
         description: "Your order details have been successfully updated.",
         variant: "success",
+        action: (
+          <ToastAction
+            altText="View transaction"
+            onClick={() => window.open(`https://otter.pulsechain.com/tx/${txHash1}`, '_blank')}
+          >
+            View TX
+          </ToastAction>
+        ),
       });
       
       // Navigate to "My Deals" > "Active" to show the updated order
@@ -1497,24 +1521,19 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 4: Backing Price */}
+              {/* COLUMN 4: OTC % */}
+              <div className="text-sm font-medium text-center text-gray-400">
+                Vs Market Price
+              </div>
+              
+              {/* COLUMN 5: Backing Price */}
               <button 
                 onClick={() => handleSort('backingPrice')}
                 className={`text-sm font-medium text-center hover:text-white transition-colors ${
                   sortField === 'backingPrice' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                Backing Price {sortField === 'backingPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </button>
-              
-              {/* COLUMN 5: Current Price */}
-              <button 
-                onClick={() => handleSort('currentPrice')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'currentPrice' ? 'text-white' : 'text-gray-400'
-                }`}
-              >
-                Market Price {sortField === 'currentPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                Vs Backing Price{sortField === 'backingPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 6: Status */}
@@ -1537,7 +1556,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 7: Actions */}
+              {/* COLUMN 8: Actions */}
               <div className="text-sm font-medium text-right text-gray-400">
                 {/* Actions header removed - left blank */}
             </div>
@@ -1558,6 +1577,104 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 // Don't render at all if shouldn't show
                 if (!shouldShow) return null;
                 
+                // Calculate USD values for percentage calculation
+                const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
+                const sellTokenInfo = getTokenInfo(sellTokenAddress);
+                const rawRemainingPercentage = order.orderDetailsWithId.remainingExecutionPercentage;
+                const remainingPercentage = Number(rawRemainingPercentage) / 1e18;
+                const originalSellAmount = order.orderDetailsWithId.orderDetails.sellAmount;
+                const remainingSellAmount = (originalSellAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                const sellTokenAmount = parseFloat(formatTokenAmount(remainingSellAmount, sellTokenInfo.decimals));
+                const sellTokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
+                const sellUsdValue = sellTokenAmount * sellTokenPrice;
+                
+                // Calculate total asking USD value
+                let askingUsdValue = 0;
+                const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+                const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
+                
+                if (buyTokensIndex && buyAmounts && Array.isArray(buyTokensIndex) && Array.isArray(buyAmounts)) {
+                  buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+                    const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                    const originalAmount = buyAmounts[idx];
+                    const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+                    const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
+                    const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
+                    const usdValue = tokenAmount * tokenPrice;
+                    askingUsdValue += usdValue;
+                  });
+                }
+                
+                // Calculate how much smaller the ask is than the offer as a %
+                let percentageDifference = null;
+                let isAboveAsking = false;
+                if (sellUsdValue > 0 && askingUsdValue > 0) {
+                  percentageDifference = ((sellUsdValue - askingUsdValue) / sellUsdValue) * 100;
+                  isAboveAsking = percentageDifference > 0; // positive means ask is smaller than offer (discount)
+                }
+                
+                // Calculate backing price discount (OTC price vs backing price in USD) - Modal style
+                let backingPriceDiscount = null;
+                let isAboveBackingPrice = false;
+                
+                // Check if this is a MAXI token that has backing price data
+                const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+                const sellTokenStat = tokenStats[sellTokenKey];
+                
+                // Debug logging for backing price calculation
+                console.log('Backing Price Debug:', {
+                  sellTokenTicker: sellTokenInfo.ticker,
+                  sellTokenKey,
+                  tokenStatsKeys: Object.keys(tokenStats),
+                  sellTokenStat: sellTokenStat ? 'found' : 'not found',
+                  backingPerToken: sellTokenStat?.token?.backingPerToken
+                });
+                
+                if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
+                  // Get HEX price from tokenPrices
+                  const hexPrice = tokenPrices['0x2b591e99afe9f32eaa6214f7b7629768c40eeb39']?.price || 0;
+                  
+                  console.log('HEX Price Debug:', {
+                    hexPrice,
+                    tokenPricesKeys: Object.keys(tokenPrices),
+                    hexPriceData: tokenPrices['0x2b591e99afe9f32eaa6214f7b7629768c40eeb39']
+                  });
+                  
+                  if (hexPrice > 0) {
+                    // Calculate backing price per token in USD
+                    const backingPriceUsd = sellTokenStat.token.backingPerToken * hexPrice;
+                    
+                    // Calculate OTC price per token in USD
+                    const sellTokenAmount = order.sellAmount && sellTokenInfo.decimals !== undefined 
+                      ? parseFloat(formatTokenAmount(order.sellAmount, sellTokenInfo.decimals))
+                      : 0;
+                    const otcPriceUsd = sellTokenAmount > 0 ? sellUsdValue / sellTokenAmount : 0;
+                    
+                    console.log('Calculation Debug:', {
+                      backingPerToken: sellTokenStat.token.backingPerToken,
+                      hexPrice,
+                      backingPriceUsd,
+                      sellTokenAmount,
+                      sellUsdValue,
+                      otcPriceUsd,
+                      orderSellAmount: order.sellAmount,
+                      sellTokenDecimals: sellTokenInfo.decimals
+                    });
+                    
+                    if (otcPriceUsd > 0 && backingPriceUsd > 0) {
+                      // Calculate percentage: how much above/below backing price the OTC price is
+                      backingPriceDiscount = ((otcPriceUsd / backingPriceUsd) * 100) - 100;
+                      isAboveBackingPrice = backingPriceDiscount > 0;
+                      
+                      console.log('Final Calculation:', {
+                        backingPriceDiscount,
+                        isAboveBackingPrice,
+                        formula: `((${otcPriceUsd} / ${backingPriceUsd}) * 100) - 100 = ${backingPriceDiscount}`
+                      });
+                    }
+                  }
+                }
+                
                 return (
                   <div key={index} data-order-id={orderId}>
                 <motion.div 
@@ -1577,17 +1694,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {/* COLUMN 1: Token For Sale Content */}
                     <div className="flex flex-col items-start space-y-1">
                     {(() => {
-                      const sellTokenAddress = order.orderDetailsWithId.orderDetails.sellToken;
-                      const sellTokenInfo = getTokenInfo(sellTokenAddress);
                       const formattedAmount = formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals);
-                      
-                      const rawRemainingPercentage = order.orderDetailsWithId.remainingExecutionPercentage;
-                      const remainingPercentage = Number(rawRemainingPercentage) / 1e18; // This gives us a decimal like 0.5 for 50%
-                      const originalAmount = order.orderDetailsWithId.orderDetails.sellAmount;
-                        const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                      const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, sellTokenInfo.decimals));
-                      const tokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
-                      const usdValue = tokenAmount * tokenPrice;
+                      const tokenAmount = sellTokenAmount; // Use pre-calculated value
+                      const tokenPrice = sellTokenPrice; // Use pre-calculated value
+                      const usdValue = sellUsdValue; // Use pre-calculated value
                       
                       
                       return (
@@ -1624,25 +1734,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   {/* COLUMN 2: Asking For Content */}
                   <div className="flex flex-col items-start space-y-1">
                     {(() => {
-                      // Calculate total USD value for all buy tokens
-                      let totalUsdValue = 0;
-                      const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
-                      const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
-                      
-                      if (buyTokensIndex && buyAmounts && Array.isArray(buyTokensIndex) && Array.isArray(buyAmounts)) {
-                        const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
-                        
-                        buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
-                      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-                          const originalAmount = buyAmounts[idx];
-                            const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                          const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
-                          const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
-                      const usdValue = tokenAmount * tokenPrice;
-                          totalUsdValue += usdValue;
-                          
-                        });
-                      }
+                      // Use pre-calculated total USD value
+                      const totalUsdValue = askingUsdValue;
                       
                       return (
                         <div className="inline-block">
@@ -1703,30 +1796,37 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </div>
                   </div>
                   
-                  {/* COLUMN 4: Status Content */}
+                  {/* COLUMN 4: OTC % Content */}
                   <div className="text-center">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                      getStatusText(order) === 'Inactive'
-                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
-                        : order.orderDetailsWithId.status === 0 
-                        ? 'bg-green-500/20 text-green-400 border-green-400' 
-                        : order.orderDetailsWithId.status === 1
-                        ? 'bg-red-500/20 text-red-400 border-red-400'
-                        : 'bg-blue-500/20 text-blue-400 border-blue-400'
-                    }`}>
-                      {getStatusText(order)}
-                    </span>
+                    <div className="text-sm">
+                      {percentageDifference !== null ? (
+                        <span className={`font-medium ${
+                          isAboveAsking 
+                            ? 'text-red-400'    // Red discount - getting more value than paying for
+                            : 'text-gray-400'   // Gray - paying more than getting (not a good deal)
+                        }`}>
+                          {isAboveAsking 
+                            ? `-${Math.abs(percentageDifference).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                            : `+${Math.abs(percentageDifference).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                          }
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">--</span>
+                      )}
+                    </div>
+                    {percentageDifference !== null && (
+                      <div className={`text-xs mt-1 ${
+                        isAboveAsking ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {isAboveAsking ? 'good deal' : 'bad deal'}
+                      </div>
+                    )}
                   </div>
                   
-                  {/* COLUMN 5: Expires Content */}
-                  <div className="text-gray-400 text-sm text-right">
-                    {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
-                  </div>
-                  
-                  {/* COLUMN 4: Backing Price Content */}
+                  {/* COLUMN 5: Backing Price Discount Content */}
                   <div className="text-center">
                     <div className="text-sm text-white">
-                      {paywall_on ? (
+                      {PAYWALL_ENABLED ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1737,45 +1837,28 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
                         </button>
                       ) : (
-                        (() => {
-                          const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                          
-                          // Get sell token stats for backing price
-                          const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-                          const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-                          
-                          if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
-                            return (
-                              <span className="text-white">
-                                {sellTokenStat.token.backingPerToken.toFixed(4)} HEX
-                              </span>
-                            );
-                          }
-                          return '--';
-                        })()
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* COLUMN 5: Current Price Content */}
-                  <div className="text-center">
-                    <div className="text-sm text-white">
-                      {(() => {
-                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                        
-                        // Get sell token stats for current market price
-                        const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
-                        const sellTokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.ticker === sellTokenKey) : null;
-                        
-                        if (sellTokenStat && sellTokenStat.token.priceHEX > 0) {
-                          return (
-                            <span className="text-white">
-                              {sellTokenStat.token.priceHEX.toFixed(4)} HEX
+                        <div className="text-sm">
+                          {backingPriceDiscount !== null ? (
+                            <span className={`font-medium ${
+                              isAboveBackingPrice 
+                                ? 'text-gray-400'    // Neutral - selling above backing price
+                                : 'text-red-400'     // Red discount - selling below backing price (good deal)
+                            }`}>
+                              {isAboveBackingPrice 
+                                ? `+${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                                : `-${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                              }
                             </span>
-                          );
-                        }
-                        return '--';
-                      })()}
+                          ) : (
+                            <span className="text-gray-500">--</span>
+                          )}
+                          {backingPriceDiscount !== null && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {isAboveBackingPrice ? 'above backing' : 'discount'}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -1803,28 +1886,29 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     <div className="text-right">
                       {ownershipFilter === 'mine' && 
                        order.orderDetailsWithId.status === 0 ? (
-                          <button
-                            onClick={() => handleCancelOrder(order)}
-                            disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
+                        <button
+                          onClick={() => handleCancelOrder(order)}
+                          disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
                           className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                          >
-                            {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                      </button>
+                        >
+                          {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
                       ) : (
-                          <button
-                            onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                        className="p-2 rounded-full hover:text-white transition-colors"
-                          >
-                            <ChevronDown 
-                          className={`w-4 h-4 transition-transform duration-200 ${
-                                expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
-                              }`}
-                            />
-                          </button>
+                        <button
+                          onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                          className="flex items-center gap-1 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
+                        >
+                          <span>Buy</span>
+                          <ChevronDown 
+                            className={`w-3 h-3 transition-transform duration-200 ${
+                              expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
+                            }`}
+                          />
+                        </button>
                       )}
                   </div>
                 </motion.div>

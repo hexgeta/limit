@@ -13,6 +13,7 @@ import { parseEther, formatEther } from 'viem';
 import { useBalance, usePublicClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
+import { PAYWALL_ENABLED } from '@/config/paywall';
 
 // Contract whitelist mapping - index to token address
 const CONTRACT_WHITELIST_MAP = {
@@ -111,8 +112,6 @@ export function CreatePositionModal({
   onTransactionError,
   onOrderCreated
 }: CreatePositionModalProps) {
-  // Paywall configuration
-  const paywall_on = true; // Set to false to disable paywall
   const [showPaywallModal, setShowPaywallModal] = useState(false);
 
   // Default initial tokens
@@ -1005,11 +1004,11 @@ export function CreatePositionModal({
 
               {/* Pro Plan - Show token stats when both tokens are selected and at least one has stats */}
               {sellToken && buyToken && (showSellStats || showBuyStats) && (
-                <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${paywall_on ? 'overflow-hidden' : ''}`}>
+                <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${PAYWALL_ENABLED ? 'overflow-hidden' : ''}`}>
                   <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
                   
                   {/* Paywall Overlay */}
-                  {paywall_on && (
+                  {PAYWALL_ENABLED && (
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
                       <button
                         onClick={(e) => {
@@ -1222,13 +1221,13 @@ export function CreatePositionModal({
                                   <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} HEX</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Market Discount from Backing:</span>
+                                  <span className="text-gray-400">Market Discount / Premium from Backing:</span>
                                   <span className={`font-medium ${buyStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                     {(buyStats.token.discountFromBacking * 100).toFixed(2)}%
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Market Discount from Mint:</span>
+                                  <span className="text-gray-400">Market Discount / Premium from Mint:</span>
                                   <span className={`font-medium ${buyStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                     {(buyStats.token.discountFromMint * 100).toFixed(2)}%
                                   </span>
@@ -1242,41 +1241,29 @@ export function CreatePositionModal({
                                 <div className="border-t border-white/10 my-3"></div>
 
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Price:</span>
+                                  <span className="text-gray-400">Your OTC Price:</span>
                                   <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount from Backing:</span>
+                                  <span className="text-gray-400">Your Discount / Premium from Backing:</span>
                                   <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                     {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount from Mint:</span>
+                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
                                   <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                     {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Your position is:</span>
-                                  <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                    {yourDiscountFromBacking !== null ?
-                                      (yourDiscountFromBacking > 0 ?
-                                        `${(yourDiscountFromBacking * 100).toFixed(2)}% above backing price` :
-                                        `${Math.abs(yourDiscountFromBacking * 100).toFixed(2)}% below backing price`
-                                      ) : 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Your position is:</span>
+                                  <span className="text-gray-400">Your Discount / Premium from your OTC Price:</span>
                                   <span className={`font-medium ${yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
                                     ((yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                     {yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
                                       (() => {
                                         const marketDiff = (yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX;
-                                        return marketDiff > 0 ?
-                                          `${(marketDiff * 100).toFixed(2)}% above current price` :
-                                          `${Math.abs(marketDiff * 100).toFixed(2)}% below current price`;
+                                        return (marketDiff * 100).toFixed(2) + '%';
                                       })() : 'N/A'}
                                   </span>
                                 </div>
