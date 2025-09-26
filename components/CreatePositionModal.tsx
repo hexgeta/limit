@@ -1073,13 +1073,13 @@ export function CreatePositionModal({
                                 <span className="text-white">{sellStats.token.priceHEX.toFixed(4)} HEX</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Market Discount from Backing:</span>
+                                <span className="text-gray-400">Current Discount / Premiumfrom Backing:</span>
                                 <span className={`font-medium ${sellStats.token.discountFromBacking > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                   {(sellStats.token.discountFromBacking * 100).toFixed(2)}%
                                 </span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Market Discount from Mint:</span>
+                                <span className="text-gray-400">Current Discount / Premiumfrom Mint:</span>
                                 <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                   {(sellStats.token.discountFromMint * 100).toFixed(2)}%
                                 </span>
@@ -1097,25 +1097,21 @@ export function CreatePositionModal({
                                 <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount from Backing:</span>
+                                <span className="text-gray-400">Your Discount / Premium from Backing:</span>
                                 <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                   {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
                                 </span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Your Discount from Mint:</span>
+                                <span className="text-gray-400">Your Discount / Premium from Mint:</span>
                                 <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                   {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
                                 </span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-400">Your position is:</span>
-                                <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                  {yourDiscountFromBacking !== null ? 
-                                    (yourDiscountFromBacking > 0 ? 
-                                      `${(yourDiscountFromBacking * 100).toFixed(2)}% above backing price` : 
-                                      `${Math.abs(yourDiscountFromBacking * 100).toFixed(2)}% below backing price`
-                                    ) : 'N/A'}
+                                <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
+                                <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                  {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
                                 </span>
                               </div>
                               <div className="flex justify-between">
@@ -1314,7 +1310,7 @@ export function CreatePositionModal({
                   needsApproval && tokenNeedsApproval
                     ? isApproving
                       ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-white text-black hover:bg-white/80'
                     : 'bg-white text-black hover:bg-gray-200'
                 }`}
               >
@@ -1329,7 +1325,7 @@ export function CreatePositionModal({
                     <span>APPROVING & CREATING DEAL...</span>
                   </div>
                 ) : needsApproval && tokenNeedsApproval ? (
-                  `APPROVE ${sellToken?.symbol || 'TOKEN'} & CREATE DEAL`
+                  `CREATE DEAL`
                 ) : (
                   'CREATE DEAL'
                 )}

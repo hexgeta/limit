@@ -6,6 +6,7 @@ import { CircleDollarSign, ChevronDown, Trash2, Loader2 } from 'lucide-react';
 import useToast from '@/hooks/use-toast';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
+import { useTokenStats } from '@/hooks/crypto/useTokenStats';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
 import { formatEther, parseEther } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
@@ -264,6 +265,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   
   // Use contract addresses directly for price fetching
   const { prices: tokenPrices, isLoading: pricesLoading } = useTokenPrices(allTokenAddresses);
+  const { tokenStats, isLoading: statsLoading } = useTokenStats();
   
   // Check if we have valid price data for all tokens
   const hasValidPriceData = useMemo(() => {
@@ -441,12 +443,19 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     
     const newInputs: {[tokenAddress: string]: string} = {};
     
-    // Fill each token with the specified percentage of its maximum amount
+    // Fill each token with the specified percentage of its remaining amount
+    const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
+    
     buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
       if (tokenInfo.address && buyAmounts[idx]) {
-        const maxAmount = parseFloat(formatTokenAmount(buyAmounts[idx], tokenInfo.decimals));
-        const fillAmount = (maxAmount * percentage).toString();
+        // Calculate the remaining amount first
+        const originalAmount = buyAmounts[idx];
+        const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
+        const remainingAmountFormatted = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
+        
+        // Apply the percentage to the remaining amount
+        const fillAmount = (remainingAmountFormatted * percentage).toString();
         newInputs[tokenInfo.address] = fillAmount;
       }
     });
@@ -1379,7 +1388,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
             <motion.div 
-              className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 pb-4 border-b border-white/10 ${
+              className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 pb-4 border-b border-white/10 ${
                 expandedPositions.size > 0 ? 'px-2' : ''
               }`}
               animate={{
@@ -1417,17 +1426,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 4: Seller */}
-              <button 
-                onClick={() => handleSort('owner')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'owner' ? 'text-white' : 'text-gray-400'
-                }`}
-              >
-                Seller {sortField === 'owner' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </button>
-              
-              {/* COLUMN 5: Status */}
+              {/* COLUMN 4: Status */}
               <button 
                 onClick={() => handleSort('status')}
                 className={`text-sm font-medium text-center hover:text-white transition-colors ${
@@ -1437,7 +1436,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 6: Expires */}
+              {/* COLUMN 5: Expires */}
               <button 
                 onClick={() => handleSort('date')}
                 className={`text-sm font-medium text-left hover:text-white transition-colors ${
@@ -1446,6 +1445,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               >
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
+              
+              {/* COLUMN 6: Backing Price */}
+              <div className="text-sm font-medium text-center text-gray-400">
+                Backing Price
+              </div>
+              
+              {/* COLUMN 7: Current Price */}
+              <div className="text-sm font-medium text-center text-gray-400">
+                Current Price
+              </div>
               
               {/* COLUMN 7: Actions */}
               <div className="text-sm font-medium text-right text-gray-400">
@@ -1478,7 +1487,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   transition={{ 
                     duration: 0.2
                   }}
-                      className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] items-start gap-4 ${
+                      className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] items-start gap-4 ${
                         expandedPositions.size > 0 ? 'py-4' : 'py-8'
                       } ${
                         index < displayOrders.length - 1 ? 'border-b border-white/10' : ''
@@ -1613,17 +1622,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </div>
                   </div>
                   
-                  {/* COLUMN 4: Seller Content */}
-                  <div className="text-center">
-                    <button
-                      onClick={() => copyToClipboard(order.userDetails.orderOwner)}
-                        className="px-3 py-1 rounded-full bg-gray-800/50 text-white border border-gray-600 hover:bg-gray-700/50 transition-all duration-300 text-xs"
-                    >
-                      {formatAddress(order.userDetails.orderOwner)}
-                    </button>
-                  </div>
-                  
-                  {/* COLUMN 5: Status Content */}
+                  {/* COLUMN 4: Status Content */}
                   <div className="text-center">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
                       getStatusText(order) === 'Inactive'
@@ -1638,12 +1637,72 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </span>
                   </div>
                   
-                  {/* COLUMN 6: Expires Content */}
+                  {/* COLUMN 5: Expires Content */}
                   <div className="text-gray-400 text-sm text-right">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
                   
-                  {/* COLUMN 7: Actions Content */}
+                  {/* COLUMN 6: Backing Price Content */}
+                  <div className="text-center">
+                    <div className="text-sm text-white">
+                      {(() => {
+                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+                        const tokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.address.toLowerCase() === sellTokenInfo.address.toLowerCase()) : null;
+                        
+                        console.log('Debug tokenStats:', {
+                          sellTokenAddress: sellTokenInfo.address,
+                          sellTokenTicker: sellTokenInfo.ticker,
+                          tokenStats: tokenStats,
+                          tokenStat: tokenStat,
+                          found: !!tokenStat
+                        });
+                        
+                        if (tokenStat && tokenStat.token.discountFromBacking !== undefined) {
+                          const discount = tokenStat.token.discountFromBacking * 100;
+                          const color = discount > 0 ? 'text-green-400' : 'text-red-400';
+                          const sign = discount > 0 ? '+' : '';
+                          return (
+                            <span className={color}>
+                              {sign}{discount.toFixed(1)}%
+                            </span>
+                          );
+                        }
+                        return '--';
+                      })()}
+                    </div>
+                  </div>
+                  
+                  {/* COLUMN 7: Current Price Content */}
+                  <div className="text-center">
+                    <div className="text-sm text-white">
+                      {(() => {
+                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+                        const tokenStat = Array.isArray(tokenStats) ? tokenStats.find(stat => stat.token.address.toLowerCase() === sellTokenInfo.address.toLowerCase()) : null;
+                        
+                        console.log('Debug tokenStats:', {
+                          sellTokenAddress: sellTokenInfo.address,
+                          sellTokenTicker: sellTokenInfo.ticker,
+                          tokenStats: tokenStats,
+                          tokenStat: tokenStat,
+                          found: !!tokenStat
+                        });
+                        
+                        if (tokenStat && tokenStat.token.discountFromBacking !== undefined) {
+                          const discount = tokenStat.token.discountFromBacking * 100;
+                          const color = discount > 0 ? 'text-green-400' : 'text-red-400';
+                          const sign = discount > 0 ? '+' : '';
+                          return (
+                            <span className={color}>
+                              {sign}{discount.toFixed(1)}%
+                            </span>
+                          );
+                        }
+                        return '--';
+                      })()}
+                    </div>
+                  </div>
+                  
+                  {/* COLUMN 8: Actions Content */}
                     <div className="text-right">
                       {ownershipFilter === 'mine' && 
                        order.orderDetailsWithId.status === 0 ? (
@@ -1678,9 +1737,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {expandedPositions.has(order.orderDetailsWithId.orderId.toString()) && (
                       <motion.div
                         key={`shelf-${order.orderDetailsWithId.orderId}`}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="rounded-2xl mt-2 border border-white/10 bg-white/5"
                       >
@@ -1731,10 +1790,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               {/* Percentage buttons and Clear under all inputs */}
                               <div className="mt-4 flex space-x-2">
                                 <button
-                                  onClick={() => handlePercentageFill(order, 1.0)}
+                                  onClick={() => handlePercentageFill(order, 0.1)}
                                   className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
                                 >
-                                  100%
+                                  10%
                                 </button>
                                 <button
                                   onClick={() => handlePercentageFill(order, 0.5)}
@@ -1743,10 +1802,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                   50%
                                 </button>
                                 <button
-                                  onClick={() => handlePercentageFill(order, 0.1)}
+                                  onClick={() => handlePercentageFill(order, 1.0)}
                                   className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
                                 >
-                                  10%
+                                  100%
                                 </button>
                                 <button
                                   onClick={() => handleClearInputs(order)}
@@ -1764,6 +1823,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 
                                 // Calculate total buy amount (what buyer will pay)
                                 let totalBuyAmount = 0;
+                                let primaryTokenInfo = null;
                                 const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
                                 const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
                                 
@@ -1774,6 +1834,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                       const inputAmount = parseFloat(removeCommas(currentInputs[tokenInfo.address]));
                                       if (!isNaN(inputAmount)) {
                                         totalBuyAmount += inputAmount;
+                                        // Use the first token with an input as the primary token for display
+                                        if (!primaryTokenInfo) {
+                                          primaryTokenInfo = tokenInfo;
+                                        }
                                       }
                                     }
                                   });
@@ -1785,22 +1849,90 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                   
                                   return (
                                     <div className="mt-4 p-3 bg-white/5 rounded-lg">
-                                      <h5 className="text-white font-medium mb-2">Fee Breakdown</h5>
+                                      <h5 className="text-white font-medium mb-2">Order Breakdown</h5>
                                       <div className="space-y-1 text-sm">
                                         <div className="flex justify-between">
-                                          <span className="text-gray-400">You Pay:</span>
-                                          <span className="text-white">{formatNumberWithCommas(totalBuyAmount.toFixed(2))} tokens</span>
+                                          <span className="text-gray-400">Seller Receives:</span>
+                                          <div className="flex items-center space-x-1">
+                                            <span className="text-white">{orderOwnerReceives.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
+                                            {primaryTokenInfo && (
+                                              <>
+                                                <TokenLogo 
+                                                  src={primaryTokenInfo.logo}
+                                                  alt={formatTokenTicker(primaryTokenInfo.ticker)}
+                                                  className="w-4 h-4 rounded-full"
+                                                />
+                                                <span className="text-white">{formatTokenTicker(primaryTokenInfo.ticker)}</span>
+                                              </>
+                                            )}
+                                          </div>
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-gray-400">Platform Fee (1%):</span>
-                                          <span className="text-white">{formatNumberWithCommas(platformFee.toFixed(2))} tokens</span>
+                                          <div className="flex items-center space-x-1">
+                                            <span className="text-white">{platformFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
+                                            {primaryTokenInfo && (
+                                              <>
+                                                <TokenLogo 
+                                                  src={primaryTokenInfo.logo}
+                                                  alt={formatTokenTicker(primaryTokenInfo.ticker)}
+                                                  className="w-4 h-4 rounded-full"
+                                                />
+                                                <span className="text-white">{formatTokenTicker(primaryTokenInfo.ticker)}</span>
+                                              </>
+                                            )}
+                                          </div>
                                         </div>
                                         <div className="border-t border-white/10 pt-1">
                                           <div className="flex justify-between">
-                                            <span className="text-white font-medium">Order Owner Receives:</span>
-                                            <span className="text-white font-bold">{formatNumberWithCommas(orderOwnerReceives.toFixed(2))} tokens</span>
+                                            <span className="text-white font-bold">You Pay:</span>
+                                            <div className="flex items-center space-x-1">
+                                              <span className="text-white font-bold">{formatNumberWithCommas(totalBuyAmount.toFixed(2))}</span>
+                                              {primaryTokenInfo && (
+                                                <>
+                                                  <TokenLogo 
+                                                    src={primaryTokenInfo.logo}
+                                                    alt={formatTokenTicker(primaryTokenInfo.ticker)}
+                                                    className="w-4 h-4 rounded-full"
+                                                  />
+                                                  <span className="text-white font-bold">{formatTokenTicker(primaryTokenInfo.ticker)}</span>
+                                                </>
+                                              )}
                                           </div>
                                         </div>
+                                        </div>
+                                        
+                                        {/* Divider */}
+                                        <div className="pt-2 mt-2">
+                                        </div>
+                                        
+                                         {/* What you receive section */}
+                                         {(() => {
+                                           const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
+                                           const sellAmount = parseFloat(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals));
+                                           const buyAmount = parseFloat(formatTokenAmount(order.orderDetailsWithId.orderDetails.buyAmounts[0], primaryTokenInfo.decimals));
+                                           
+                                           // Calculate the exchange rate: sellAmount / buyAmount
+                                           const exchangeRate = sellAmount / buyAmount;
+                                           
+                                           // What you receive = what you pay * exchange rate
+                                           const receiveAmount = totalBuyAmount * exchangeRate;
+                                           
+                                           return (
+                                             <div className="flex justify-between">
+                                               <span className="text-white font-medium">You Receive:</span>
+                                               <div className="flex items-center space-x-1">
+                                                 <span className="text-white font-bold">{receiveAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
+                                                 <TokenLogo 
+                                                   src={sellTokenInfo.logo}
+                                                   alt={formatTokenTicker(sellTokenInfo.ticker)}
+                                                   className="w-4 h-4 rounded-full"
+                                                 />
+                                                 <span className="text-white font-bold">{formatTokenTicker(sellTokenInfo.ticker)}</span>
+                                               </div>
+                                             </div>
+                                           );
+                                         })()}
                                       </div>
                                     </div>
                                   );
@@ -1827,8 +1959,12 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               </div>
                             </div>
                             
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className="text-xs text-gray-500 mt-4">
                               Order ID: {order.orderDetailsWithId.orderId.toString()}
+                            </div>
+                            
+                            <div className="text-xs text-gray-500 mt-1">
+                              Seller: {formatAddress(order.userDetails.orderOwner)}
                             </div>
                             
                             {/* Owner Actions - Only show for user's own orders */}
