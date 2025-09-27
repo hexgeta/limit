@@ -83,6 +83,17 @@ const formatTokenAmountDisplay = (amount: number): string => {
   return amount.toFixed(2);
 };
 
+// Helper function to get token price with hardcoded overrides
+const getTokenPrice = (tokenAddress: string, tokenPrices: any): number => {
+  // Hardcode weDAI to $1.00
+  if (tokenAddress.toLowerCase() === '0xefd766ccb38eaf1dfd701853bfce31359239f305') {
+    return 1.0;
+  }
+  
+  // Return regular price for other tokens
+  return tokenPrices[tokenAddress]?.price || 0;
+};
+
 // Map wrapped tokens to base tokens for price fetching
 const getBaseTokenForPrice = (ticker: string) => {
   const baseTokenMap: Record<string, string> = {
@@ -1043,8 +1054,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           const bSellTokenInfo = getTokenInfo(bSellTokenAddress);
           const aTokenAmount = parseFloat(formatTokenAmount(a.orderDetailsWithId.orderDetails.sellAmount, aSellTokenInfo.decimals));
           const bTokenAmount = parseFloat(formatTokenAmount(b.orderDetailsWithId.orderDetails.sellAmount, bSellTokenInfo.decimals));
-          const aTokenPrice = tokenPrices[aSellTokenAddress]?.price || 0;
-          const bTokenPrice = tokenPrices[bSellTokenAddress]?.price || 0;
+          const aTokenPrice = getTokenPrice(aSellTokenAddress, tokenPrices);
+          const bTokenPrice = getTokenPrice(bSellTokenAddress, tokenPrices);
           const aUsdValue = aTokenAmount * aTokenPrice;
           const bUsdValue = bTokenAmount * bTokenPrice;
           comparison = aUsdValue - bUsdValue;
@@ -1595,7 +1606,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 const originalSellAmount = order.orderDetailsWithId.orderDetails.sellAmount;
                 const remainingSellAmount = (originalSellAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                 const sellTokenAmount = parseFloat(formatTokenAmount(remainingSellAmount, sellTokenInfo.decimals));
-                const sellTokenPrice = tokenPrices[sellTokenAddress]?.price || 0;
+                const sellTokenPrice = getTokenPrice(sellTokenAddress, tokenPrices);
                 const sellUsdValue = sellTokenAmount * sellTokenPrice;
                 
                 // Calculate total asking USD value
@@ -1609,7 +1620,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     const originalAmount = buyAmounts[idx];
                     const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                     const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
-                    const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
+                    const tokenPrice = getTokenPrice(tokenInfo.address, tokenPrices);
                     const usdValue = tokenAmount * tokenPrice;
                     askingUsdValue += usdValue;
                   });
@@ -1633,7 +1644,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 
                 if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
                   // Get HEX price in USD
-                  const hexPrice = tokenPrices['0x2b591e99afe9f32eaa6214f7b7629768c40eeb39']?.price || 0;
+                  const hexPrice = getTokenPrice('0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', tokenPrices);
                   
                   if (hexPrice > 0) {
                     // Calculate backing price per token in USD
@@ -1754,7 +1765,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
                               const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                             const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
-                            const tokenPrice = tokenPrices[tokenInfo.address]?.price || 0;
+                            const tokenPrice = getTokenPrice(tokenInfo.address, tokenPrices);
                             const usdValue = tokenAmount * tokenPrice;
                             
                             
@@ -2148,7 +2159,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             </div>
                             
                             <div className="text-xs text-gray-500 mt-1">
-                              Seller: {formatAddress(order.userDetails.orderOwner)}
+                              Seller: {order.userDetails.orderOwner}
                             </div>
                             
                             {/* Owner Actions - Only show for user's own orders */}

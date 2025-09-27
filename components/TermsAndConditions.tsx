@@ -42,6 +42,22 @@ const TermsAndConditions: React.FC = () => {
             </ul>
           </section>
 
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">5. Limitation of Liability</h2>
+            <p>5.1. <strong>USE AT YOUR OWN RISK:</strong> You acknowledge that cryptocurrency trading involves substantial risk of loss and that you use the Site at your own risk.</p>
+            <p>5.2. <strong>NO LIABILITY FOR LOSSES:</strong> To the fullest extent permitted by law, AgoráX, its officers, directors, employees, and affiliates shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages, including but not limited to:</p>
+            <ul className="list-disc pl-6 space-y-2 mt-2">
+              <li>a) Loss of funds, profits, or investment opportunities;</li>
+              <li>b) Trading losses or failed transactions;</li>
+              <li>c) Technical failures, system downtime, or data loss;</li>
+              <li>d) Errors in information, analytics, or market data;</li>
+              <li>e) Unauthorized access to your account or funds;</li>
+              <li>f) Any other losses arising from your use of the Site.</li>
+            </ul>
+            <p>5.3. <strong>MAXIMUM LIABILITY:</strong> In no event shall our total liability to you exceed the amount of fees (if any) paid by you to us in the twelve (12) months preceding the event giving rise to such liability.</p>
+            <p>5.4. <strong>NO WARRANTIES:</strong> The Site is provided "as is" and "as available" without any warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.</p>
+          </section>
+
           <p className="mt-8 font-semibold">
             By using the Site, you acknowledge and agree to these Terms and any updates or modifications thereof. These Terms constitute the entire agreement between you and us regarding your use of the Site.
           </p>
