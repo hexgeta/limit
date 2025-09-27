@@ -73,6 +73,16 @@ const formatUSD = (amount: number) => {
   return `$${amount.toFixed(2)}`;
 };
 
+// Helper function to format token amounts without unnecessary decimals
+const formatTokenAmountDisplay = (amount: number): string => {
+  // If it's a whole number, don't show decimals
+  if (amount % 1 === 0) {
+    return amount.toLocaleString();
+  }
+  // Otherwise, show 2 decimal places
+  return amount.toFixed(2);
+};
+
 // Map wrapped tokens to base tokens for price fetching
 const getBaseTokenForPrice = (ticker: string) => {
   const baseTokenMap: Record<string, string> = {
@@ -1440,13 +1450,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       {/* Search Bar */}
       <div className="mb-6">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-black border border-gray-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-gray-600 focus:bg-gray-black transition-colors"
+            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-white/20 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-white/20 focus:bg-black/10 transition-colors"
           />
         </div>
       </div>
@@ -1523,7 +1533,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               
               {/* COLUMN 4: OTC % */}
               <div className="text-sm font-medium text-center text-gray-400">
-                Vs Market Price
+                OTC vs Market Price
               </div>
               
               {/* COLUMN 5: Backing Price */}
@@ -1533,7 +1543,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   sortField === 'backingPrice' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                Vs Backing Price{sortField === 'backingPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                OTC vs Backing Price{sortField === 'backingPrice' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 6: Status */}
@@ -1549,7 +1559,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 7: Expires */}
               <button 
                 onClick={() => handleSort('date')}
-                className={`text-sm font-medium text-left hover:text-white transition-colors ${
+                className={`text-sm font-medium text-right hover:text-white transition-colors ${
                   sortField === 'date' ? 'text-white' : 'text-gray-400'
                 }`}
               >
@@ -1557,7 +1567,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               </button>
               
               {/* COLUMN 8: Actions */}
-              <div className="text-sm font-medium text-right text-gray-400">
+              <div className="text-sm font-medium text-center text-gray-400">
                 {/* Actions header removed - left blank */}
             </div>
             </motion.div>
@@ -1613,7 +1623,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   isAboveAsking = percentageDifference > 0; // positive means ask is smaller than offer (discount)
                 }
                 
-                // Calculate backing price discount (OTC price vs backing price in USD) - Modal style
+                // Calculate backing price discount - simple USD comparison like market price column
                 let backingPriceDiscount = null;
                 let isAboveBackingPrice = false;
                 
@@ -1621,55 +1631,50 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
                 const sellTokenStat = tokenStats[sellTokenKey];
                 
-                // Debug logging for backing price calculation
-                console.log('Backing Price Debug:', {
-                  sellTokenTicker: sellTokenInfo.ticker,
-                  sellTokenKey,
-                  tokenStatsKeys: Object.keys(tokenStats),
-                  sellTokenStat: sellTokenStat ? 'found' : 'not found',
-                  backingPerToken: sellTokenStat?.token?.backingPerToken
-                });
-                
                 if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
-                  // Get HEX price from tokenPrices
+                  // Get HEX price in USD
                   const hexPrice = tokenPrices['0x2b591e99afe9f32eaa6214f7b7629768c40eeb39']?.price || 0;
-                  
-                  console.log('HEX Price Debug:', {
-                    hexPrice,
-                    tokenPricesKeys: Object.keys(tokenPrices),
-                    hexPriceData: tokenPrices['0x2b591e99afe9f32eaa6214f7b7629768c40eeb39']
-                  });
                   
                   if (hexPrice > 0) {
                     // Calculate backing price per token in USD
                     const backingPriceUsd = sellTokenStat.token.backingPerToken * hexPrice;
                     
-                    // Calculate OTC price per token in USD
-                    const sellTokenAmount = order.sellAmount && sellTokenInfo.decimals !== undefined 
-                      ? parseFloat(formatTokenAmount(order.sellAmount, sellTokenInfo.decimals))
-                      : 0;
-                    const otcPriceUsd = sellTokenAmount > 0 ? sellUsdValue / sellTokenAmount : 0;
+                    // Calculate OTC price per token in USD (use the already calculated sellTokenAmount from line 1587)
+                    const otcPriceUsd = sellTokenAmount > 0 ? askingUsdValue / sellTokenAmount : 0; // asking total USD / sell token units
                     
-                    console.log('Calculation Debug:', {
-                      backingPerToken: sellTokenStat.token.backingPerToken,
-                      hexPrice,
-                      backingPriceUsd,
-                      sellTokenAmount,
+                    console.log('OTC Price Debug Values:', {
+                      askingUsdValue,
                       sellUsdValue,
+                      sellTokenAmount,
                       otcPriceUsd,
-                      orderSellAmount: order.sellAmount,
-                      sellTokenDecimals: sellTokenInfo.decimals
+                      rawSellAmount: order.sellAmount?.toString(),
+                      sellTokenDecimals: sellTokenInfo.decimals,
+                      sellTokenAddress: sellTokenInfo.address,
+                      sellTokenTicker: sellTokenInfo.ticker,
+                      formatTokenAmountResult: order.sellAmount ? formatTokenAmount(order.sellAmount, sellTokenInfo.decimals) : 'no sellAmount'
                     });
                     
                     if (otcPriceUsd > 0 && backingPriceUsd > 0) {
                       // Calculate percentage: how much above/below backing price the OTC price is
-                      backingPriceDiscount = ((otcPriceUsd / backingPriceUsd) * 100) - 100;
+                      backingPriceDiscount = ((otcPriceUsd - backingPriceUsd) / backingPriceUsd) * 100;
                       isAboveBackingPrice = backingPriceDiscount > 0;
                       
-                      console.log('Final Calculation:', {
-                        backingPriceDiscount,
-                        isAboveBackingPrice,
-                        formula: `((${otcPriceUsd} / ${backingPriceUsd}) * 100) - 100 = ${backingPriceDiscount}`
+                      console.log('Backing Price Discount Calculation:', {
+                        token: sellTokenInfo.ticker,
+                        otcPriceUsd: otcPriceUsd.toFixed(6),
+                        backingPriceUsd: backingPriceUsd.toFixed(6),
+                        backingPriceDiscount: backingPriceDiscount.toFixed(2) + '%',
+                        askingUsdValue,
+                        sellTokenAmount
+                      });
+                    } else {
+                      console.log('Backing Price Discount Failed:', {
+                        token: sellTokenInfo.ticker,
+                        otcPriceUsd,
+                        backingPriceUsd,
+                        hexPrice,
+                        backingPerToken: sellTokenStat.token.backingPerToken,
+                        sellTokenStat: sellTokenStat ? 'found' : 'not found'
                       });
                     }
                   }
@@ -1717,7 +1722,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                     </span>
                               <span className="text-gray-400 text-xs">
-                                {tokenAmount.toFixed(2)}
+                                {formatTokenAmountDisplay(tokenAmount)}
                               </span>
                               {tokenPrice > 0 && (
                                 <span className="text-gray-500 text-xs">
@@ -1765,7 +1770,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                     {formatTokenTicker(tokenInfo.ticker)}
                           </span>
                                   <span className="text-gray-400 text-xs">
-                            {tokenAmount.toFixed(2)}
+                            {formatTokenAmountDisplay(tokenAmount)}
                           </span>
                                   {tokenPrice > 0 && (
                                     <span className="text-gray-500 text-xs">
@@ -1815,10 +1820,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       )}
                     </div>
                     {percentageDifference !== null && (
-                      <div className={`text-xs mt-1 ${
-                        isAboveAsking ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {isAboveAsking ? 'good deal' : 'bad deal'}
+                      <div className="text-xs text-gray-400 mt-1">
+                        {isAboveAsking ? 'discount' : 'premium'}
                       </div>
                     )}
                   </div>
@@ -1900,7 +1903,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       ) : (
                         <button
                           onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                          className="flex items-center gap-1 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
+                          className="flex items-right gap-1 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
                         >
                           <span>Buy</span>
                           <ChevronDown 
@@ -2068,7 +2071,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                           <div className="flex justify-between">
                                             <span className="text-white font-bold">You Pay:</span>
                                             <div className="flex items-center space-x-1">
-                                              <span className="text-white font-bold">{formatNumberWithCommas(totalBuyAmount.toFixed(2))}</span>
+                                              <span className="text-white font-bold">{formatNumberWithCommas(formatTokenAmountDisplay(totalBuyAmount))}</span>
                                               {primaryTokenInfo && (
                                                 <>
                                                   <TokenLogo 

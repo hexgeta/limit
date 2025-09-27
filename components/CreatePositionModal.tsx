@@ -1212,13 +1212,18 @@ export function CreatePositionModal({
 
                             return (
                               <div className="space-y-2 text-sm">
+                                                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Progress:</span>
+                                  <span className="text-white">{(buyStats.dates.progressPercentage * 100).toFixed(1)}%</span>
+                                </div>
+                                                                <div className="flex justify-between">
+                                                                  
+                                  <span className="text-gray-400">Current Market Price:</span>
+                                  <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} HEX</span>
+                                </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Backing per Token:</span>
                                   <span className="text-white">{buyStats.token.backingPerToken.toFixed(4)} HEX</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Current Market Price:</span>
-                                  <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} HEX</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Market Discount / Premium from Backing:</span>
@@ -1227,15 +1232,16 @@ export function CreatePositionModal({
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
+                                  <span className="text-gray-400">Current Market Price:</span>
+                                  <span className="text-white">1 HEX</span>
+                                </div>
+                                <div className="flex justify-between">
                                   <span className="text-gray-400">Market Discount / Premium from Mint:</span>
                                   <span className={`font-medium ${buyStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                     {(buyStats.token.discountFromMint * 100).toFixed(2)}%
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Progress:</span>
-                                  <span className="text-white">{(buyStats.dates.progressPercentage * 100).toFixed(1)}%</span>
-                                </div>
+
 
                                 {/* Subtle divider */}
                                 <div className="border-t border-white/10 my-3"></div>
@@ -1245,19 +1251,7 @@ export function CreatePositionModal({
                                   <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount / Premium from Backing:</span>
-                                  <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                    {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
-                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount / Premium from your OTC Price:</span>
+                                  <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
                                   <span className={`font-medium ${yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
                                     ((yourPriceInHEX - buyStats.token.priceHEX) / buyStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                     {yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
@@ -1267,6 +1261,20 @@ export function CreatePositionModal({
                                       })() : 'N/A'}
                                   </span>
                                 </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
+                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Backing:</span>
+                                  <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                    {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
+                                  </span>
+                                </div>
+
+
                               </div>
                             );
                           })()}
@@ -1335,7 +1343,7 @@ export function CreatePositionModal({
                     <span>APPROVING & CREATING DEAL...</span>
                   </div>
                 ) : needsApproval && tokenNeedsApproval ? (
-                  `CREATE DEAL`
+                  `APPROVE &CREATE DEAL`
                 ) : (
                   'CREATE DEAL'
                 )}
