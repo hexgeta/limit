@@ -91,9 +91,9 @@ interface CreatePositionModalProps {
   onClose: () => void;
   onTransactionStart?: () => void;
   onTransactionEnd?: () => void;
-  onTransactionSuccess?: (message?: string) => void;
+  onTransactionSuccess?: (message?: string, txHash?: string) => void;
   onTransactionError?: (error?: string) => void;
-  onOrderCreated?: () => void; // Callback to refresh data and navigate
+  onOrderCreated?: (sellToken?: TokenOption, buyToken?: TokenOption) => void; // Callback to refresh data and navigate
 }
 
 interface TokenOption {
@@ -154,6 +154,7 @@ export function CreatePositionModal({
     }
 
     setApprovalError(null);
+    setIsLocalApproving(true); // Set local approving state
     setTransactionPending(true);
     onTransactionStart?.();
 
@@ -194,7 +195,8 @@ export function CreatePositionModal({
           console.log('Approval timeout, but proceeding anyway...');
           handleCreateDeal();
         } finally {
-          // Only clear loading state after approval process is complete
+          // Clear approval loading state after the entire process
+          setIsLocalApproving(false);
           setTransactionPending(false);
           onTransactionEnd?.();
         }
@@ -206,6 +208,7 @@ export function CreatePositionModal({
       const errorMessage = error.message || 'Failed to approve token. Please try again.';
       setApprovalError(errorMessage);
       onTransactionError?.(errorMessage);
+      setIsLocalApproving(false); // Clear approval loading state on error
       setTransactionPending(false);
       onTransactionEnd?.();
     }
@@ -339,6 +342,9 @@ export function CreatePositionModal({
   // State for order creation
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
+  
+  // Local state for approval process (to maintain spinner throughout entire approval + creation flow)
+  const [isLocalApproving, setIsLocalApproving] = useState(false);
 
   // Get wallet balances for selected tokens
   const { data: sellTokenBalance, isLoading: sellBalanceLoading, error: sellBalanceError } = useBalance({
@@ -646,6 +652,7 @@ export function CreatePositionModal({
 
     console.log('Starting order creation process...');
     setIsCreatingOrder(true);
+    setIsLocalApproving(false); // Clear approval loading state when starting order creation
     setOrderError(null);
     setApprovalError(null);
     setTransactionPending(true);
@@ -694,11 +701,11 @@ export function CreatePositionModal({
       console.log('Order created successfully:', receipt);
 
       // Refresh data and navigate to show the new order
-      onOrderCreated?.();
+      onOrderCreated?.(sellToken, buyToken);
 
-      // Show success toast and close modal only after confirmation
-      console.log('Calling onTransactionSuccess with message...');
-      onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.');
+      // Show success toast with transaction link
+      console.log('Calling onTransactionSuccess with message and txHash:', txHash);
+      onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.', txHash);
 
       console.log('Closing modal...');
       handleClose();
@@ -1392,9 +1399,9 @@ export function CreatePositionModal({
               </button>
               <button
                 onClick={needsApproval && tokenNeedsApproval ? handleApproveToken : handleCreateDeal}
-                disabled={!sellToken || !buyToken || !sellAmount || !buyAmount || !!isCreatingOrder || !!isApproving || !isWalletConnected || (sellToken && buyToken && sellToken.address === buyToken.address)}
+                disabled={!sellToken || !buyToken || !sellAmount || !buyAmount || !!isCreatingOrder || !!isLocalApproving || !isWalletConnected || (sellToken && buyToken && sellToken.address === buyToken.address)}
                 className={`px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${needsApproval && tokenNeedsApproval
-                    ? isApproving
+                    ? isLocalApproving
                       ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
                       : 'bg-white text-black hover:bg-white/80'
                     : 'bg-white text-black hover:bg-gray-200'
@@ -1405,7 +1412,7 @@ export function CreatePositionModal({
                     <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
                     <span>Creating Order...</span>
                   </div>
-                ) : isApproving ? (
+                ) : isLocalApproving ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
                     <span>APPROVING & CREATING DEAL...</span>

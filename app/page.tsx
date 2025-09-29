@@ -6,6 +6,7 @@ import { OpenPositionsTable } from '@/components/OpenPositionsTable';
 import { CreatePositionModal } from '@/components/CreatePositionModal';
 import { WhitelistDebugger } from '@/components/WhitelistDebugger';
 import useToast from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
@@ -97,11 +98,19 @@ export default function Home() {
         onClose={() => setShowCreateModal(false)}
         onTransactionStart={() => setIsTransactionLoading(true)}
         onTransactionEnd={() => setIsTransactionLoading(false)}
-        onTransactionSuccess={(message) => {
+        onTransactionSuccess={(message, txHash) => {
           toast({
             title: "Transaction Successful!",
             description: message || "Your order has been created successfully.",
             variant: "success",
+            action: txHash ? (
+              <ToastAction
+                altText="View transaction"
+                onClick={() => window.open(`https://otter.pulsechain.com/tx/${txHash}`, '_blank')}
+              >
+                View TX
+              </ToastAction>
+            ) : undefined,
           });
         }}
         onTransactionError={(error) => {
@@ -111,10 +120,10 @@ export default function Home() {
             variant: "destructive",
           });
         }}
-        onOrderCreated={() => {
+        onOrderCreated={(sellToken, buyToken) => {
           // Refresh the orders table and navigate to "My Deals" > "Active"
           if (openPositionsTableRef.current) {
-            openPositionsTableRef.current.refreshAndNavigateToMyActiveOrders();
+            openPositionsTableRef.current.refreshAndNavigateToMyActiveOrders(sellToken, buyToken);
           }
         }}
       />

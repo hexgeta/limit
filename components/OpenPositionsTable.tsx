@@ -242,9 +242,24 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   
   // Expose refresh function to parent component
   useImperativeHandle(ref, () => ({
-    refreshAndNavigateToMyActiveOrders: () => {
-      // Set filters to show "Non-MAXI" > "My Deals" > "Active" orders
-      setTokenFilter('non-maxi');
+    refreshAndNavigateToMyActiveOrders: (sellToken?: any, buyToken?: any) => {
+      // Determine if this is a MAXI deal by checking if either token is in the MAXI list
+      let isMaxiDeal = false;
+      
+      if (sellToken?.address) {
+        isMaxiDeal = maxiTokenAddresses.some(addr => 
+          addr.toLowerCase() === sellToken.address.toLowerCase()
+        );
+      }
+      
+      if (!isMaxiDeal && buyToken?.address) {
+        isMaxiDeal = maxiTokenAddresses.some(addr => 
+          addr.toLowerCase() === buyToken.address.toLowerCase()
+        );
+      }
+      
+      // Set appropriate token filter based on whether it's a MAXI deal
+      setTokenFilter(isMaxiDeal ? 'maxi' : 'non-maxi');
       setOwnershipFilter('mine');
       setStatusFilter('active');
       
@@ -252,7 +267,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       setExpandedPositions(new Set());
       
       // The useOpenPositions hook will automatically refetch when dependencies change
-      console.log('Navigated to Non-MAXI > My Deals > Active orders');
+      console.log(`Navigated to ${isMaxiDeal ? 'MAXI' : 'Non-MAXI'} > My Deals > Active orders`);
     }
   }));
   
