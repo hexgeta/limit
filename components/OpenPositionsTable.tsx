@@ -2054,15 +2054,15 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 
                                 return (
                                   <div key={`${tokenAddress}-${idx}`} className="flex items-center space-x-2 mb-3">
-                                    <TokenLogo src={tokenInfo.logo} alt={tokenInfo.ticker} className="w-5 h-5 rounded-full" />
-                                    <div className="flex flex-col min-w-0">
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-sm font-medium text-white whitespace-nowrap">{tokenInfo.ticker}</span>
-                                        <span className="text-xs text-gray-400">
-                                          {formatTokenAmountDisplay(amount)}
-                                        </span>
-                                      </div>
-                                      <span className="text-xs text-gray-400">
+                                    <TokenLogo src={tokenInfo.logo} alt={tokenInfo.ticker} className="w-6 h-6 rounded-full" />
+                                    <div className="flex flex-col">
+                                      <span className="text-white text-sm font-medium whitespace-nowrap">
+                                        {formatTokenTicker(tokenInfo.ticker)}
+                                      </span>
+                                      <span className="text-gray-400 text-xs whitespace-nowrap">
+                                        {formatTokenAmountDisplay(amount)}
+                                      </span>
+                                      <span className="text-gray-500 text-xs">
                                         {formatUSD(usdValue)}
                                       </span>
                                     </div>
