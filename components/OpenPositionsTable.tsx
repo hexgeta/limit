@@ -58,6 +58,10 @@ const removeCommas = (value: string) => {
 
 // Format USD amount without scientific notation
 const formatUSD = (amount: number) => {
+  // Handle zero values cleanly
+  if (amount === 0) {
+    return '$0';
+  }
   if (amount < 0.000001) {
     return `$${amount.toFixed(8)}`;
   }
@@ -68,9 +72,16 @@ const formatUSD = (amount: number) => {
     return `$${amount.toFixed(4)}`;
   }
   if (amount >= 10000) {
-    return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // For large amounts, use locale formatting but don't force decimals for whole numbers
+    return `$${amount.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 2 
+    })}`;
   }
-  return `$${amount.toFixed(2)}`;
+  // For amounts $1-$9999, show up to 2 decimals but don't force them for whole numbers
+  const formatted = amount.toFixed(2);
+  const withoutTrailingZeros = formatted.replace(/\.?0+$/, '');
+  return `$${withoutTrailingZeros}`;
 };
 
 // Helper function to format token amounts without unnecessary decimals
@@ -90,8 +101,30 @@ const getTokenPrice = (tokenAddress: string, tokenPrices: any): number => {
     return 1.0;
   }
   
+  // Use WPLS price for PLS (native token addresses)
+  const plsAddresses = [
+    '0x0000000000000000000000000000000000000000', // 0x0
+    '0x000000000000000000000000000000000000dead', // 0xdEaD
+  ];
+  if (plsAddresses.some(addr => tokenAddress.toLowerCase() === addr.toLowerCase())) {
+    // Try to get WPLS price from API, fallback to hardcoded value from DexScreener
+    const wplsPrice = tokenPrices['0xa1077a294dde1b09bb078844df40758a5d0f9a27']?.price;
+    return wplsPrice || 0.000034; // Fallback to current DexScreener price
+  }
+  
+  // Debug for other tokens that return 0
+  const price = tokenPrices[tokenAddress]?.price || 0;
+  if (price === 0) {
+    console.log('Token Price Debug (0 price):', {
+      tokenAddress,
+      hasTokenInPrices: tokenAddress in tokenPrices,
+      tokenData: tokenPrices[tokenAddress],
+      price
+    });
+  }
+  
   // Return regular price for other tokens
-  return tokenPrices[tokenAddress]?.price || 0;
+  return price;
 };
 
 // Map wrapped tokens to base tokens for price fetching
@@ -124,11 +157,19 @@ const getBaseTokenForPrice = (ticker: string) => {
 
 // MAXI token addresses (important tokens to highlight)
 const maxiTokenAddresses = [
+  // Original tokens
+  '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b', // MAXI - Original MAXI token
+  '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // DECI - Original DECI token
+  '0x6b0956258ff7bd7645aa35369b55b61b8e6d6140', // LUCKY - Original LUCKY token
+  '0xf55cd1e399e1cc3d95303048897a680be3313308', // TRIO - Original TRIO token
+  '0xe9f84d418b008888a992ff8c6d22389c2c3504e0', // BASE - Original BASE token
+  // Wrapped tokens (from Ethereum)
   '0x352511c9bc5d47dbc122883ed9353e987d10a3ba', // weMAXI
   '0x189a3ca3cc1337e85c7bc0a43b8d3457fd5aae89', // weDECI
   '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
   '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
   '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
+  // Pulsechain wrapped tokens (p-prefixed)
   '0xd63204ffcefd8f8cbf7390bbcd78536468c085a2', // pMAXI
   '0x969af590981bb9d19ff38638fa3bd88aed13603a', // pDECI
   '0x52d4b3f479537a15d0b37b6cdbdb2634cc78525e', // pLUCKY
@@ -156,7 +197,7 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
 
   // Debug logging for logo loading
   useEffect(() => {
-    if (alt === 'DARK' || alt === 'BRIBE' || alt === 'OG') {
+    if (alt === 'DARK' || alt === 'BRIBE' || alt === 'OG' || alt === 'MAXI') {
       console.log(`TokenLogo debug for ${alt}:`, {
         src,
         hasError,
@@ -1456,7 +1497,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         >
           Cancelled ({getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length})
         </button>
-      </div>
+        </div>
 
       {/* Search Bar */}
       <div className="mb-6">
@@ -1519,7 +1560,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                For Sale {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                {statusFilter === 'completed' ? 'Sold' : 'For Sale'} {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 2: Asking For */}
@@ -1529,7 +1570,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   sortField === 'askingFor' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                Asking For {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                {statusFilter === 'completed' ? 'Bought' : 'Asking For'} {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 3: Fill Status % */}
@@ -1570,7 +1611,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 7: Expires */}
               <button 
                 onClick={() => handleSort('date')}
-                className={`text-sm font-medium text-right hover:text-white transition-colors ${
+                className={`text-sm font-medium text-center hover:text-white transition-colors ${
                   sortField === 'date' ? 'text-white' : 'text-gray-400'
                 }`}
               >
@@ -1711,9 +1752,29 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     <div className="flex flex-col items-start space-y-1">
                     {(() => {
                       const formattedAmount = formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals);
-                      const tokenAmount = sellTokenAmount; // Use pre-calculated value
+                      // For completed orders, show original amounts; for others, show remaining amounts
+                      // Check if we're in completed filter section - if so, always use original amounts
+                      const isCompleted = statusFilter === 'completed' || order.orderDetailsWithId.status === 1;
+                      
+                      const tokenAmount = isCompleted ? 
+                        parseFloat(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals)) : 
+                        sellTokenAmount; // Use pre-calculated remaining value for non-completed
+                      
+                      // Debug: Log status for completed orders
+                      if (statusFilter === 'completed') {
+                        console.log('Completed Order Debug:', {
+                          orderId: order.orderDetailsWithId.orderId.toString(),
+                          status: order.orderDetailsWithId.status,
+                          isCompleted,
+                          sellToken: getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker,
+                          originalSellAmount: order.orderDetailsWithId.orderDetails.sellAmount.toString(),
+                          sellTokenAmount: sellTokenAmount,
+                          calculatedTokenAmount: tokenAmount,
+                          remainingPercentage: Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18
+                        });
+                      }
                       const tokenPrice = sellTokenPrice; // Use pre-calculated value
-                      const usdValue = sellUsdValue; // Use pre-calculated value
+                      const usdValue = isCompleted ? tokenAmount * tokenPrice : sellUsdValue; // Recalculate USD for completed
                       
                       
                       return (
@@ -1750,8 +1811,22 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   {/* COLUMN 2: Asking For Content */}
                   <div className="flex flex-col items-start space-y-1">
                     {(() => {
-                      // Use pre-calculated total USD value
-                      const totalUsdValue = askingUsdValue;
+                      // For completed orders, recalculate total USD using original amounts
+                      // Check if we're in completed filter section - if so, always use original amounts
+                      const isCompleted = statusFilter === 'completed' || order.orderDetailsWithId.status === 1;
+                      let totalUsdValue = askingUsdValue; // Default to pre-calculated value
+                      
+                      if (isCompleted) {
+                        // Recalculate total USD value using original amounts for completed orders
+                        totalUsdValue = 0;
+                        buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
+                      const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                          const originalAmount = buyAmounts[idx];
+                          const tokenAmount = parseFloat(formatTokenAmount(originalAmount, tokenInfo.decimals));
+                          const tokenPrice = getTokenPrice(tokenInfo.address, tokenPrices);
+                          totalUsdValue += tokenAmount * tokenPrice;
+                        });
+                      }
                       
                       return (
                         <div className="inline-block">
@@ -1762,11 +1837,43 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           {buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                             const originalAmount = buyAmounts[idx];
+                            // For completed orders, show original amounts; for others, show remaining amounts
+                            // Check if we're in completed filter section - if so, always use original amounts
+                            const isCompleted = statusFilter === 'completed' || order.orderDetailsWithId.status === 1;
                             const remainingPercentage = Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18;
+                            
+                            // Debug: Log status for completed orders (only once per order)
+                            if (statusFilter === 'completed' && idx === 0) {
+                              console.log('Completed Order Buy Debug:', {
+                                orderId: order.orderDetailsWithId.orderId.toString(),
+                                status: order.orderDetailsWithId.status,
+                                isCompleted,
+                                buyToken: tokenInfo.ticker,
+                                originalAmount: originalAmount.toString(),
+                                remainingPercentage
+                              });
+                            }
                               const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                            const tokenAmount = parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
+                            const tokenAmount = isCompleted ? 
+                              parseFloat(formatTokenAmount(originalAmount, tokenInfo.decimals)) :
+                              parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                             const tokenPrice = getTokenPrice(tokenInfo.address, tokenPrices);
                             const usdValue = tokenAmount * tokenPrice;
+                            
+                            // Enhanced debug: Log the actual calculation
+                            if (statusFilter === 'completed' && idx === 0) {
+                              console.log('Completed Order Buy Enhanced Debug:', {
+                                orderId: order.orderDetailsWithId.orderId.toString(),
+                                buyToken: tokenInfo.ticker,
+                                originalAmount: originalAmount.toString(),
+                                remainingAmount: remainingAmount.toString(),
+                                formattedOriginal: formatTokenAmount(originalAmount, tokenInfo.decimals),
+                                formattedRemaining: formatTokenAmount(remainingAmount, tokenInfo.decimals),
+                                calculatedTokenAmount: tokenAmount,
+                                isCompleted,
+                                remainingPercentage
+                              });
+                            }
                             
                             
                       return (
@@ -1799,16 +1906,28 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   
                   {/* COLUMN 3: Fill Status % Content */}
                   <div className="flex flex-col items-center space-y-2">
-                    <span className="text-white text-sm">
-                      {formatPercentage(100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100))}
-                    </span>
-                    <div className="w-full max-w-[60px] h-1 bg-gray-700 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-green-500 rounded-full transition-all duration-300"
-                        style={{ 
-                          width: `${(100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100))}%` 
-                        }}
-                      />
+                    {(() => {
+                      const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
+                      return (
+                        <span className={`text-sm ${fillPercentage === 0 ? 'text-gray-500' : 'text-white'}`}>
+                          {formatPercentage(fillPercentage)}
+                        </span>
+                      );
+                    })()}
+                    <div className="w-full max-w-[60px] h-1 bg-gray-500 rounded-full overflow-hidden">
+                      {(() => {
+                        const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
+                        return (
+                          <div 
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              fillPercentage === 0 ? 'bg-gray-500' : 'bg-green-500'
+                            }`}
+                            style={{ 
+                              width: `${fillPercentage}%` 
+                            }}
+                          />
+                        );
+                      })()}
                     </div>
                   </div>
                   
@@ -1819,7 +1938,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         <span className={`font-medium ${
                           isAboveAsking 
                             ? 'text-red-400'    // Red discount - getting more value than paying for
-                            : 'text-gray-400'   // Gray - paying more than getting (not a good deal)
+                            : 'text-green-400'  // Green premium - paying more than getting
                         }`}>
                           {isAboveAsking 
                             ? `-${Math.abs(percentageDifference).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
@@ -1841,7 +1960,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   <div className="text-center">
                     <div className="text-sm text-white">
                       {PAYWALL_ENABLED ? (
-                        <button
+                    <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowPaywallModal(true);
@@ -1849,7 +1968,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           className="p-2 rounded hover:bg-gray-700/50 transition-colors"
                         >
                           <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
-                        </button>
+                    </button>
                       ) : (
                         <div className="text-sm">
                           {backingPriceDiscount !== null ? (
@@ -1869,9 +1988,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           {backingPriceDiscount !== null && (
                             <div className="text-xs text-gray-400 mt-1">
                               {isAboveBackingPrice ? 'above backing' : 'discount'}
-                            </div>
+                    </div>
                           )}
-                        </div>
+                  </div>
                       )}
                     </div>
                   </div>
@@ -1892,7 +2011,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   </div>
                   
                   {/* COLUMN 7: Expires Content */}
-                  <div className="text-gray-400 text-sm text-right">
+                  <div className="text-gray-400 text-sm text-center">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
                   
@@ -1900,29 +2019,32 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     <div className="text-right">
                       {ownershipFilter === 'mine' && 
                        order.orderDetailsWithId.status === 0 ? (
-                        <button
-                          onClick={() => handleCancelOrder(order)}
-                          disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
+                          <button
+                            onClick={() => handleCancelOrder(order)}
+                            disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
                           className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                        >
-                          {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                          className="flex items-right gap-1 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
-                        >
-                          <span>Buy</span>
-                          <ChevronDown 
-                            className={`w-3 h-3 transition-transform duration-200 ${
-                              expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
-                            }`}
-                          />
-                        </button>
+                          >
+                            {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                      ) : ownershipFilter === 'non-mine' && order.orderDetailsWithId.status === 0 && statusFilter === 'active' ? (
+                      <button
+                        onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                          className="flex items-center gap-1 ml-4 px-4 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors"
+                          >
+                            <span>Buy</span>
+                            <ChevronDown 
+                              className={`w-3 h-3 transition-transform duration-200 ${
+                                expandedPositions.has(order.orderDetailsWithId.orderId.toString()) ? '' : 'rotate-180'
+                              }`}
+                            />
+                          </button>
+                        ) : (
+                        // No action button for completed/inactive/cancelled orders
+                        <div className="w-16 h-8"></div>
                       )}
                   </div>
                 </motion.div>
@@ -2302,7 +2424,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             </div>
           </div>
         </div>
-        )}
+      )}
 
       {/* Paywall Modal */}
       <PaywallModal 
@@ -2314,7 +2436,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         contactUrl="https://x.com/hexgeta"
       />
       </Container>
-    );
-  });
+  );
+});
 
 export default OpenPositionsTable;
