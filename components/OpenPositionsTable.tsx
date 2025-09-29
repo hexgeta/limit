@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 // Removed framer-motion imports for performance
-import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search } from 'lucide-react';
+import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search, ArrowRight, MoveRight, ChevronRight, Play } from 'lucide-react';
 import PaywallModal from './PaywallModal';
 import useToast from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -418,6 +418,25 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       }
       return newSet;
     });
+  };
+
+  // Navigate to marketplace and expand specific order
+  const navigateToMarketplaceOrder = (orderId: string) => {
+    // Switch to marketplace view
+    setOwnershipFilter('non-mine');
+    setStatusFilter('active');
+    
+    // Clear current expanded positions and expand the target order
+    setExpandedPositions(new Set([orderId]));
+    
+    // Clear any execute errors for the target order
+    setExecuteErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[orderId];
+      return newErrors;
+    });
+
+    console.log(`Navigated to marketplace and expanded order ${orderId}`);
   };
 
   // Clear all expanded positions
@@ -2236,9 +2255,18 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               <Trash2 className="w-4 h-4" />
                             )}
                           </button>
-                      ) : ownershipFilter === 'non-mine' && order.orderDetailsWithId.status === 0 && statusFilter === 'active' ? (
+                      ) : statusFilter === 'order-history' && order.orderDetailsWithId.status === 0 ? (
+                        // Show arrow for Order History orders that are still active
                       <button
-                        onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
+                            onClick={() => navigateToMarketplaceOrder(order.orderDetailsWithId.orderId.toString())}
+                            className="px-3 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors font-medium"
+                            title="View in Marketplace"
+                          >
+                          Buy More
+                      </button>
+                      ) : ownershipFilter === 'non-mine' && order.orderDetailsWithId.status === 0 && statusFilter === 'active' ? (
+                          <button
+                            onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
                           className={`flex items-center gap-1 ml-4 px-4 py-2 text-xs rounded-full transition-colors ${
                             expandedPositions.has(order.orderDetailsWithId.orderId.toString())
                               ? 'bg-transparent border border-white text-white hover:bg-white/10'
@@ -2469,21 +2497,26 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
                               {/* Submit Section */}
                               <div className="mt-4 pt-3 border-t border-white/10">
+                                {(() => {
+                                  const orderId = order.orderDetailsWithId.orderId.toString();
+                                  const currentInputs = offerInputs[orderId];
+                                  const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
+                                  
+                                  const hasNativeTokenInput = currentInputs && buyTokensIndex.some((tokenIndex: bigint) => {
+                                    const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+                                    return tokenInfo.address && currentInputs[tokenInfo.address] && parseFloat(removeCommas(currentInputs[tokenInfo.address])) > 0 && isNativeToken(tokenInfo.address);
+                                  });
+                                  
+                                  return (
                                 <button 
                                   onClick={() => handleExecuteOrder(order)}
-                                  disabled={executingOrders.has(order.orderDetailsWithId.orderId.toString()) || !isWalletConnected}
+                                      disabled={executingOrders.has(orderId) || !isWalletConnected}
                                   className="px-6 py-2 bg-white text-black border border-white rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                   {executingOrders.has(order.orderDetailsWithId.orderId.toString()) ? 'Executing...' : (() => {
-                                     // Check if any of the input tokens are native (don't need approval)
-                                     const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
-                                     const hasNativeTokenInput = buyTokensIndex.some((tokenIndex: bigint) => {
-                                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
-                                       return tokenInfo.address && currentInputs[tokenInfo.address] && parseFloat(removeCommas(currentInputs[tokenInfo.address])) > 0 && isNativeToken(tokenInfo.address);
-                                     });
-                                     return hasNativeTokenInput ? 'Confirm Trade' : 'Approve & Confirm Trade';
-                                   })()}
+                                       {executingOrders.has(orderId) ? 'Executing...' : (hasNativeTokenInput ? 'Confirm Trade' : 'Approve & Confirm Trade')}
                                 </button>
+                                  );
+                                })()}
                               </div>
                             </div>
                             

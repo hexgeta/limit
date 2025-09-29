@@ -644,11 +644,13 @@ export function CreatePositionModal({
     }
 
 
+    console.log('Starting order creation process...');
     setIsCreatingOrder(true);
     setOrderError(null);
     setApprovalError(null);
     setTransactionPending(true);
     onTransactionStart?.();
+    console.log('Loading states set, isCreatingOrder should now be true');
 
     try {
       // Convert amounts to wei using correct token decimals
@@ -695,19 +697,24 @@ export function CreatePositionModal({
       onOrderCreated?.();
 
       // Show success toast and close modal only after confirmation
+      console.log('Calling onTransactionSuccess with message...');
       onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.');
 
+      console.log('Closing modal...');
       handleClose();
 
     } catch (error: any) {
       console.error('Error creating order:', error);
       const errorMessage = error.message || 'Failed to create order. Please try again.';
       setOrderError(errorMessage);
+      console.log('Calling onTransactionError with:', errorMessage);
       onTransactionError?.(errorMessage);
     } finally {
+      console.log('Cleaning up loading states...');
       setIsCreatingOrder(false);
       setTransactionPending(false);
       onTransactionEnd?.();
+      console.log('Order creation process finished');
     }
   };
 
