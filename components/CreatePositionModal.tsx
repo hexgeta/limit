@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeftRight, Lock } from 'lucide-react';
 import PaywallModal from './PaywallModal';
@@ -8,6 +8,7 @@ import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, parseTokenAmount,
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { MORE_COINS } from '@/constants/more-coins';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
+import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';
 import { parseEther, formatEther } from 'viem';
 import { useBalance, usePublicClient } from 'wagmi';
@@ -120,6 +121,7 @@ export function CreatePositionModal({
 
   // Fetch token stats from LookIntoMaxi API
   const { tokenStats, isLoading: statsLoading, error: statsError } = useTokenStats();
+
 
   // Contract functions
   const { placeOrder, isWalletConnected, address } = useContractWhitelist();
@@ -278,6 +280,28 @@ export function CreatePositionModal({
     return 7;
   });
 
+  // Get token prices for conversion to HEX terms (after tokens are initialized)
+  const tokenAddresses = useMemo(() => {
+    const addresses = [
+      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
+    ];
+    if (sellToken?.address) addresses.push(sellToken.address);
+    if (buyToken?.address) addresses.push(buyToken.address);
+    return addresses;
+  }, [sellToken?.address, buyToken?.address]);
+  
+  const { data: tokenPrices } = useTokenPrices(tokenAddresses);
+  
+  // Debug tokenPrices
+  useEffect(() => {
+    console.log('CreatePositionModal - tokenPrices updated:', {
+      tokenPrices,
+      tokenAddresses,
+      hasTokenPrices: !!tokenPrices,
+      keys: tokenPrices ? Object.keys(tokenPrices) : []
+    });
+  }, [tokenPrices, tokenAddresses]);
+
   // Token approval state
   const [approvalError, setApprovalError] = useState<string | null>(null);
 
@@ -371,6 +395,32 @@ export function CreatePositionModal({
     return num.toLocaleString();
   };
 
+  // Helper function to convert any token price to HEX terms
+  const getTokenPriceInHex = (tokenAddress: string): number | null => {
+    if (!tokenPrices) {
+      console.log('No tokenPrices available');
+      return null;
+    }
+    
+    const hexAddress = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
+    const tokenUsdPrice = tokenPrices[tokenAddress]?.price;
+    const hexUsdPrice = tokenPrices[hexAddress]?.price;
+    
+    console.log('Price conversion debug:', {
+      tokenAddress,
+      tokenUsdPrice,
+      hexUsdPrice,
+      tokenPrices: Object.keys(tokenPrices)
+    });
+    
+    if (!tokenUsdPrice || !hexUsdPrice || hexUsdPrice === 0) return null;
+    
+    // Convert: 1 token unit -> USD -> HEX equivalent
+    const priceInHex = tokenUsdPrice / hexUsdPrice;
+    console.log('Calculated price in HEX:', priceInHex);
+    return priceInHex;
+  };
+
   // Helper function to preserve cursor position during formatting
   const handleAmountChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -438,6 +488,53 @@ export function CreatePositionModal({
   const showSellStats = shouldShowTokenStats(sellToken);
   const showBuyStats = shouldShowTokenStats(buyToken);
   const gridColsClass = (showSellStats && showBuyStats) ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1';
+
+  // Calculate OTC price in HEX terms for any token pair
+  const calculateOtcPriceInHex = useMemo(() => {
+    console.log('calculateOtcPriceInHex called with:', {
+      sellToken: sellToken?.ticker,
+      buyToken: buyToken?.ticker,
+      sellAmount,
+      buyAmount,
+      hasTokenPrices: !!tokenPrices
+    });
+
+    if (!sellToken || !buyToken || !sellAmount || !buyAmount) {
+      console.log('Missing required data for OTC price calculation');
+      return null;
+    }
+    if (parseFloat(removeCommas(sellAmount)) <= 0 || parseFloat(removeCommas(buyAmount)) <= 0) {
+      console.log('Invalid amounts for OTC price calculation');
+      return null;
+    }
+
+    if (buyToken.ticker === 'HEX') {
+      // If buying HEX, your price is buyAmount/sellAmount HEX per sellToken
+      const price = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
+      console.log('Calculated OTC price (buying HEX):', price);
+      return price;
+    } else if (sellToken.ticker === 'HEX') {
+      // If selling HEX, your price is sellAmount/buyAmount HEX per buyToken
+      const price = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
+      console.log('Calculated OTC price (selling HEX):', price);
+      return price;
+    } else {
+      // For any other token pair, convert using DexScreener prices
+      console.log('Attempting to calculate via DexScreener prices...');
+      const buyTokenPriceInHex = getTokenPriceInHex(buyToken.address);
+      if (buyTokenPriceInHex) {
+        // Convert: buyAmount of buyToken -> HEX equivalent, then divide by sellAmount
+        const buyAmountInHex = parseFloat(removeCommas(buyAmount)) * buyTokenPriceInHex;
+        const pricePerSellToken = buyAmountInHex / parseFloat(removeCommas(sellAmount));
+        console.log('Calculated OTC price via DexScreener:', pricePerSellToken);
+        return pricePerSellToken;
+      } else {
+        console.log('Could not get buyToken price in HEX');
+      }
+    }
+    console.log('Returning null - no valid calculation path');
+    return null;
+  }, [sellToken, buyToken, sellAmount, buyAmount, tokenPrices]);
 
   // Get whitelisted token options for sell side
   const sellTokenOptions: TokenOption[] = SELL_WHITELISTED_TOKENS.map(address => {
@@ -971,8 +1068,8 @@ export function CreatePositionModal({
                 />
               </div>
 
-              {/* Deal Summary - Only show when offer amount is entered */}
-              {sellAmount && sellToken && parseFloat(removeCommas(sellAmount)) > 0 && (
+              {/* Deal Summary - Only show when offer amount is entered and tokens are different */}
+              {sellAmount && sellToken && parseFloat(removeCommas(sellAmount)) > 0 && !(sellToken && buyToken && sellToken.address === buyToken.address) && (
                 <div className="bg-white/5 rounded-xl p-6 mt-6">
                   <h3 className="text-white font-semibold mb-4">Deal Summary</h3>
                   <div className="space-y-3">
@@ -1002,8 +1099,8 @@ export function CreatePositionModal({
                 </div>
               )}
 
-              {/* Pro Plan - Show token stats when both tokens are selected and at least one has stats */}
-              {sellToken && buyToken && (showSellStats || showBuyStats) && (
+              {/* Pro Plan - Show token stats when both tokens are selected, at least one has stats, and tokens are different */}
+              {sellToken && buyToken && (showSellStats || showBuyStats) && !(sellToken.address === buyToken.address) && (
                 <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${PAYWALL_ENABLED ? 'overflow-hidden' : ''}`}>
                   <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
                   
@@ -1053,23 +1150,8 @@ export function CreatePositionModal({
                               return <div className="text-gray-400 text-sm">Stats not available</div>;
                             }
 
-                            // Calculate your custom price in HEX terms
-                            let yourPriceInHEX: number | null = null;
-                            if (buyToken && sellAmount && buyAmount && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
-                              if (buyToken.ticker === 'HEX') {
-                                // If buying HEX, your price is buyAmount/sellAmount HEX per sellToken
-                                yourPriceInHEX = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
-                              } else {
-                                // If buying another token, we need to convert through HEX
-                                const buyTokenKey = buyToken.ticker.startsWith('e') ? `e${buyToken.ticker.slice(1)}` : `p${buyToken.ticker}`;
-                                const buyStats = tokenStats[buyTokenKey];
-                                if (buyStats && buyStats.token.priceHEX > 0) {
-                                  // Convert: sellToken -> HEX -> buyToken
-                                  const hexPerSellToken = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount)) * buyStats.token.priceHEX;
-                                  yourPriceInHEX = hexPerSellToken;
-                                }
-                              }
-                            }
+                            // Use the calculated OTC price
+                            const yourPriceInHEX = calculateOtcPriceInHex;
 
                             // Calculate discounts based on your price
                             let yourDiscountFromBacking: number | null = null;
@@ -1087,6 +1169,10 @@ export function CreatePositionModal({
 
                             return (
                               <div className="space-y-2 text-sm">
+                                                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Progress:</span>
+                                  <span className="text-blue-400">{(sellStats.dates.progressPercentage * 100).toFixed(1)}%</span>
+                                </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Backing per Token:</span>
                                   <span className="text-white">{sellStats.token.backingPerToken.toFixed(4)} HEX</span>
@@ -1106,10 +1192,6 @@ export function CreatePositionModal({
                                   <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
                                     {(sellStats.token.discountFromMint * 100).toFixed(2)}%
                                   </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Progresiiii:</span>
-                                  <span className="text-blue-400">{(sellStats.dates.progressPercentage * 100).toFixed(1)}%</span>
                                 </div>
 
                                 {/* Subtle divider */}
@@ -1133,20 +1215,14 @@ export function CreatePositionModal({
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
-                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Your position is:</span>
                                   <span className={`font-medium ${yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ?
                                     ((yourPriceInHEX - sellStats.token.priceHEX) / sellStats.token.priceHEX > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
                                     {yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ?
                                       (() => {
                                         const marketDiff = (yourPriceInHEX - sellStats.token.priceHEX) / sellStats.token.priceHEX;
                                         return marketDiff > 0 ?
-                                          `${(marketDiff * 100).toFixed(2)}% above current price` :
-                                          `${Math.abs(marketDiff * 100).toFixed(2)}% below current price`;
+                                          `${(marketDiff * 100).toFixed(2)}%` :
+                                          `${Math.abs(marketDiff * 100).toFixed(2)}%`;
                                       })() : 'N/A'}
                                   </span>
                                 </div>
@@ -1178,23 +1254,8 @@ export function CreatePositionModal({
                               return <div className="text-gray-400 text-sm">Stats not available</div>;
                             }
 
-                            // Calculate your custom price in HEX terms
-                            let yourPriceInHEX: number | null = null;
-                            if (sellToken && sellAmount && buyAmount && parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
-                              if (sellToken.ticker === 'HEX') {
-                                // If selling HEX, your price is sellAmount/buyAmount HEX per buyToken
-                                yourPriceInHEX = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
-                              } else {
-                                // If selling another token, we need to convert through HEX
-                                const sellTokenKey = sellToken.ticker.startsWith('e') ? `e${sellToken.ticker.slice(1)}` : `p${sellToken.ticker}`;
-                                const sellStats = tokenStats[sellTokenKey];
-                                if (sellStats && sellStats.token.priceHEX > 0) {
-                                  // Convert: buyToken -> HEX -> sellToken
-                                  const hexPerBuyToken = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount)) * sellStats.token.priceHEX;
-                                  yourPriceInHEX = hexPerBuyToken;
-                                }
-                              }
-                            }
+                            // Use the calculated OTC price
+                            const yourPriceInHEX = calculateOtcPriceInHex;
 
                             // Calculate discounts based on your price
                             let yourDiscountFromBacking: number | null = null;
@@ -1232,7 +1293,7 @@ export function CreatePositionModal({
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-400">Current Market Price:</span>
+                                  <span className="text-gray-400">Current Mint Price:</span>
                                   <span className="text-white">1 HEX</span>
                                 </div>
                                 <div className="flex justify-between">
@@ -1343,7 +1404,7 @@ export function CreatePositionModal({
                     <span>APPROVING & CREATING DEAL...</span>
                   </div>
                 ) : needsApproval && tokenNeedsApproval ? (
-                  `APPROVE &CREATE DEAL`
+                  `APPROVE & CREATE DEAL`
                 ) : (
                   'CREATE DEAL'
                 )}

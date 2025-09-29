@@ -9,7 +9,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 30000 // 30 seconds
 
 type ToasterToast = ToastProps & {
   id: string
@@ -158,11 +158,23 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      // Don't auto-dismiss on click - only dismiss when explicitly closed or after timeout
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        // Only dismiss if the toast is being explicitly closed (not just clicked)
+        // The auto-dismiss after 30 seconds will be handled by the timeout
+        if (!open) {
+          // Check if this is an explicit close action (like clicking X button)
+          // For now, we'll ignore all onOpenChange events to prevent click dismissal
+          // The toast will only be dismissed by the timeout or explicit dismiss() calls
+        }
       },
     },
   })
+
+  // Set up auto-dismiss timer for 30 seconds
+  setTimeout(() => {
+    dismiss()
+  }, TOAST_REMOVE_DELAY)
 
   return {
     id: id,
