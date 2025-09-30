@@ -16,7 +16,7 @@ import { isNativeToken } from '@/utils/tokenApproval';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
-import { PAYWALL_ENABLED } from '@/config/paywall';
+import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
 
 // Sorting types
 type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date' | 'backingPrice' | 'currentPrice';
@@ -240,6 +240,12 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const { setTransactionPending } = useTransaction();
   const { toast } = useToast();
   
+  // Token-gating state
+  const [hasTokenAccess, setHasTokenAccess] = useState(false);
+  const [checkingTokenBalance, setCheckingTokenBalance] = useState(false);
+  const [partyBalance, setPartyBalance] = useState(0);
+  const [teamBalance, setTeamBalance] = useState(0);
+  
   // Expose refresh function to parent component
   useImperativeHandle(ref, () => ({
     refreshAndNavigateToMyActiveOrders: (sellToken?: any, buyToken?: any) => {
@@ -385,6 +391,80 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     setIsClient(true);
     setMounted(true);
   }, []);
+
+  // Check PARTY and TEAM token balances for paywall access
+  useEffect(() => {
+    const checkTokenBalances = async () => {
+      if (!address || !publicClient || !PAYWALL_ENABLED) {
+        setHasTokenAccess(false);
+        return;
+      }
+
+      setCheckingTokenBalance(true);
+      try {
+        // Check PARTY balance
+        const partyBalance = await publicClient.readContract({
+          address: PARTY_TOKEN_ADDRESS,
+          abi: [
+            {
+              "inputs": [{"name": "account", "type": "address"}],
+              "name": "balanceOf",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`]
+        });
+
+        // Check TEAM balance
+        const teamBalance = await publicClient.readContract({
+          address: TEAM_TOKEN_ADDRESS,
+          abi: [
+            {
+              "inputs": [{"name": "account", "type": "address"}],
+              "name": "balanceOf",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`]
+        });
+
+        const partyBalanceInTokens = Number(partyBalance) / 1e18; // PARTY has 18 decimals
+        const teamBalanceInTokens = Number(teamBalance) / 1e8; // TEAM has 8 decimals
+        
+        const hasPartyAccess = partyBalanceInTokens >= REQUIRED_PARTY_TOKENS;
+        const hasTeamAccess = teamBalanceInTokens >= REQUIRED_TEAM_TOKENS;
+        const hasAccess = hasPartyAccess || hasTeamAccess;
+        
+        setHasTokenAccess(hasAccess);
+        setPartyBalance(partyBalanceInTokens);
+        setTeamBalance(teamBalanceInTokens);
+        
+        console.log('Token Balance Check:', {
+          address,
+          partyBalance: partyBalanceInTokens.toFixed(2),
+          teamBalance: teamBalanceInTokens.toFixed(2),
+          requiredParty: REQUIRED_PARTY_TOKENS,
+          requiredTeam: REQUIRED_TEAM_TOKENS,
+          hasPartyAccess,
+          hasTeamAccess,
+          hasAccess
+        });
+      } catch (error) {
+        console.error('Error checking token balances:', error);
+        setHasTokenAccess(false);
+      } finally {
+        setCheckingTokenBalance(false);
+      }
+    };
+
+    checkTokenBalances();
+  }, [address, publicClient]);
 
   // Effect to handle initial load completion
   useEffect(() => {
@@ -2198,7 +2278,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   {/* COLUMN 5: Backing Price Discount Content */}
                   <div className="text-center min-w-0">
                     <div className="text-sm text-white">
-                      {PAYWALL_ENABLED ? (
+                      {(PAYWALL_ENABLED && !hasTokenAccess) ? (
                     <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2255,7 +2335,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   </div>
                   
                   {/* COLUMN 8: Actions Content */}
-                    <div className="text-right min-w-0">
+                    <div className="text-center min-w-0">
                       {ownershipFilter === 'mine' && 
                        order.orderDetailsWithId.status === 0 && 
                        statusFilter !== 'order-history' ? (
@@ -2688,10 +2768,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       <PaywallModal 
         isOpen={showPaywallModal}
         onClose={() => setShowPaywallModal(false)}
-        title="Premium Data Access"
-        description="Get access to backing price data and advanced analytics"
-        price="$99"
+        title={PAYWALL_TITLE}
+        description={PAYWALL_DESCRIPTION}
+        price={checkingTokenBalance ? "Checking..." : hasTokenAccess ? "Access Granted" : `${REQUIRED_PARTY_TOKENS.toLocaleString()} PARTY or ${REQUIRED_TEAM_TOKENS.toLocaleString()} TEAM`}
         contactUrl="https://x.com/hexgeta"
+        partyBalance={partyBalance}
+        teamBalance={teamBalance}
+        requiredParty={REQUIRED_PARTY_TOKENS}
+        requiredTeam={REQUIRED_TEAM_TOKENS}
       />
     </div>
   );

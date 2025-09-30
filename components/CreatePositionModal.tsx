@@ -14,7 +14,7 @@ import { parseEther, formatEther } from 'viem';
 import { useBalance, usePublicClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
-import { PAYWALL_ENABLED } from '@/config/paywall';
+import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
 
 // Contract whitelist mapping - index to token address
 const CONTRACT_WHITELIST_MAP = {
@@ -114,6 +114,12 @@ export function CreatePositionModal({
   onOrderCreated
 }: CreatePositionModalProps) {
   const [showPaywallModal, setShowPaywallModal] = useState(false);
+
+  // Token-gating state
+  const [hasTokenAccess, setHasTokenAccess] = useState(false);
+  const [checkingTokenBalance, setCheckingTokenBalance] = useState(false);
+  const [partyBalance, setPartyBalance] = useState(0);
+  const [teamBalance, setTeamBalance] = useState(0);
 
   // Default initial tokens
   const DEFAULT_SELL_TOKEN = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
@@ -304,6 +310,80 @@ export function CreatePositionModal({
       keys: tokenPrices ? Object.keys(tokenPrices) : []
     });
   }, [tokenPrices, tokenAddresses]);
+
+  // Check PARTY and TEAM token balances for paywall access
+  useEffect(() => {
+    const checkTokenBalances = async () => {
+      if (!address || !publicClient || !PAYWALL_ENABLED) {
+        setHasTokenAccess(false);
+        return;
+      }
+
+      setCheckingTokenBalance(true);
+      try {
+        // Check PARTY balance
+        const partyBalance = await publicClient.readContract({
+          address: PARTY_TOKEN_ADDRESS,
+          abi: [
+            {
+              "inputs": [{"name": "account", "type": "address"}],
+              "name": "balanceOf",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`]
+        });
+
+        // Check TEAM balance
+        const teamBalance = await publicClient.readContract({
+          address: TEAM_TOKEN_ADDRESS,
+          abi: [
+            {
+              "inputs": [{"name": "account", "type": "address"}],
+              "name": "balanceOf",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`]
+        });
+
+        const partyBalanceInTokens = Number(partyBalance) / 1e18; // PARTY has 18 decimals
+        const teamBalanceInTokens = Number(teamBalance) / 1e8; // TEAM has 8 decimals
+        
+        const hasPartyAccess = partyBalanceInTokens >= REQUIRED_PARTY_TOKENS;
+        const hasTeamAccess = teamBalanceInTokens >= REQUIRED_TEAM_TOKENS;
+        const hasAccess = hasPartyAccess || hasTeamAccess;
+        
+        setHasTokenAccess(hasAccess);
+        setPartyBalance(partyBalanceInTokens);
+        setTeamBalance(teamBalanceInTokens);
+        
+        console.log('Token Balance Check (CreatePositionModal):', {
+          address,
+          partyBalance: partyBalanceInTokens.toFixed(2),
+          teamBalance: teamBalanceInTokens.toFixed(2),
+          requiredParty: REQUIRED_PARTY_TOKENS,
+          requiredTeam: REQUIRED_TEAM_TOKENS,
+          hasPartyAccess,
+          hasTeamAccess,
+          hasAccess
+        });
+      } catch (error) {
+        console.error('Error checking token balances:', error);
+        setHasTokenAccess(false);
+      } finally {
+        setCheckingTokenBalance(false);
+      }
+    };
+
+    checkTokenBalances();
+  }, [address, publicClient]);
 
   // Token approval state
   const [approvalError, setApprovalError] = useState<string | null>(null);
@@ -1115,11 +1195,11 @@ export function CreatePositionModal({
 
               {/* Pro Plan - Show token stats when both tokens are selected, at least one has stats, and tokens are different */}
               {sellToken && buyToken && (showSellStats || showBuyStats) && !(sellToken.address === buyToken.address) && (
-                <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${PAYWALL_ENABLED ? 'overflow-hidden' : ''}`}>
+                <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${(PAYWALL_ENABLED && !hasTokenAccess) ? 'overflow-hidden' : ''}`}>
                   <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
                   
                   {/* Paywall Overlay */}
-                  {PAYWALL_ENABLED && (
+                  {(PAYWALL_ENABLED && !hasTokenAccess) && (
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
                       <button
                         onClick={(e) => {
@@ -1432,10 +1512,14 @@ export function CreatePositionModal({
       <PaywallModal 
         isOpen={showPaywallModal}
         onClose={() => setShowPaywallModal(false)}
-        title="Premium Data Access"
-        description="Get access to advanced token analytics and market insights"
-        price="$99"
+        title={PAYWALL_TITLE}
+        description={PAYWALL_DESCRIPTION}
+        price={checkingTokenBalance ? "Checking..." : hasTokenAccess ? "Access Granted" : `${REQUIRED_PARTY_TOKENS.toLocaleString()} PARTY or ${REQUIRED_TEAM_TOKENS.toLocaleString()} TEAM`}
         contactUrl="https://x.com/hexgeta"
+        partyBalance={partyBalance}
+        teamBalance={teamBalance}
+        requiredParty={REQUIRED_PARTY_TOKENS}
+        requiredTeam={REQUIRED_TEAM_TOKENS}
       />
     </AnimatePresence>
   );
