@@ -83,7 +83,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
                 window.open('https://app.piteas.io/#/swap?inputCurrency=PLS&outputCurrency=0x4581AF35199BBde87a89941220e04E27ce4b0099', '_blank');
                 onClose();
               }}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="flex-1 px-4 py-2 bg-[#FD02FC] text-white rounded-lg hover:bg-[#FD02FC]/90 transition-colors font-medium"
             >
               Buy PARTY
             </button>
@@ -92,7 +92,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
                 window.open('https://app.piteas.io/#/swap?inputCurrency=PLS&outputCurrency=0xb7c9e99da8a857ce576a830a9c19312114d9de02', '_blank');
                 onClose();
               }}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="flex-1 px-4 py-2 bg-[#1C3941] text-white rounded-lg hover:bg-[#1C3941]/90 transition-colors font-medium"
             >
               Buy TEAM
             </button>
