@@ -1950,7 +1950,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
               ownershipFilter === 'mine'
                 ? 'text-white'
-                : 'text-gray-400 hover:text-gray-300'
+                : 'text-orange-600 hover:text-orange-500'
             }`}
           >
             {ownershipFilter === 'mine' && (
@@ -1979,7 +1979,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
               ownershipFilter === 'non-mine'
                 ? 'text-white'
-                : 'text-gray-400 hover:text-gray-300'
+                : 'text-green-600 hover:text-green-500'
             }`}
           >
             {ownershipFilter === 'non-mine' && (
