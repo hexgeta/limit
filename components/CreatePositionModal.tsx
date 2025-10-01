@@ -510,15 +510,26 @@ export function CreatePositionModal({
 
   // Helper function to format numbers with commas
   const formatNumberWithCommas = (value: string): string => {
-    // If the value ends with a decimal point, preserve it
-    if (value.endsWith('.')) {
-      const num = parseFloat(value.slice(0, -1));
-      if (isNaN(num)) return value;
-      return num.toLocaleString() + '.';
+    if (!value) return '';
+    
+    // Preserve trailing decimal point or zeros while typing
+    if (value.endsWith('.') || value.endsWith('.0')) {
+      return value;
     }
-
+    
     const num = parseFloat(value);
     if (isNaN(num)) return value;
+    
+    // If the original value has more decimal places than toLocaleString would show, preserve them
+    const decimalIndex = value.indexOf('.');
+    if (decimalIndex !== -1) {
+      const decimalPlaces = value.length - decimalIndex - 1;
+      return num.toLocaleString('en-US', {
+        minimumFractionDigits: decimalPlaces,
+        maximumFractionDigits: decimalPlaces
+      });
+    }
+    
     return num.toLocaleString();
   };
 
