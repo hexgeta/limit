@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 
@@ -28,6 +29,23 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
   requiredParty = 50000,
   requiredTeam = 50000
 }) => {
+  // Lock scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Lock both html and body to prevent scrolling on all browsers
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

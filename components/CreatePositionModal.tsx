@@ -335,6 +335,23 @@ export function CreatePositionModal({
     });
   }, [tokenPrices, tokenAddresses]);
 
+  // Lock scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Lock both html and body to prevent scrolling on all browsers
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   // Check PARTY and TEAM token balances for paywall access
   useEffect(() => {
     const checkTokenBalances = async () => {

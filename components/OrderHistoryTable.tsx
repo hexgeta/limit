@@ -798,7 +798,7 @@ export default function OrderHistoryTable({
             </div>
 
             {/* COLUMN 3: Fill Status % Content */}
-            <div className="flex flex-col items-center space-y-2 min-w-0">
+            <div className="flex flex-col items-center space-y-2 mt-0.5 min-w-0">
               <span className={`text-xs ${fillPercentage === 0 ? 'text-gray-500' : 'text-white'}`}>
                 {userSharePercentage > 0 
                   ? `${formatPercentage(userSharePercentage)} / ${formatPercentage(fillPercentage)}`
@@ -831,22 +831,24 @@ export default function OrderHistoryTable({
 
             {/* COLUMN 4: OTC vs Market Price Content */}
             <div className="text-center min-w-0">
-              {otcPercentage !== null ? (
-                <span className={`font-medium ${
-                  otcPercentage < 0 
-                    ? 'text-red-400'    // Red discount
-                    : 'text-green-400'  // Green premium
-                }`}>
-                  {otcPercentage < 0 
-                    ? `-${Math.abs(otcPercentage).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
-                    : `+${Math.abs(otcPercentage).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
-                  }
-                </span>
-              ) : (
-                <span className="text-gray-500">--</span>
-              )}
+              <div className="text-sm">
+                {otcPercentage !== null ? (
+                  <span className={`font-medium ${
+                    otcPercentage < 0 
+                      ? 'text-red-400'    // Red discount
+                      : 'text-green-400'  // Green premium
+                  }`}>
+                    {otcPercentage < 0 
+                      ? `-${Math.abs(otcPercentage).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                      : `+${Math.abs(otcPercentage).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                    }
+                  </span>
+                ) : (
+                  <span className="text-gray-500">--</span>
+                )}
+              </div>
               {otcPercentage !== null && (
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-gray-400 mt-0">
                   {otcPercentage < 0 ? 'discount' : 'premium'}
                 </div>
               )}
@@ -854,20 +856,20 @@ export default function OrderHistoryTable({
 
             {/* COLUMN 5: OTC vs Backing Price */}
             <div className="text-center min-w-0">
-              {backingPriceDiscount !== null ? (
-                <>
-                  {(PAYWALL_ENABLED && !hasTokenAccess) ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowPaywallModal(true);
-                      }}
-                      className="p-2 rounded hover:bg-gray-700/50 transition-colors"
-                    >
-                      <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
-                    </button>
-                  ) : (
-                    <>
+              <div className="text-sm">
+                {backingPriceDiscount !== null ? (
+                  <>
+                    {(PAYWALL_ENABLED && !hasTokenAccess) ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowPaywallModal(true);
+                        }}
+                        className="p-2 inline-flex items-center justify-center hover:opacity-80 transition-opacity"
+                      >
+                        <Lock className="w-5 h-5 -mt-1 text-gray-400 hover:text-white" />
+                      </button>
+                    ) : (
                       <span className={`font-medium ${
                         isAboveBackingPrice 
                           ? 'text-gray-400'    // Neutral - selling above backing price
@@ -878,19 +880,21 @@ export default function OrderHistoryTable({
                           : `-${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
                         }
                       </span>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {isAboveBackingPrice ? 'above backing' : 'discount'}
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <span className="text-gray-500">-</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-500">-</span>
+                )}
+              </div>
+              {backingPriceDiscount !== null && !(PAYWALL_ENABLED && !hasTokenAccess) && (
+                <div className="text-xs text-gray-400 mt-0">
+                  {isAboveBackingPrice ? 'premium' : 'discount'}
+                </div>
               )}
             </div>
 
             {/* COLUMN 6: Status */}
-            <div className="text-center min-w-0">
+            <div className="text-center min-w-0 mt-1">
               <div className="flex flex-col items-center gap-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium border w-[110px] ${
                   isSellTransaction 
@@ -914,7 +918,7 @@ export default function OrderHistoryTable({
             </div>
 
             {/* COLUMN 7: Date */}
-            <div className="text-center min-w-0">
+            <div className="text-center min-w-0 mt-0.5">
               {transaction.timestamp ? (
                 <div className="flex flex-col items-center">
                   <span className="text-white text-sm font-medium">

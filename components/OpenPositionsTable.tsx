@@ -801,6 +801,23 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     fetchPurchaseHistory();
   }, [fetchPurchaseHistory]);
 
+  // Lock scrolling when edit modal is open
+  useEffect(() => {
+    if (editingOrder) {
+      // Lock both html and body to prevent scrolling on all browsers
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [editingOrder]);
+
   // Simplify error messages for user rejections
   const simplifyErrorMessage = (error: any) => {
     const errorMessage = error?.message || error?.toString() || '';
@@ -1851,13 +1868,11 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       <div className="bg-black text-white relative overflow-hidden">
         <div className="max-w-[1000px] mx-auto w-full relative">
           <div 
-            className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
+            className="bg-black border-0 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
           >
-            <div className="text-gray-400 text-base md:text-lg">
-              Loading OTC order data
-              <span className="w-[24px] text-left inline-block">
-                {'.'.repeat(loadingDots)}
-              </span>
+            <div className="flex items-center justify-center gap-3 text-gray-400 text-base md:text-lg">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Loading data</span>
             </div>
           </div>
         </div>
@@ -2095,17 +2110,19 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       >
         {/* Render separate OrderHistoryTable component for order history */}
         {statusFilter === 'order-history' ? (
-          <OrderHistoryTable
-            purchaseTransactions={purchaseTransactions}
-            allOrders={allOrders || []}
-            tokenFilter={tokenFilter}
-            searchTerm={searchQuery}
-            maxiTokenAddresses={maxiTokenAddresses}
-            onNavigateToMarketplace={navigateToMarketplaceOrder}
-          />
+          <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
+            <OrderHistoryTable
+              purchaseTransactions={purchaseTransactions}
+              allOrders={allOrders || []}
+              tokenFilter={tokenFilter}
+              searchTerm={searchQuery}
+              maxiTokenAddresses={maxiTokenAddresses}
+              onNavigateToMarketplace={navigateToMarketplaceOrder}
+            />
+          </div>
         ) : (
           /* Horizontal scroll container with hidden scrollbar */
-        <div className="overflow-x-auto scrollbar-hide">
+        <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
           {!displayOrders || displayOrders.length === 0 ? (
             <div className="text-center py-8">
                 <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'mine' ? 'deals' : 'orders'} found</p>
@@ -2188,9 +2205,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
-              {/* COLUMN 8: Actions */}
+              {/* COLUMN 8: Actions / Order ID */}
               <div className="text-sm font-medium text-center text-gray-400">
-                {/* Actions header removed - left blank */}
+                {(statusFilter === 'inactive' || statusFilter === 'completed') ? 'Order ID' : ''}
             </div>
             </div>
 
@@ -2523,7 +2540,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   </div>
                   
                   {/* COLUMN 3: Fill Status % Content */}
-                  <div className="flex flex-col items-center space-y-2 min-w-0">
+                  <div className="flex flex-col items-center space-y-2  mt-0.5 min-w-0">
                     {(() => {
                       const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
                       
@@ -2570,7 +2587,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       )}
                     </div>
                     {percentageDifference !== null && (
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-xs text-gray-400 mt-0">
                         {isAboveAsking ? 'discount' : 'premium'}
                       </div>
                     )}
@@ -2578,21 +2595,20 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   
                   {/* COLUMN 5: Backing Price Discount Content */}
                   <div className="text-center min-w-0">
-                    <div className="text-sm text-white">
+                    <div className="text-sm">
                       {backingPriceDiscount !== null ? (
                         <>
                           {(PAYWALL_ENABLED && !hasTokenAccess) ? (
-                    <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowPaywallModal(true);
-                          }}
-                          className="p-2 rounded hover:bg-gray-700/50 transition-colors"
-                        >
-                          <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
-                    </button>
-                      ) : (
-                        <div className="text-sm">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowPaywallModal(true);
+                              }}
+                              className="p-2 inline-flex items-center justify-center hover:opacity-80 transition-opacity"
+                            >
+                              <Lock className="w-5 h-5 -mt-1 text-gray-400 hover:text-white" />
+                            </button>
+                          ) : (
                             <span className={`font-medium ${
                               isAboveBackingPrice 
                                 ? 'text-gray-400'    // Neutral - selling above backing price
@@ -2603,21 +2619,22 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 : `-${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
                               }
                             </span>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {isAboveBackingPrice ? 'above backing' : 'discount'}
-                    </div>
-                  </div>
                           )}
                         </>
                       ) : (
                         <span className="text-gray-500">--</span>
                       )}
                     </div>
+                    {backingPriceDiscount !== null && !(PAYWALL_ENABLED && !hasTokenAccess) && (
+                      <div className="text-xs text-gray-400 mt-0">
+                        {isAboveBackingPrice ? 'premium' : 'discount'}
+                      </div>
+                    )}
                   </div>
                   
                   {/* COLUMN 6: Status Content */}
-                  <div className="text-center min-w-0">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                  <div className="text-center min-w-0 mt-1">
+                    <span className={`px-3 py-2 rounded-full text-sm font-medium border ${
                       getStatusText(order) === 'Inactive'
                         ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
                         : order.orderDetailsWithId.status === 0 
@@ -2635,13 +2652,17 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
                   
-                  {/* COLUMN 8: Actions Content */}
+                  {/* COLUMN 8: Actions / Order ID Content */}
                     <div className="text-center min-w-0">
+                      {(statusFilter === 'inactive' || statusFilter === 'completed' || statusFilter === 'cancelled') ? (
+                        <div className="text-gray-400 mt-1.5 text-sm">{order.orderDetailsWithId.orderId.toString()}</div>
+                      ) : (
+                        <>
                       {ownershipFilter === 'mine' && order.orderDetailsWithId.status === 0 ? (
                           <button
                             onClick={() => handleCancelOrder(order)}
                             disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
-                            className="p-2 rounded hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+                            className="p-2 -mt-1.5 rounded hover:bg-gray-700/50 transition-colors disabled:opacity-50"
                           >
                             {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
                               <Loader2 className="w-5 h-5 text-red-400 animate-spin mx-auto" />
@@ -2668,6 +2689,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         ) : (
                         // No action button for completed/inactive/cancelled orders
                         <div className="w-16 h-8"></div>
+                      )}
+                        </>
                       )}
                   </div>
                   
