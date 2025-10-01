@@ -400,24 +400,36 @@ export default function OrderHistoryTable({
           break;
         }
         case 'otcVsMarket': {
-          // Calculate OTC vs Market percentage for each row
+          // Calculate OTC vs Market percentage using ORIGINAL order amounts
           const calcOtcPercentage = (row: typeof a) => {
             const sellTokenInfo = getTokenInfo(row.transaction.sellToken);
             if (!sellTokenInfo) return -Infinity;
             
-            const sellPrice = getTokenPrice(row.transaction.sellToken, tokenPrices);
-            const sellAmountUSD = row.transaction.sellAmount * sellPrice;
+            const baseOrder = allOrders.find(order => 
+              order.orderDetailsWithId.orderId.toString() === row.transaction.orderId
+            );
+            if (!baseOrder) return -Infinity;
             
-            const buyAmountsUSD = Object.entries(row.transaction.buyTokens).map(([addr, amount]) => {
-              const price = getTokenPrice(addr, tokenPrices);
+            // Use original order amounts
+            const originalSellAmount = baseOrder.orderDetailsWithId.orderDetails.sellAmount;
+            const originalSellAmountNum = parseFloat(formatTokenAmount(originalSellAmount, sellTokenInfo.decimals));
+            const sellPrice = getTokenPrice(row.transaction.sellToken, tokenPrices);
+            const originalSellAmountUSD = originalSellAmountNum * sellPrice;
+            
+            // Calculate original buy amounts in USD
+            const originalBuyAmounts = baseOrder.orderDetailsWithId.orderDetails.buyAmounts;
+            const originalBuyTokensIndex = baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex;
+            const originalBuyAmountsUSD = originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+              const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+              const amount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], tokenInfo.decimals));
+              const price = getTokenPrice(tokenInfo.address, tokenPrices);
               return amount * price;
             });
+            const originalMinBuyAmountUSD = originalBuyAmountsUSD.length > 0 ? Math.min(...originalBuyAmountsUSD) : 0;
             
-            const minBuyAmountUSD = Math.min(...buyAmountsUSD);
+            if (originalSellAmountUSD === 0 || originalMinBuyAmountUSD === 0) return -Infinity;
             
-            if (sellAmountUSD === 0 || minBuyAmountUSD === 0) return -Infinity;
-            
-            return ((minBuyAmountUSD - sellAmountUSD) / sellAmountUSD) * 100;
+            return ((originalMinBuyAmountUSD - originalSellAmountUSD) / originalSellAmountUSD) * 100;
           };
           
           const aOtcPercentage = calcOtcPercentage(a);
@@ -472,7 +484,7 @@ export default function OrderHistoryTable({
             sortField === 'progress' ? 'text-white' : 'text-gray-400'
           }`}
         >
-          My Tx vs Order Filled Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+          Your Tx vs Order Filled Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
         </button>
         
         {/* COLUMN 4: OTC % */}
@@ -549,9 +561,23 @@ export default function OrderHistoryTable({
           ? (transaction.sellAmount / originalSellAmountNum) * 100
           : 0;
 
-        // Calculate OTC vs Market Price
-        const otcPercentage = sellUSD > 0 && minBuyAmountUSD > 0
-          ? ((minBuyAmountUSD - sellUSD) / sellUSD) * 100
+        // Calculate OTC vs Market Price using ORIGINAL order amounts (not transaction amounts)
+        const originalBuyAmounts = baseOrder.orderDetailsWithId.orderDetails.buyAmounts;
+        const originalBuyTokensIndex = baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex;
+        const originalSellAmountUSD = originalSellAmountNum * sellPrice;
+        
+        // Calculate original buy amounts in USD
+        const originalBuyAmountsUSD = originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+          const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
+          const amount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], tokenInfo.decimals));
+          const price = getTokenPrice(tokenInfo.address, tokenPrices);
+          return amount * price;
+        });
+        const originalMinBuyAmountUSD = originalBuyAmountsUSD.length > 0 ? Math.min(...originalBuyAmountsUSD) : 0;
+        
+        // Calculate OTC vs Market Price based on original order
+        const otcPercentage = originalSellAmountUSD > 0 && originalMinBuyAmountUSD > 0
+          ? ((originalMinBuyAmountUSD - originalSellAmountUSD) / originalSellAmountUSD) * 100
           : null;
 
         // Calculate backing price discount
@@ -611,8 +637,8 @@ export default function OrderHistoryTable({
             // Calculate backing price per token in USD
             const backingPriceUsd = sellTokenStat.token.backingPerToken * hexPrice;
             
-            // Calculate OTC price per token in USD
-            const otcPriceUsd = transaction.sellAmount > 0 ? minBuyAmountUSD / transaction.sellAmount : 0;
+            // Calculate OTC price per token in USD using ORIGINAL order amounts
+            const otcPriceUsd = originalSellAmountNum > 0 ? originalMinBuyAmountUSD / originalSellAmountNum : 0;
             
             if (otcPriceUsd > 0 && backingPriceUsd > 0) {
               // Calculate percentage: how much above/below backing price the OTC price is
@@ -633,22 +659,23 @@ export default function OrderHistoryTable({
             <div className="flex flex-col items-start space-y-1 min-w-0 overflow-hidden">
               <div className="inline-block">
                 {isSellTransaction ? (
-                  // For SELL: Show what you received (buy tokens)
+                  // For SELL: Show what you received (buy tokens from ORIGINAL order)
                   <>
-                    <span className={`text-lg font-medium ${minBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
-                      {minBuyAmountUSD > 0 ? formatUSD(minBuyAmountUSD) : '--'}
+                    <span className={`text-lg font-medium ${originalMinBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
+                      {originalMinBuyAmountUSD > 0 ? formatUSD(originalMinBuyAmountUSD) : '--'}
                     </span>
                     <div className="w-1/2 h-px bg-white/10 my-2"></div>
                     <div className="flex flex-col gap-1">
-                      {buyTokenEntries.map(([buyTokenAddr, buyAmount]) => {
-                        const buyTokenInfo = getTokenInfo(buyTokenAddr);
+                      {originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+                        const buyTokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                         if (!buyTokenInfo) return null;
 
-                        const buyPrice = getTokenPrice(buyTokenAddr, tokenPrices);
-                        const buyUSD = buyAmount * buyPrice;
+                        const originalAmount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], buyTokenInfo.decimals));
+                        const buyPrice = getTokenPrice(buyTokenInfo.address, tokenPrices);
+                        const buyUSD = originalAmount * buyPrice;
 
                         return (
-                          <div key={buyTokenAddr} className="flex items-center space-x-2 mb-3">
+                          <div key={buyTokenInfo.address} className="flex items-center space-x-2 mb-3">
                             <TokenLogo 
                               src={buyTokenInfo.logo}
                               alt={formatTokenTicker(buyTokenInfo.ticker)}
@@ -659,9 +686,9 @@ export default function OrderHistoryTable({
                                 {formatTokenTicker(buyTokenInfo.ticker)}
                               </span>
                               <span className="text-gray-400 text-xs whitespace-nowrap">
-                                {formatTokenAmountDisplay(buyAmount)}
+                                {formatTokenAmountDisplay(originalAmount)}
                               </span>
-                              {hasMultipleTokens && buyPrice > 0 && (
+                              {originalBuyTokensIndex.length > 1 && buyPrice > 0 && (
                                 <span className="text-gray-500 text-xs">
                                   {formatUSD(buyUSD)}
                                 </span>
@@ -703,10 +730,10 @@ export default function OrderHistoryTable({
             <div className="flex flex-col items-start space-y-1 min-w-0 overflow-hidden">
               <div className="inline-block">
                 {isSellTransaction ? (
-                  // For SELL: Show what you gave (sell token)
+                  // For SELL: Show what you gave (sell token - use ORIGINAL amount)
                   <>
                     <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
-                      {sellPrice > 0 ? formatUSD(sellUSD) : '--'}
+                      {sellPrice > 0 ? formatUSD(originalSellAmountUSD) : '--'}
                     </span>
                     <div className="w-1/2 h-px bg-white/10 my-2"></div>
                     <div className="flex items-center space-x-2">
@@ -720,28 +747,29 @@ export default function OrderHistoryTable({
                           {formatTokenTicker(sellTokenInfo.ticker)}
                         </span>
                         <span className="text-gray-400 text-xs whitespace-nowrap">
-                          {formatTokenAmountDisplay(transaction.sellAmount)}
+                          {formatTokenAmountDisplay(originalSellAmountNum)}
                         </span>
                       </div>
                     </div>
                   </>
                 ) : (
-                  // For BUY: Show what you paid (buy tokens)
+                  // For BUY: Show what you paid (buy tokens from ORIGINAL order)
                   <>
-                    <span className={`text-lg font-medium ${minBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
-                      {minBuyAmountUSD > 0 ? formatUSD(minBuyAmountUSD) : '--'}
+                    <span className={`text-lg font-medium ${originalMinBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
+                      {originalMinBuyAmountUSD > 0 ? formatUSD(originalMinBuyAmountUSD) : '--'}
                     </span>
                     <div className="w-1/2 h-px bg-white/10 my-2"></div>
                     <div className="flex flex-col gap-1">
-                      {buyTokenEntries.map(([buyTokenAddr, buyAmount]) => {
-                        const buyTokenInfo = getTokenInfo(buyTokenAddr);
+                      {originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
+                        const buyTokenInfo = getTokenInfoByIndex(Number(tokenIndex));
                         if (!buyTokenInfo) return null;
 
-                        const buyPrice = getTokenPrice(buyTokenAddr, tokenPrices);
-                        const buyUSD = buyAmount * buyPrice;
+                        const originalAmount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], buyTokenInfo.decimals));
+                        const buyPrice = getTokenPrice(buyTokenInfo.address, tokenPrices);
+                        const buyUSD = originalAmount * buyPrice;
 
                         return (
-                          <div key={buyTokenAddr} className="flex items-center space-x-2 mb-3">
+                          <div key={buyTokenInfo.address} className="flex items-center space-x-2 mb-3">
                             <TokenLogo 
                               src={buyTokenInfo.logo}
                               alt={formatTokenTicker(buyTokenInfo.ticker)}
@@ -752,9 +780,9 @@ export default function OrderHistoryTable({
                                 {formatTokenTicker(buyTokenInfo.ticker)}
                               </span>
                               <span className="text-gray-400 text-xs whitespace-nowrap">
-                                {formatTokenAmountDisplay(buyAmount)}
+                                {formatTokenAmountDisplay(originalAmount)}
                               </span>
-                              {hasMultipleTokens && buyPrice > 0 && (
+                              {originalBuyTokensIndex.length > 1 && buyPrice > 0 && (
                                 <span className="text-gray-500 text-xs">
                                   {formatUSD(buyUSD)}
                                 </span>
@@ -904,17 +932,20 @@ export default function OrderHistoryTable({
             {/* COLUMN 8: Actions Content */}
             <div className="text-center min-w-0">
               <div className="flex flex-col items-center gap-1">
-                <button
-                  onClick={() => onNavigateToMarketplace(baseOrder)}
-                  className="px-3 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors font-medium"
-                  title="View in Marketplace"
-                >
-                  Buy More
-                </button>
+                {/* Only show "Buy More" for active orders where user was the buyer */}
+                {!isSellTransaction && baseOrder.orderDetailsWithId.status === 0 && getStatusText(baseOrder) === 'Active' && (
+                  <button
+                    onClick={() => onNavigateToMarketplace(baseOrder)}
+                    className="px-3 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors font-medium"
+                    title="View in Marketplace"
+                  >
+                    Buy More
+                  </button>
+                )}
                 {transaction?.transactionHash && (
                   <button
                     onClick={() => window.open(`https://otter.pulsechain.com/tx/${transaction.transactionHash}`, '_blank')}
-                    className="px-3 py-2 font-medium bg-transparent text-white text-xs rounded-full border-1 border-white hover:bg-white/10 hover:text-white transition-colors"
+                    className="px-3 py-2 mt-1 font-medium bg-transparent text-white text-xs rounded-full border border-white hover:bg-white/10 hover:text-white transition-colors"
                     title="View Transaction on Otterscan"
                   >
                     View Tx

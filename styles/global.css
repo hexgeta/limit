@@ -70,6 +70,7 @@ body {
   @apply w-full m-0 font-sans bg-[var(--background-color)] text-[var(--text-color)];
   font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
   font-size: 19px;
+  line-height: 1.4;
   overflow-y: auto;
   position: relative;
 }
@@ -311,6 +312,7 @@ textarea {
     @apply bg-background text-foreground font-sans;
     font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
     font-size: 19px;
+    line-height: 1.4;
     letter-spacing: 0.05em;
     word-spacing: 0.2em;
   }

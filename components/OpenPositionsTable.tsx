@@ -1848,8 +1848,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   // Loading state - only for initial load
   if (!mounted || isTableLoading) {
     return (
-      <div className="bg-black text-white p-4 sm:p-6 pb-24 sm:pb-24 relative overflow-hidden">
-        <div className="max-w-[1000px] pb-8 mx-auto w-full relative">
+      <div className="bg-black text-white relative overflow-hidden">
+        <div className="max-w-[1000px] mx-auto w-full relative">
           <div 
             className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
           >
