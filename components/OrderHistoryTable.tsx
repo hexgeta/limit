@@ -517,6 +517,10 @@ export default function OrderHistoryTable({
         const sellTokenInfo = getTokenInfo(transaction.sellToken);
         if (!sellTokenInfo) return null;
 
+        // Determine if this is a Buy or Sell transaction
+        const orderSeller = baseOrder.userDetails.orderOwner.toLowerCase();
+        const isSellTransaction = address?.toLowerCase() === orderSeller;
+
         const sellPrice = getTokenPrice(transaction.sellToken, tokenPrices);
         const sellUSD = transaction.sellAmount * sellPrice;
 
@@ -628,67 +632,140 @@ export default function OrderHistoryTable({
             {/* COLUMN 1: You Bought Content */}
             <div className="flex flex-col items-start space-y-1 min-w-0 overflow-hidden">
               <div className="inline-block">
-                <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
-                  {sellPrice > 0 ? formatUSD(sellUSD) : '--'}
-                </span>
-                <div className="w-1/2 h-px bg-white/10 my-2"></div>
-                <div className="flex items-center space-x-2">
-                  <TokenLogo 
-                    src={sellTokenInfo.logo}
-                    alt={formatTokenTicker(sellTokenInfo.ticker)}
-                    className="w-6 h-6 rounded-full"
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-white text-sm font-medium whitespace-nowrap">
-                      {formatTokenTicker(sellTokenInfo.ticker)}
+                {isSellTransaction ? (
+                  // For SELL: Show what you received (buy tokens)
+                  <>
+                    <span className={`text-lg font-medium ${minBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
+                      {minBuyAmountUSD > 0 ? formatUSD(minBuyAmountUSD) : '--'}
                     </span>
-                    <span className="text-gray-400 text-xs whitespace-nowrap">
-                      {formatTokenAmountDisplay(transaction.sellAmount)}
+                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="flex flex-col gap-1">
+                      {buyTokenEntries.map(([buyTokenAddr, buyAmount]) => {
+                        const buyTokenInfo = getTokenInfo(buyTokenAddr);
+                        if (!buyTokenInfo) return null;
+
+                        const buyPrice = getTokenPrice(buyTokenAddr, tokenPrices);
+                        const buyUSD = buyAmount * buyPrice;
+
+                        return (
+                          <div key={buyTokenAddr} className="flex items-center space-x-2 mb-3">
+                            <TokenLogo 
+                              src={buyTokenInfo.logo}
+                              alt={formatTokenTicker(buyTokenInfo.ticker)}
+                              className="w-6 h-6 rounded-full"
+                            />
+                            <div className="flex flex-col">
+                              <span className="text-white text-sm font-medium whitespace-nowrap">
+                                {formatTokenTicker(buyTokenInfo.ticker)}
+                              </span>
+                              <span className="text-gray-400 text-xs whitespace-nowrap">
+                                {formatTokenAmountDisplay(buyAmount)}
+                              </span>
+                              {hasMultipleTokens && buyPrice > 0 && (
+                                <span className="text-gray-500 text-xs">
+                                  {formatUSD(buyUSD)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  // For BUY: Show what you bought (sell token)
+                  <>
+                    <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
+                      {sellPrice > 0 ? formatUSD(sellUSD) : '--'}
                     </span>
-                  </div>
-                </div>
+                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="flex items-center space-x-2">
+                      <TokenLogo 
+                        src={sellTokenInfo.logo}
+                        alt={formatTokenTicker(sellTokenInfo.ticker)}
+                        className="w-6 h-6 rounded-full"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-white text-sm font-medium whitespace-nowrap">
+                          {formatTokenTicker(sellTokenInfo.ticker)}
+                        </span>
+                        <span className="text-gray-400 text-xs whitespace-nowrap">
+                          {formatTokenAmountDisplay(transaction.sellAmount)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* COLUMN 2: You Paid Content */}
             <div className="flex flex-col items-start space-y-1 min-w-0 overflow-hidden">
               <div className="inline-block">
-                <span className={`text-lg font-medium ${minBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
-                  {minBuyAmountUSD > 0 ? formatUSD(minBuyAmountUSD) : '--'}
-                </span>
-                <div className="w-1/2 h-px bg-white/10 my-2"></div>
-                <div className="flex flex-col gap-1">
-                  {buyTokenEntries.map(([buyTokenAddr, buyAmount]) => {
-                    const buyTokenInfo = getTokenInfo(buyTokenAddr);
-                    if (!buyTokenInfo) return null;
-
-                    const buyPrice = getTokenPrice(buyTokenAddr, tokenPrices);
-                    const buyUSD = buyAmount * buyPrice;
-
-                    return (
-                      <div key={buyTokenAddr} className="flex items-center space-x-2 mb-3">
-                        <TokenLogo 
-                          src={buyTokenInfo.logo}
-                          alt={formatTokenTicker(buyTokenInfo.ticker)}
-                          className="w-6 h-6 rounded-full"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-white text-sm font-medium whitespace-nowrap">
-                            {formatTokenTicker(buyTokenInfo.ticker)}
-                          </span>
-                          <span className="text-gray-400 text-xs whitespace-nowrap">
-                            {formatTokenAmountDisplay(buyAmount)}
-                          </span>
-                          {hasMultipleTokens && buyPrice > 0 && (
-                            <span className="text-gray-500 text-xs">
-                              {formatUSD(buyUSD)}
-                            </span>
-                          )}
-                        </div>
+                {isSellTransaction ? (
+                  // For SELL: Show what you gave (sell token)
+                  <>
+                    <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
+                      {sellPrice > 0 ? formatUSD(sellUSD) : '--'}
+                    </span>
+                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="flex items-center space-x-2">
+                      <TokenLogo 
+                        src={sellTokenInfo.logo}
+                        alt={formatTokenTicker(sellTokenInfo.ticker)}
+                        className="w-6 h-6 rounded-full"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-white text-sm font-medium whitespace-nowrap">
+                          {formatTokenTicker(sellTokenInfo.ticker)}
+                        </span>
+                        <span className="text-gray-400 text-xs whitespace-nowrap">
+                          {formatTokenAmountDisplay(transaction.sellAmount)}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </>
+                ) : (
+                  // For BUY: Show what you paid (buy tokens)
+                  <>
+                    <span className={`text-lg font-medium ${minBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
+                      {minBuyAmountUSD > 0 ? formatUSD(minBuyAmountUSD) : '--'}
+                    </span>
+                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="flex flex-col gap-1">
+                      {buyTokenEntries.map(([buyTokenAddr, buyAmount]) => {
+                        const buyTokenInfo = getTokenInfo(buyTokenAddr);
+                        if (!buyTokenInfo) return null;
+
+                        const buyPrice = getTokenPrice(buyTokenAddr, tokenPrices);
+                        const buyUSD = buyAmount * buyPrice;
+
+                        return (
+                          <div key={buyTokenAddr} className="flex items-center space-x-2 mb-3">
+                            <TokenLogo 
+                              src={buyTokenInfo.logo}
+                              alt={formatTokenTicker(buyTokenInfo.ticker)}
+                              className="w-6 h-6 rounded-full"
+                            />
+                            <div className="flex flex-col">
+                              <span className="text-white text-sm font-medium whitespace-nowrap">
+                                {formatTokenTicker(buyTokenInfo.ticker)}
+                              </span>
+                              <span className="text-gray-400 text-xs whitespace-nowrap">
+                                {formatTokenAmountDisplay(buyAmount)}
+                              </span>
+                              {hasMultipleTokens && buyPrice > 0 && (
+                                <span className="text-gray-500 text-xs">
+                                  {formatUSD(buyUSD)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -701,19 +778,21 @@ export default function OrderHistoryTable({
                 }
               </span>
               <div className="w-[60px] h-1 bg-gray-500 rounded-full overflow-hidden relative">
-                {/* Total fill percentage (green) */}
+                {/* Total fill percentage (blue) */}
                 <div 
                   className={`h-full rounded-full transition-all duration-300 ${
-                    fillPercentage === 0 ? 'bg-gray-500' : 'bg-green-500'
+                    fillPercentage === 0 ? 'bg-gray-500' : 'bg-blue-500'
                   }`}
                   style={{ 
                     width: `${fillPercentage}%` 
                   }}
                 />
-                {/* User's share (blue overlay) */}
+                {/* User's share (green for buy, red for sell overlay) */}
                 {userSharePercentage > 0 && (
                   <div 
-                    className="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all duration-300"
+                    className={`absolute top-0 left-0 h-full rounded-full transition-all duration-300 ${
+                      isSellTransaction ? 'bg-red-500' : 'bg-green-500'
+                    }`}
                     style={{ 
                       width: `${userSharePercentage}%` 
                     }}
@@ -784,17 +863,26 @@ export default function OrderHistoryTable({
 
             {/* COLUMN 6: Status */}
             <div className="text-center min-w-0">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                getStatusText(baseOrder) === 'Inactive'
-                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
-                  : baseOrder.orderDetailsWithId.status === 0 
-                  ? 'bg-green-500/20 text-green-400 border-green-400' 
-                  : baseOrder.orderDetailsWithId.status === 1
-                  ? 'bg-red-500/20 text-red-400 border-red-400'
-                  : 'bg-blue-500/20 text-blue-400 border-blue-400'
-              }`}>
-                {getStatusText(baseOrder)}
-              </span>
+              <div className="flex flex-col items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium border w-[110px] ${
+                  isSellTransaction 
+                    ? 'bg-red-500/20 text-red-400 border-red-400' 
+                    : 'bg-green-500/20 text-green-400 border-green-400'
+                }`}>
+                  {isSellTransaction ? 'Sell' : 'Buy'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium border w-[110px] ${
+                  getStatusText(baseOrder) === 'Inactive'
+                    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
+                    : baseOrder.orderDetailsWithId.status === 0 
+                    ? 'bg-green-500/20 text-green-400 border-green-400' 
+                    : baseOrder.orderDetailsWithId.status === 1
+                    ? 'bg-red-500/20 text-red-400 border-red-400'
+                    : 'bg-blue-500/20 text-blue-400 border-blue-400'
+                }`}>
+                  {getStatusText(baseOrder)}
+                </span>
+              </div>
             </div>
 
             {/* COLUMN 7: Date */}
@@ -840,6 +928,11 @@ export default function OrderHistoryTable({
           </div>
         );
       })}
+      </div>
+      
+      {/* Note about pricing */}
+      <div className="mt-6 text-center text-sm text-gray-400">
+        All $ values are based on today's prices
       </div>
       
       {/* Paywall Modal */}

@@ -52,9 +52,9 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
       {/* Hero Section */}
-      <div className="w-full px-8 mt-24 mb-4 bg-gradient-to-b from-black to-gray-900">
+      <div className="w-full px-2 md:px-8 mt-24 mb-4 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-4xl md:text-2xl text-white mb-4">
+          <h2 className="text-2xl md:text-2xl text-white mb-2">
             Trade Pooled HEX Stake Tokens OTC
           </h2>
           <p className="text-md text-gray-400 max-w-2xl mx-auto mb-4 flex items-center justify-center">
@@ -72,7 +72,7 @@ export default function Home() {
                 ) : (
                   <button 
                     onClick={() => setShowCreateModal(true)}
-                    className="px-8 py-3 border border-white text-white rounded-full font-semibold transition-colors duration-0 create-deal-button"
+                    className="px-6 md:px-8 py-3 border border-white text-white rounded-full font-semibold transition-colors duration-0 create-deal-button text-sm md:text-base"
                   >
                     + Create New OTC Deal
                   </button>
@@ -85,7 +85,7 @@ export default function Home() {
       </div>
 
       {/* Main Content */}
-      <div className="w-full px-8 py-2">
+      <div className="w-full px-2 md:px-8 py-2">
                 <div className="max-w-6xl mx-auto">
                   {SHOW_WHITELIST_DEBUGGER && <WhitelistDebugger />}
                   <OpenPositionsTable ref={openPositionsTableRef} />

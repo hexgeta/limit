@@ -42,7 +42,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-black opacity-100 border border-white/20 rounded-lg p-6 max-w-md w-full mx-4"
+        className="bg-black opacity-100 border border-white/20 rounded-lg p-6 max-w-md w-full mx-0"
         style={{ backgroundColor: '#000000' }}
         onClick={(e) => e.stopPropagation()}
       >

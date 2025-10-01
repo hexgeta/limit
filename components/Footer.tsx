@@ -7,7 +7,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 
 const Footer = () => {
   return (
-    <footer className="w-full bg-black/60 px-8 py-8 border-t border-[rgba(255,255,255,0.2)] relative z-[100]">
+    <footer className="w-full bg-black/60 px-4 md:px-8 py-8 pb-12 md:pb-8 border-t border-[rgba(255,255,255,0.2)] relative z-[100]">
       <div className="max-w-[1200px] mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Main Info Column */}
@@ -19,7 +19,7 @@ const Footer = () => {
               Peer-to-peer pooled HEX stake trading
             </p>
             <p className="text-sm mt-1 text-[rgb(153,153,153)]">
-              Powered by <a href="https://docs.mcr369.io/dapp-documents/bistro/bistro-market-place" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">0xBistro</a>
+              Powered by <a href="https://www.0xbistro.io/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">0xBistro</a>
             </p>
           </div>
 

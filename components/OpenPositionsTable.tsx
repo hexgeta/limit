@@ -613,8 +613,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       if (!address || !publicClient) return;
 
       try {
-        // Query OrderExecuted events where the user is the buyer
-        const logs = await publicClient.getLogs({
+        // PART 1: Query OrderExecuted events where the user is the buyer
+        const buyerLogs = await publicClient.getLogs({
           address: OTC_CONTRACT_ADDRESS,
           event: parseAbiItem('event OrderExecuted(address indexed user, uint256 orderId)'),
           args: {
@@ -623,8 +623,36 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           fromBlock: 'earliest' // Query from the beginning - could be optimized with a specific block range
         });
 
-        // Extract order IDs that the user has purchased
-        const orderIds = new Set(logs.map(log => log.args.orderId?.toString()).filter((id): id is string => Boolean(id)));
+        // PART 2: Query OrderExecuted events where the user is the seller (order creator)
+        // First, find all orders created by the connected wallet
+        const userCreatedOrders = allOrders.filter(order => 
+          order.userDetails.orderOwner.toLowerCase() === address.toLowerCase()
+        );
+        const userCreatedOrderIds = userCreatedOrders.map(order => 
+          order.orderDetailsWithId.orderId.toString()
+        );
+        
+        // Query ALL OrderExecuted events for those order IDs (no user filter)
+        let sellerLogs: any[] = [];
+        if (userCreatedOrderIds.length > 0) {
+          sellerLogs = await publicClient.getLogs({
+            address: OTC_CONTRACT_ADDRESS,
+            event: parseAbiItem('event OrderExecuted(address indexed user, uint256 orderId)'),
+            fromBlock: 'earliest'
+          });
+          
+          // Filter to only include events for user's created orders and exclude their own purchases
+          sellerLogs = sellerLogs.filter(log => {
+            const orderId = log.args.orderId?.toString();
+            const buyer = log.args.user?.toLowerCase();
+            return orderId && 
+                   userCreatedOrderIds.includes(orderId) && 
+                   buyer !== address.toLowerCase(); // Exclude own purchases from seller view
+          });
+        }
+
+        // Extract order IDs that the user has purchased (buyer perspective)
+        const orderIds = new Set(buyerLogs.map(log => log.args.orderId?.toString()).filter((id): id is string => Boolean(id)));
         setPurchasedOrderIds(orderIds);
         
         // Now get the actual purchase amounts by analyzing the transaction receipts
@@ -638,11 +666,19 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           timestamp?: number;
         }> = [];
         
-        for (const log of logs) {
+        // Combine buyer and seller logs for processing
+        const allLogs = [...buyerLogs, ...sellerLogs];
+        
+        for (const log of allLogs) {
           const orderId = log.args.orderId?.toString();
           if (!orderId) continue;
           
           try {
+            // Determine if this is a buyer or seller transaction
+            const buyerAddress = log.args.user?.toLowerCase();
+            const isBuyerTransaction = buyerAddress === address.toLowerCase();
+            const relevantAddress = isBuyerTransaction ? address.toLowerCase() : buyerAddress;
+            
             // Get the transaction receipt to analyze token transfers
             const receipt = await publicClient.getTransactionReceipt({
               hash: log.transactionHash
@@ -654,10 +690,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               return transferLog.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
             });
             
-            console.log(`Transaction ${log.transactionHash} for order ${orderId}:`, {
+            console.log(`Transaction ${log.transactionHash} for order ${orderId} (${isBuyerTransaction ? 'BUYER' : 'SELLER'}):`, {
               totalLogs: receipt.logs.length,
               transferLogs: transferLogs.length,
-              transferLogAddresses: transferLogs.map(tl => tl.address)
+              transferLogAddresses: transferLogs.map(tl => tl.address),
+              buyerAddress,
+              connectedAddress: address.toLowerCase(),
+              relevantAddress
             });
             
             let sellAmount = 0;
@@ -676,13 +715,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 to,
                 value: value.toString(),
                 contractAddress: OTC_CONTRACT_ADDRESS.toLowerCase(),
-                userAddress: address.toLowerCase(),
-                isFromContractToUser: from === OTC_CONTRACT_ADDRESS.toLowerCase() && to === address.toLowerCase(),
-                isFromUserToContract: from === address.toLowerCase() && to === OTC_CONTRACT_ADDRESS.toLowerCase()
+                relevantAddress,
+                isFromContractToRelevant: from === OTC_CONTRACT_ADDRESS.toLowerCase() && to === relevantAddress,
+                isFromRelevantToContract: from === relevantAddress && to === OTC_CONTRACT_ADDRESS.toLowerCase()
               });
               
-              // If transfer is FROM the contract TO the user, it's what the user received (sell token)
-              if (from === OTC_CONTRACT_ADDRESS.toLowerCase() && to === address.toLowerCase()) {
+              // If transfer is FROM the contract TO the relevant address, it's what was received (sell token)
+              if (from === OTC_CONTRACT_ADDRESS.toLowerCase() && to === relevantAddress) {
                 // Find token info by address
                 const tokenInfo = getTokenInfo(tokenAddress);
                 console.log(`Found sell token transfer:`, {
@@ -697,8 +736,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 }
               }
               
-              // If transfer is FROM the user TO the contract, it's what the user paid (buy tokens)
-              if (from === address.toLowerCase() && to === OTC_CONTRACT_ADDRESS.toLowerCase()) {
+              // If transfer is FROM the relevant address TO the contract, it's what was paid (buy tokens)
+              if (from === relevantAddress && to === OTC_CONTRACT_ADDRESS.toLowerCase()) {
                 // Find token info by address
                 const tokenInfo = getTokenInfo(tokenAddress);
                 console.log(`Found buy token transfer:`, {
@@ -755,7 +794,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         setPurchasedOrderIds(new Set());
         setPurchaseTransactions([]);
       }
-  }, [address, publicClient]);
+  }, [address, publicClient, allOrders]);
 
   // Query user's purchase history from OrderExecuted events and get actual purchase amounts
   useEffect(() => {
@@ -1814,8 +1853,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           <div 
             className="bg-black border-2 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
           >
-            <div className="text-gray-400 text-lg">
-              Loading marketplace data
+            <div className="text-gray-400 text-base md:text-lg">
+              Loading OTC order data
               <span className="w-[24px] text-left inline-block">
                 {'.'.repeat(loadingDots)}
               </span>
@@ -1899,14 +1938,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       </div>
 
       {/* Level 2: Ownership Filter */}
-      <div className="flex justify-left mb-4">
-        <div className="inline-flex items-center bg-black border border-gray-700 rounded-full p-1 relative">
+      <div className="flex justify-center sm:justify-start mb-4 w-full md:w-auto">
+        <div className={`inline-flex items-center bg-black border rounded-full relative w-full md:w-auto ${
+          ownershipFilter === 'mine' ? 'border-green-600' : 'border-orange-600'
+        }`}>
           <button
             onClick={() => {
               setOwnershipFilter('mine');
               clearExpandedPositions();
             }}
-            className={`px-4 py-2 rounded-full text-md font-medium transition-colors duration-200 relative z-10 ${
+            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
               ownershipFilter === 'mine'
                 ? 'text-white'
                 : 'text-gray-400 hover:text-gray-300'
@@ -1935,7 +1976,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               }
               clearExpandedPositions();
             }}
-            className={`px-4 py-2 rounded-full text-md font-medium transition-colors duration-200 relative z-10 ${
+            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
               ownershipFilter === 'non-mine'
                 ? 'text-white'
                 : 'text-gray-400 hover:text-gray-300'
@@ -1959,13 +2000,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       </div>
 
       {/* Level 3: Status Filter */}
-        <div className="flex justify-left gap-3 mb-6">
+        <div className="flex flex-wrap justify-center sm:justify-start gap-3 mb-6">
         <button
           onClick={() => {
             setStatusFilter('active');
             clearExpandedPositions();
           }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'active'
               ? 'bg-green-500/20 text-green-400 border-green-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1978,7 +2019,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('completed');
             clearExpandedPositions();
           }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'completed'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1991,7 +2032,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('inactive');
             clearExpandedPositions();
           }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'inactive'
               ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -2004,7 +2045,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('cancelled');
             clearExpandedPositions();
           }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'cancelled'
               ? 'bg-red-500/20 text-red-400 border-red-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -2018,7 +2059,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               setStatusFilter('order-history');
               clearExpandedPositions();
             }}
-            className={`px-4 py-2 rounded-full transition-all duration-100 border ${
+            className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
               statusFilter === 'order-history'
                 ? 'bg-purple-500/20 text-purple-400 border-purple-400'
                 : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -2032,13 +2073,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       {/* Search Bar */}
       <div className="mb-6">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-white/20 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-white/20 focus:bg-black/10 transition-colors"
+            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-white/10 rounded-full text-white placeholder-gray-500 focus:outline-none focus:border-white/10 focus:bg-black/10 transition-colors"
           />
         </div>
       </div>
@@ -2499,7 +2540,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         return (
                           <div 
                             className={`h-full rounded-full transition-all duration-300 ${
-                              fillPercentage === 0 ? 'bg-gray-500' : 'bg-green-500'
+                              fillPercentage === 0 ? 'bg-gray-500' : 'bg-blue-500'
                             }`}
                         style={{ 
                               width: `${fillPercentage}%` 
