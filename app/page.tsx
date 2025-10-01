@@ -54,7 +54,7 @@ export default function Home() {
       {/* Hero Section */}
       <div className="w-full px-2 md:px-8 mt-24 mb-2 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-2xl md:text-3xl text-white mb-2">
+          <h2 className="text-3xl md:text-5xl text-white mb-2">
             Trade Pooled HEX Stake Tokens OTC
           </h2>
           <p className="text-md text-gray-400 max-w-2xl mx-auto mb-6 flex items-center justify-center">

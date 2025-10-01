@@ -13,10 +13,39 @@ export const revalidate = 2592000; // 30 days in seconds
 export const metadata = {
   title: 'AgoráX - OTC Platform for Pooled HEX Stake Tokens',
   description: 'AgoráX is an OTC platform for trading pooled HEX stake tokens. Trade your HEX stakes with other users in a secure, decentralized environment.',
+  metadataBase: new URL('https://otc.lookintomaxi.com'),
+  openGraph: {
+    title: 'AgoráX - Peer-to-peer OTC Pooled HEX Stake Trading',
+    description: 'Peer-to-peer OTC pooled HEX stake trading. At scale. On your own terms.',
+    url: 'https://otc.lookintomaxi.com',
+    siteName: 'AgoráX',
+    images: [
+      {
+        url: '/opengraph-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'AgoráX - OTC Platform for Pooled HEX Stake Tokens',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AgoráX - Peer-to-peer OTC Pooled HEX Stake Trading',
+    description: 'Peer-to-peer OTC pooled HEX stake trading. At scale. On your own terms.',
+    images: ['/opengraph-image.png'],
+  },
   icons: {
     icon: [
       {
-        url: '/favicon.png',
+        url: '/favicon.svg',
+        type: 'image/svg+xml',
+      }
+    ],
+    apple: [
+      {
+        url: '/favicon-apple.png',
         type: 'image/png',
       }
     ],
