@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-// Removed framer-motion imports for performance
+import { motion } from 'framer-motion';
 import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search, ArrowRight, MoveRight, ChevronRight, Play } from 'lucide-react';
 import PaywallModal from './PaywallModal';
 import OrderHistoryTable from './OrderHistoryTable';
@@ -610,7 +610,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
   // Function to fetch purchase history - extracted so it can be called manually
   const fetchPurchaseHistory = useCallback(async () => {
-    if (!address || !publicClient) return;
+      if (!address || !publicClient) return;
 
       try {
         // Query OrderExecuted events where the user is the buyer
@@ -1868,8 +1868,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     <div 
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
-      {/* Level 1: Token Type Filter */}
-      <div className="flex justify-left gap-3 mb-4">
+      {/* Level 1: Token Type Filter - Hidden (forced to MAXI) */}
+      <div className="hidden">
         <button
           onClick={() => {
             setTokenFilter('maxi');
@@ -1899,37 +1899,63 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       </div>
 
       {/* Level 2: Ownership Filter */}
-      <div className="flex justify-left gap-3 mb-4">
-        <button
-          onClick={() => {
-            setOwnershipFilter('mine');
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'mine'
-              ? 'bg-green-500/20 text-green-400 border-green-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          My Deals ({getLevel2Orders(tokenFilter, 'mine').length})
-        </button>
-        <button
-          onClick={() => {
-            setOwnershipFilter('non-mine');
-            // If currently on order-history, switch to active when going to marketplace
-            if (statusFilter === 'order-history') {
-              setStatusFilter('active');
-            }
-            clearExpandedPositions();
-          }}
-          className={`px-4 py-2 rounded-full transition-all duration-100 border ${
-            ownershipFilter === 'non-mine'
-              ? 'bg-orange-500/20 text-orange-400 border-orange-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Marketplace ({getLevel2Orders(tokenFilter, 'non-mine').length})
-        </button>
+      <div className="flex justify-left mb-4">
+        <div className="inline-flex items-center bg-black border border-gray-700 rounded-full p-1 relative">
+          <button
+            onClick={() => {
+              setOwnershipFilter('mine');
+              clearExpandedPositions();
+            }}
+            className={`px-4 py-2 rounded-full text-md font-medium transition-colors duration-200 relative z-10 ${
+              ownershipFilter === 'mine'
+                ? 'text-white'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            {ownershipFilter === 'mine' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute inset-0 rounded-full bg-green-600 shadow-sm"
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+                style={{ zIndex: -1 }}
+              />
+            )}
+            My Deals ({getLevel2Orders(tokenFilter, 'mine').length})
+          </button>
+          <button
+            onClick={() => {
+              setOwnershipFilter('non-mine');
+              // If currently on order-history, switch to active when going to marketplace
+              if (statusFilter === 'order-history') {
+                setStatusFilter('active');
+              }
+              clearExpandedPositions();
+            }}
+            className={`px-4 py-2 rounded-full text-md font-medium transition-colors duration-200 relative z-10 ${
+              ownershipFilter === 'non-mine'
+                ? 'text-white'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            {ownershipFilter === 'non-mine' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute inset-0 rounded-full bg-orange-600 shadow-sm"
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+                style={{ zIndex: -1 }}
+              />
+            )}
+            Marketplace ({getLevel2Orders(tokenFilter, 'non-mine').length})
+          </button>
+        </div>
       </div>
 
       {/* Level 3: Status Filter */}
@@ -2038,12 +2064,12 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           />
         ) : (
           /* Horizontal scroll container with hidden scrollbar */
-          <div className="overflow-x-auto scrollbar-hide">
-            {!displayOrders || displayOrders.length === 0 ? (
-              <div className="text-center py-8">
+        <div className="overflow-x-auto scrollbar-hide">
+          {!displayOrders || displayOrders.length === 0 ? (
+            <div className="text-center py-8">
                 <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'mine' ? 'deals' : 'orders'} found</p>
-              </div>
-            ) : (
+            </div>
+          ) : (
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
             <div 
@@ -2339,7 +2365,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     />
                             <div className="flex flex-col">
                     <span className="text-white text-sm font-medium whitespace-nowrap">
-                                        {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
+                                {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                     </span>
                               <span className="text-gray-400 text-xs whitespace-nowrap">
                                 {formatTokenAmountDisplay(tokenAmount)}
@@ -2475,10 +2501,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             className={`h-full rounded-full transition-all duration-300 ${
                               fillPercentage === 0 ? 'bg-gray-500' : 'bg-green-500'
                             }`}
-                            style={{ 
+                        style={{ 
                               width: `${fillPercentage}%` 
-                            }}
-                          />
+                        }}
+                      />
                         );
                       })()}
                     </div>
@@ -2512,7 +2538,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   {/* COLUMN 5: Backing Price Discount Content */}
                   <div className="text-center min-w-0">
                     <div className="text-sm text-white">
-                      {(PAYWALL_ENABLED && !hasTokenAccess) ? (
+                      {backingPriceDiscount !== null ? (
+                        <>
+                          {(PAYWALL_ENABLED && !hasTokenAccess) ? (
                     <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2524,7 +2552,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </button>
                       ) : (
                         <div className="text-sm">
-                          {backingPriceDiscount !== null ? (
                             <span className={`font-medium ${
                               isAboveBackingPrice 
                                 ? 'text-gray-400'    // Neutral - selling above backing price
@@ -2535,15 +2562,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 : `-${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
                               }
                             </span>
-                          ) : (
-                            <span className="text-gray-500">--</span>
-                          )}
-                          {backingPriceDiscount !== null && (
                             <div className="text-xs text-gray-400 mt-1">
                               {isAboveBackingPrice ? 'above backing' : 'discount'}
                     </div>
-                          )}
                   </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-gray-500">--</span>
                       )}
                     </div>
                   </div>
@@ -2574,14 +2600,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           <button
                             onClick={() => handleCancelOrder(order)}
                             disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
-                          className="p-0 mt-0 mb-4 rounded-full text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                            className="p-2 rounded hover:bg-gray-700/50 transition-colors disabled:opacity-50"
                           >
                             {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <Loader2 className="w-5 h-5 text-red-400 animate-spin mx-auto" />
                             ) : (
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300 mx-auto" />
                             )}
-                          </button>
+                      </button>
                       ) : ownershipFilter === 'non-mine' && order.orderDetailsWithId.status === 0 && statusFilter === 'active' ? (
                           <button
                             onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}

@@ -1,9 +1,37 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { CircleDollarSign } from 'lucide-react';
+import { CircleDollarSign, Lock } from 'lucide-react';
 import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, formatTokenAmount } from '@/utils/tokenUtils';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
+import { useTokenStats } from '@/hooks/crypto/useTokenStats';
+import { useAccount, usePublicClient } from 'wagmi';
+import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
+import PaywallModal from './PaywallModal';
+
+// Helper function to find the highest version of a token in tokenStats
+// e.g. if API has eBASE, eBASE2, eBASE3, it returns "eBASE3"
+const getHighestTokenVersion = (tokenStats: Record<string, any>, prefix: string, baseTicker: string): string => {
+  const pattern = new RegExp(`^${prefix}${baseTicker}(\\d*)$`);
+  let highestVersion = 0;
+  let highestKey = `${prefix}${baseTicker}`;
+  
+  Object.keys(tokenStats).forEach(key => {
+    const match = key.match(pattern);
+    if (match) {
+      const version = match[1] ? parseInt(match[1], 10) : 0;
+      if (version > highestVersion) {
+        highestVersion = version;
+        highestKey = key;
+      } else if (version === 0 && highestVersion === 0) {
+        // If no version found yet, use the base version (e.g., "eBASE")
+        highestKey = key;
+      }
+    }
+  });
+  
+  return highestKey;
+};
 
 // Simplified TokenLogo component that always shows fallback for missing logos
 function TokenLogo({ src, alt, className }: { src: string; alt: string; className: string }) {
@@ -170,6 +198,16 @@ export default function OrderHistoryTable({
   maxiTokenAddresses,
   onNavigateToMarketplace
 }: OrderHistoryTableProps) {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  
+  // Token-gating state
+  const [hasTokenAccess, setHasTokenAccess] = useState(false);
+  const [checkingTokenBalance, setCheckingTokenBalance] = useState(false);
+  const [partyBalance, setPartyBalance] = useState(0);
+  const [teamBalance, setTeamBalance] = useState(0);
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
+  
   // Collect all unique token addresses from transactions
   const allTokenAddresses = useMemo(() => {
     const addresses = new Set<string>();
@@ -181,8 +219,72 @@ export default function OrderHistoryTable({
   }, [purchaseTransactions]);
 
   const { prices: tokenPrices } = useTokenPrices(allTokenAddresses);
+  const { tokenStats } = useTokenStats();
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Check PARTY and TEAM token balances for paywall access
+  useEffect(() => {
+    const checkTokenBalances = async () => {
+      if (!address || !publicClient || !PAYWALL_ENABLED) {
+        setHasTokenAccess(false);
+        return;
+      }
+
+      setCheckingTokenBalance(true);
+      try {
+        // Check PARTY balance
+        const partyBalance = await publicClient.readContract({
+          address: PARTY_TOKEN_ADDRESS,
+          abi: [
+            {
+              "inputs": [{"name": "account", "type": "address"}],
+              "name": "balanceOf",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`]
+        });
+
+        // Check TEAM balance
+        const teamBalance = await publicClient.readContract({
+          address: TEAM_TOKEN_ADDRESS,
+          abi: [
+            {
+              "inputs": [{"name": "account", "type": "address"}],
+              "name": "balanceOf",
+              "outputs": [{"name": "", "type": "uint256"}],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`]
+        });
+
+        const partyBalanceInTokens = Number(partyBalance) / 1e18; // PARTY has 18 decimals
+        const teamBalanceInTokens = Number(teamBalance) / 1e8; // TEAM has 8 decimals
+        
+        const hasPartyAccess = partyBalanceInTokens >= REQUIRED_PARTY_TOKENS;
+        const hasTeamAccess = teamBalanceInTokens >= REQUIRED_TEAM_TOKENS;
+        const hasAccess = hasPartyAccess || hasTeamAccess;
+        
+        setHasTokenAccess(hasAccess);
+        setPartyBalance(partyBalanceInTokens);
+        setTeamBalance(teamBalanceInTokens);
+      } catch (error) {
+        console.error('Error checking token balances:', error);
+        setHasTokenAccess(false);
+      } finally {
+        setCheckingTokenBalance(false);
+      }
+    };
+
+    checkTokenBalances();
+  }, [address, publicClient]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -448,6 +550,74 @@ export default function OrderHistoryTable({
           ? ((minBuyAmountUSD - sellUSD) / sellUSD) * 100
           : null;
 
+        // Calculate backing price discount
+        let backingPriceDiscount = null;
+        let isAboveBackingPrice = false;
+        
+        // Check if this is a MAXI token that has backing price data
+        // Don't show stats if there's a chain mismatch
+        const isEthereumWrappedSell = sellTokenInfo.ticker.startsWith('we') || sellTokenInfo.ticker.startsWith('e');
+        const isPulseChainSell = !isEthereumWrappedSell;
+        
+        // Check if any buy token has chain mismatch with sell token
+        const hasChainMismatch = buyTokenEntries.some(([buyTokenAddr]) => {
+          const buyTokenInfo = getTokenInfo(buyTokenAddr);
+          if (!buyTokenInfo) return false;
+          
+          const buyTicker = formatTokenTicker(buyTokenInfo.ticker);
+          const isEthereumWrappedBuy = buyTicker.startsWith('we') || buyTicker.startsWith('e');
+          
+          // Mismatch if: pHEX/pMAXI with weHEX/weMAXI or vice versa
+          return (isPulseChainSell && isEthereumWrappedBuy) || (isEthereumWrappedSell && !isEthereumWrappedBuy);
+        });
+        
+        // Map wrapped tokens (we*) to their ethereum versions (e*) for stats lookup
+        const tokensWithVersions = ['DECI', 'LUCKY', 'TRIO', 'BASE'];
+        let sellTokenKey: string;
+        
+        if (sellTokenInfo.ticker.startsWith('we')) {
+          const baseTicker = sellTokenInfo.ticker.slice(2);
+          if (tokensWithVersions.includes(baseTicker)) {
+            sellTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+          } else {
+            sellTokenKey = `e${baseTicker}`;
+          }
+        } else if (sellTokenInfo.ticker.startsWith('e')) {
+          const baseTicker = sellTokenInfo.ticker.slice(1);
+          if (tokensWithVersions.includes(baseTicker)) {
+            sellTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+          } else {
+            sellTokenKey = sellTokenInfo.ticker;
+          }
+        } else {
+          if (tokensWithVersions.includes(sellTokenInfo.ticker)) {
+            sellTokenKey = getHighestTokenVersion(tokenStats, 'p', sellTokenInfo.ticker);
+          } else {
+            sellTokenKey = `p${sellTokenInfo.ticker}`;
+          }
+        }
+        const sellTokenStat = tokenStats[sellTokenKey];
+        
+        // Only show stats if there's no chain mismatch
+        if (!hasChainMismatch && sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
+          // Get HEX price in USD
+          const hexPrice = getTokenPrice('0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', tokenPrices);
+          
+          if (hexPrice > 0) {
+            // Calculate backing price per token in USD
+            const backingPriceUsd = sellTokenStat.token.backingPerToken * hexPrice;
+            
+            // Calculate OTC price per token in USD
+            const otcPriceUsd = transaction.sellAmount > 0 ? minBuyAmountUSD / transaction.sellAmount : 0;
+            
+            if (otcPriceUsd > 0 && backingPriceUsd > 0) {
+              // Calculate percentage: how much above/below backing price the OTC price is
+              backingPriceDiscount = ((otcPriceUsd - backingPriceUsd) / backingPriceUsd) * 100;
+              isAboveBackingPrice = backingPriceDiscount > 0;
+            }
+          }
+        }
+
         return (
           <div
             key={transaction.transactionHash}
@@ -575,9 +745,41 @@ export default function OrderHistoryTable({
               )}
             </div>
 
-            {/* COLUMN 5: OTC vs Backing Price (Empty) */}
+            {/* COLUMN 5: OTC vs Backing Price */}
             <div className="text-center min-w-0">
-              <span className="text-gray-500">-</span>
+              {backingPriceDiscount !== null ? (
+                <>
+                  {(PAYWALL_ENABLED && !hasTokenAccess) ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPaywallModal(true);
+                      }}
+                      className="p-2 rounded hover:bg-gray-700/50 transition-colors"
+                    >
+                      <Lock className="w-5 h-5 text-gray-400 hover:text-white mx-auto" />
+                    </button>
+                  ) : (
+                    <>
+                      <span className={`font-medium ${
+                        isAboveBackingPrice 
+                          ? 'text-gray-400'    // Neutral - selling above backing price
+                          : 'text-red-400'     // Red discount - selling below backing price (good deal)
+                      }`}>
+                        {isAboveBackingPrice 
+                          ? `+${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                          : `-${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+                        }
+                      </span>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {isAboveBackingPrice ? 'above backing' : 'discount'}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <span className="text-gray-500">-</span>
+              )}
             </div>
 
             {/* COLUMN 6: Status */}
@@ -639,6 +841,20 @@ export default function OrderHistoryTable({
         );
       })}
       </div>
+      
+      {/* Paywall Modal */}
+      <PaywallModal 
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        title={PAYWALL_TITLE}
+        description={PAYWALL_DESCRIPTION}
+        price={checkingTokenBalance ? "Checking..." : hasTokenAccess ? "Access Granted" : `${REQUIRED_PARTY_TOKENS.toLocaleString()} PARTY or ${REQUIRED_TEAM_TOKENS.toLocaleString()} TEAM`}
+        contactUrl="https://x.com/hexgeta"
+        partyBalance={partyBalance}
+        teamBalance={teamBalance}
+        requiredParty={REQUIRED_PARTY_TOKENS}
+        requiredTeam={REQUIRED_TEAM_TOKENS}
+      />
     </div>
   );
 }
