@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImper
 // Removed framer-motion imports for performance
 import { CircleDollarSign, ChevronDown, Trash2, Loader2, Lock, Search, ArrowRight, MoveRight, ChevronRight, Play } from 'lucide-react';
 import PaywallModal from './PaywallModal';
+import OrderHistoryTable from './OrderHistoryTable';
 import useToast from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
@@ -171,6 +172,30 @@ const getBaseTokenForPrice = (ticker: string) => {
   };
   
   return baseTokenMap[ticker] || ticker;
+};
+
+// Helper function to find the highest version of a token in tokenStats
+// e.g. if API has eBASE, eBASE2, eBASE3, it returns "eBASE3"
+const getHighestTokenVersion = (tokenStats: Record<string, any>, prefix: string, baseTicker: string): string => {
+  const pattern = new RegExp(`^${prefix}${baseTicker}(\\d*)$`);
+  let highestVersion = 0;
+  let highestKey = `${prefix}${baseTicker}`;
+  
+  Object.keys(tokenStats).forEach(key => {
+    const match = key.match(pattern);
+    if (match) {
+      const version = match[1] ? parseInt(match[1], 10) : 0;
+      if (version > highestVersion) {
+        highestVersion = version;
+        highestKey = key;
+      } else if (version === 0 && highestVersion === 0) {
+        // If no version found yet, use the base version (e.g., "eBASE")
+        highestKey = key;
+      }
+    }
+  });
+  
+  return highestKey;
 };
 
 // MAXI token addresses (important tokens to highlight)
@@ -583,10 +608,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     setExpandedPositions(new Set());
   };
 
-  // Query user's purchase history from OrderExecuted events and get actual purchase amounts
-  useEffect(() => {
-    const fetchPurchaseHistory = async () => {
-      if (!address || !publicClient) return;
+  // Function to fetch purchase history - extracted so it can be called manually
+  const fetchPurchaseHistory = useCallback(async () => {
+    if (!address || !publicClient) return;
 
       try {
         // Query OrderExecuted events where the user is the buyer
@@ -690,13 +714,19 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             }
             
             if (sellAmount > 0 || Object.keys(buyTokens).length > 0) {
+              // Fetch block timestamp
+              const block = await publicClient.getBlock({
+                blockNumber: log.blockNumber
+              });
+              
               transactions.push({
                 transactionHash: log.transactionHash,
                 orderId,
                 sellToken,
                 sellAmount,
                 buyTokens,
-                blockNumber: log.blockNumber
+                blockNumber: log.blockNumber,
+                timestamp: Number(block.timestamp)
               });
             }
           } catch (txError) {
@@ -725,10 +755,12 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         setPurchasedOrderIds(new Set());
         setPurchaseTransactions([]);
       }
-    };
-
-    fetchPurchaseHistory();
   }, [address, publicClient]);
+
+  // Query user's purchase history from OrderExecuted events and get actual purchase amounts
+  useEffect(() => {
+    fetchPurchaseHistory();
+  }, [fetchPurchaseHistory]);
 
   // Simplify error messages for user rejections
   const simplifyErrorMessage = (error: any) => {
@@ -911,7 +943,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       return;
     }
 
-    setExecutingOrders(prev => new Set(prev).add(orderId));
     setExecuteErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors[orderId];
@@ -1024,6 +1055,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         }
       }
 
+      // Set executing state before execution
+      setExecutingOrders(prev => new Set(prev).add(orderId));
+
       // Execute the order
       const txHash = await executeOrder(
         BigInt(orderId),
@@ -1078,8 +1112,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       setStatusFilter('order-history');
       setExpandedPositions(new Set());
       
-      // Refresh the orders to show updated amounts
+      // Refresh the orders and purchase history to show updated amounts
       refetch();
+      fetchPurchaseHistory();
       
     } catch (error: any) {
       console.error('Error executing order:', error);
@@ -1335,6 +1370,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const displayOrders = useMemo(() => {
     if (!allOrders) return [];
     
+    // Filter orders (positions only - no order history)
     let orders = allOrders;
     
     // Level 1: Filter by token type (MAXI vs Non-MAXI)
@@ -1397,52 +1433,24 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       case 'active':
           filteredOrders = orders.filter(order => 
             order.orderDetailsWithId.status === 0 && 
-            Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000) &&
-            !(order as any)._transactionData // Exclude order history virtual orders
+            Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
           );
         break;
       case 'completed':
         filteredOrders = orders.filter(order => 
-          order.orderDetailsWithId.status === 2 &&
-          !(order as any)._transactionData // Exclude order history virtual orders
+          order.orderDetailsWithId.status === 2
         );
         break;
         case 'inactive':
           filteredOrders = orders.filter(order => 
             order.orderDetailsWithId.status === 0 && 
-            Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000) &&
-            !(order as any)._transactionData // Exclude order history virtual orders
+            Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
           );
         break;
       case 'cancelled':
         filteredOrders = orders.filter(order => 
-          order.orderDetailsWithId.status === 1 &&
-          !(order as any)._transactionData // Exclude order history virtual orders
+          order.orderDetailsWithId.status === 1
         );
-        break;
-      case 'order-history':
-        // For order history, create one row per transaction (not per order)
-        if (ownershipFilter === 'mine' && address && purchaseTransactions.length > 0) {
-          // Create a "virtual order" for each transaction
-          filteredOrders = purchaseTransactions.map(transaction => {
-            // Find the base order from allOrders (make sure to find a clean order without _transactionData)
-            const baseOrder = allOrders.find(order => 
-              order.orderDetailsWithId.orderId.toString() === transaction.orderId &&
-              !(order as any)._transactionData // Only find clean orders, not virtual ones
-            );
-            
-            if (!baseOrder) return null;
-            
-            // Create a completely new object with transaction data attached
-            return {
-              ...JSON.parse(JSON.stringify(baseOrder)), // Deep clone to prevent mutation
-              _transactionData: transaction, // Attach transaction-specific data
-              _virtualOrderKey: transaction.transactionHash // Unique key for React
-            };
-          }).filter((order): order is NonNullable<typeof order> => order !== null);
-        } else {
-          filteredOrders = [];
-        }
         break;
       default:
         filteredOrders = orders;
@@ -1684,8 +1692,11 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
   // Helper functions for cascading filter counts
   const getLevel1Orders = (tokenType: 'maxi' | 'non-maxi') => {
+    // Use allOrders directly (order history is handled separately)
+    const cleanOrders = allOrders;
+    
     if (tokenType === 'maxi') {
-        return allOrders.filter(order => {
+        return cleanOrders.filter(order => {
           const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
           const sellTokenInList = maxiTokenAddresses.some(addr => 
             sellToken === addr.toLowerCase()
@@ -1700,7 +1711,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           return sellTokenInList || buyTokensInList;
         });
     } else {
-      return allOrders.filter(order => {
+      return cleanOrders.filter(order => {
         const sellToken = order.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
         const sellTokenInList = maxiTokenAddresses.some(addr => 
           sellToken === addr.toLowerCase()
@@ -1748,9 +1759,37 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       case 'cancelled':
         return level2Orders.filter(order => order.orderDetailsWithId.status === 1);
       case 'order-history':
-        // For order history, count transactions (not unique orders)
+        // For order history, count transactions (not unique orders) with token filter applied
         if (ownership === 'mine') {
-          return purchaseTransactions.length;
+          const filteredTransactions = purchaseTransactions.filter(transaction => {
+            const baseOrder = allOrders.find(order => 
+              order.orderDetailsWithId.orderId.toString() === transaction.orderId
+            );
+            if (!baseOrder) return false;
+            
+            // Apply token filter
+            if (tokenType === 'maxi') {
+              const sellToken = baseOrder.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
+              const sellTokenInList = maxiTokenAddresses.some(addr => sellToken === addr.toLowerCase());
+              const buyTokensInList = baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex.some((buyTokenIndex: bigint) => {
+                const buyTokenInfo = getTokenInfoByIndex(Number(buyTokenIndex));
+                const buyTokenAddress = buyTokenInfo?.address?.toLowerCase() || '';
+                return maxiTokenAddresses.some(addr => buyTokenAddress === addr.toLowerCase());
+              });
+              return sellTokenInList || buyTokensInList;
+            } else if (tokenType === 'non-maxi') {
+              const sellToken = baseOrder.orderDetailsWithId.orderDetails.sellToken.toLowerCase();
+              const sellTokenInList = maxiTokenAddresses.some(addr => sellToken === addr.toLowerCase());
+              const buyTokensInList = baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex.some((buyTokenIndex: bigint) => {
+                const buyTokenInfo = getTokenInfoByIndex(Number(buyTokenIndex));
+                const buyTokenAddress = buyTokenInfo?.address?.toLowerCase() || '';
+                return maxiTokenAddresses.some(addr => buyTokenAddress === addr.toLowerCase());
+              });
+              return !(sellTokenInList || buyTokensInList);
+            }
+            return true;
+          });
+          return filteredTransactions.length;
         }
         return 0 as any; // Return 0 but typed as any to match array return type for other cases
       default:
@@ -1987,13 +2026,24 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           width: '100%'
         }}
       >
-        {/* Horizontal scroll container with hidden scrollbar */}
-        <div className="overflow-x-auto scrollbar-hide">
-          {!displayOrders || displayOrders.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-400 mb-2">No {statusFilter === 'order-history' ? 'purchase history' : statusFilter} {ownershipFilter === 'mine' ? 'deals' : 'orders'} found</p>
-            </div>
-          ) : (
+        {/* Render separate OrderHistoryTable component for order history */}
+        {statusFilter === 'order-history' ? (
+          <OrderHistoryTable
+            purchaseTransactions={purchaseTransactions}
+            allOrders={allOrders || []}
+            tokenFilter={tokenFilter}
+            searchTerm={searchQuery}
+            maxiTokenAddresses={maxiTokenAddresses}
+            onNavigateToMarketplace={navigateToMarketplaceOrder}
+          />
+        ) : (
+          /* Horizontal scroll container with hidden scrollbar */
+          <div className="overflow-x-auto scrollbar-hide">
+            {!displayOrders || displayOrders.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400 mb-2">No {statusFilter} {ownershipFilter === 'mine' ? 'deals' : 'orders'} found</p>
+              </div>
+            ) : (
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
             <div 
@@ -2008,7 +2058,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                            {statusFilter === 'completed' ? 'Sold' : statusFilter === 'order-history' ? 'You Bought' : 'For Sale'} {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                            {statusFilter === 'completed' ? 'Sold' : 'For Sale'} {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 2: Asking For */}
@@ -2018,7 +2068,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   sortField === 'askingFor' ? 'text-white' : 'text-gray-400'
                 }`}
               >
-                            {statusFilter === 'completed' ? 'Bought' : statusFilter === 'order-history' ? 'You Paid' : 'Asking For'} {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                            {statusFilter === 'completed' ? 'Bought' : 'Asking For'} {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 3: Fill Status % */}
@@ -2145,10 +2195,55 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 let isAboveBackingPrice = false;
                 
                 // Check if this is a MAXI token that has backing price data
-                const sellTokenKey = sellTokenInfo.ticker.startsWith('e') ? `e${sellTokenInfo.ticker.slice(1)}` : `p${sellTokenInfo.ticker}`;
+                // Don't show stats if there's a chain mismatch (pHEX with weMAXI or weHEX with pMAXI)
+                const isEthereumWrappedSell = sellTokenInfo.ticker.startsWith('we') || sellTokenInfo.ticker.startsWith('e');
+                const isPulseChainSell = !isEthereumWrappedSell;
+                
+                // Check if any buy token has chain mismatch with sell token
+                const hasChainMismatch = buyTokensIndex.some((index: bigint) => {
+                  const buyTokenInfo = getTokenInfoByIndex(Number(index));
+                  if (!buyTokenInfo) return false;
+                  
+                  const buyTicker = formatTokenTicker(buyTokenInfo.ticker);
+                  const isEthereumWrappedBuy = buyTicker.startsWith('we') || buyTicker.startsWith('e');
+                  
+                  // Mismatch if: pHEX/pMAXI with weHEX/weMAXI or vice versa
+                  return (isPulseChainSell && isEthereumWrappedBuy) || (isEthereumWrappedSell && !isEthereumWrappedBuy);
+                });
+                
+                // Map wrapped tokens (we*) to their ethereum versions (e*) for stats lookup
+                // For tokens with multiple versions (DECI, LUCKY, TRIO, BASE), find the highest version
+                const tokensWithVersions = ['DECI', 'LUCKY', 'TRIO', 'BASE'];
+                let sellTokenKey: string;
+                
+                if (sellTokenInfo.ticker.startsWith('we')) {
+                  // weMAXI -> eMAXI, weDECI -> highest eDECI version, weBASE -> highest eBASE version
+                  const baseTicker = sellTokenInfo.ticker.slice(2); // Remove 'we' prefix
+                  if (tokensWithVersions.includes(baseTicker)) {
+                    sellTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+                  } else {
+                    sellTokenKey = `e${baseTicker}`;
+                  }
+                } else if (sellTokenInfo.ticker.startsWith('e')) {
+                  // eBASE -> highest eBASE version, eMAXI -> eMAXI
+                  const baseTicker = sellTokenInfo.ticker.slice(1);
+                  if (tokensWithVersions.includes(baseTicker)) {
+                    sellTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+                  } else {
+                    sellTokenKey = sellTokenInfo.ticker;
+                  }
+                } else {
+                  // Regular tokens like MAXI -> pMAXI, BASE -> highest pBASE version
+                  if (tokensWithVersions.includes(sellTokenInfo.ticker)) {
+                    sellTokenKey = getHighestTokenVersion(tokenStats, 'p', sellTokenInfo.ticker);
+                  } else {
+                    sellTokenKey = `p${sellTokenInfo.ticker}`;
+                  }
+                }
                 const sellTokenStat = tokenStats[sellTokenKey];
                 
-                if (sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
+                // Only show stats if there's no chain mismatch
+                if (!hasChainMismatch && sellTokenStat && sellTokenStat.token.backingPerToken > 0) {
                   // Get HEX price in USD
                   const hexPrice = getTokenPrice('0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', tokenPrices);
                   
@@ -2208,22 +2303,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     {(() => {
                       const formattedAmount = formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals);
                       // For completed orders, show original amounts; for others, show remaining amounts
-                      // Check if we're in completed filter section - if so, always use original amounts
-                      // For order history, show actual purchase amounts if available
                       const isCompleted = statusFilter === 'completed' || order.orderDetailsWithId.status === 1;
-                      const isOrderHistory = statusFilter === 'order-history';
-                      const orderId = order.orderDetailsWithId.orderId.toString();
                       
                       let tokenAmount: number;
-                      const transactionData = (order as any)._transactionData;
-                      if (isOrderHistory && transactionData?.sellAmount) {
-                        // Use actual purchase amount from transaction data
-                        tokenAmount = transactionData.sellAmount;
-                        console.log(`Order History - Using actual purchase amount for order ${orderId}:`, {
-                          actualPurchaseAmount: tokenAmount,
-                          sellToken: sellTokenInfo.ticker
-                        });
-                      } else if (isCompleted) {
+                      if (isCompleted) {
                         // Use original amount for completed orders
                         tokenAmount = parseFloat(formatTokenAmount(order.orderDetailsWithId.orderDetails.sellAmount, sellTokenInfo.decimals));
                       } else {
@@ -2231,37 +2314,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         tokenAmount = sellTokenAmount;
                       }
                       
-                      // Debug order history data
-                      if (isOrderHistory) {
-                        console.log(`Order History Debug for order ${orderId}:`, {
-                          isOrderHistory,
-                          transactionData,
-                          sellAmount: transactionData?.sellAmount,
-                          fallbackToRemaining: !transactionData?.sellAmount,
-                          finalTokenAmount: tokenAmount,
-                          sellTokenInfo: sellTokenInfo.ticker
-                        });
-                      }
-                      
-                      // Debug: Log status for completed orders
-                      if (statusFilter === 'completed') {
-                        console.log('Completed Order Debug:', {
-                          orderId: order.orderDetailsWithId.orderId.toString(),
-                          status: order.orderDetailsWithId.status,
-                          isCompleted,
-                          sellToken: getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker,
-                          originalSellAmount: order.orderDetailsWithId.orderDetails.sellAmount.toString(),
-                          sellTokenAmount: sellTokenAmount,
-                          calculatedTokenAmount: tokenAmount,
-                          remainingPercentage: Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18
-                        });
-                      }
                       const tokenPrice = sellTokenPrice; // Use pre-calculated value
                       let usdValue: number;
-                      if (isOrderHistory && transactionData?.sellAmount) {
-                        // Recalculate USD for actual purchase amount
-                        usdValue = tokenAmount * tokenPrice;
-                      } else if (isCompleted) {
+                      if (isCompleted) {
                         // Recalculate USD for completed orders
                         usdValue = tokenAmount * tokenPrice;
                       } else {
@@ -2301,21 +2356,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   <div className="flex flex-col items-start space-y-1 min-w-0 overflow-hidden">
                     {(() => {
                       // For completed orders, recalculate total USD using original amounts
-                      // For order history, show actual amounts paid by the user
                       const isCompleted = statusFilter === 'completed' || order.orderDetailsWithId.status === 1;
-                      const isOrderHistory = statusFilter === 'order-history';
-                      const orderId = order.orderDetailsWithId.orderId.toString();
-                      const transactionData = (order as any)._transactionData;
                       let totalUsdValue = askingUsdValue; // Default to pre-calculated value
                       
-                      if (isOrderHistory && transactionData?.buyTokens) {
-                        // Use actual amounts paid by the user from transaction data
-                        totalUsdValue = 0;
-                        Object.entries(transactionData.buyTokens as Record<string, number>).forEach(([tokenAddress, amount]) => {
-                          const tokenPrice = getTokenPrice(tokenAddress, tokenPrices);
-                          totalUsdValue += amount * tokenPrice;
-                        });
-                      } else if (isCompleted) {
+                      if (isCompleted) {
                         // Recalculate minimum USD value using original amounts for completed orders
                         const tokenValues: number[] = [];
                         buyTokensIndex.forEach((tokenIndex: bigint, idx: number) => {
@@ -2337,41 +2381,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           </span>
                           <div className="w-1/2 h-px bg-white/10 my-2"></div>
                           {(() => {
-                            // For order history, show actual tokens paid by the user
-                            if (isOrderHistory && transactionData?.buyTokens) {
-                              const buyTokenEntries = Object.entries(transactionData.buyTokens as Record<string, number>);
-                              const hasMultipleTokens = buyTokenEntries.length > 1;
-                              
-                              return buyTokenEntries.map(([tokenAddress, amount], idx) => {
-                                const tokenInfo = getTokenInfo(tokenAddress);
-                                if (!tokenInfo || tokenInfo.address === '0x0000000000000000000000000000000000000000') return null;
-                                
-                                const tokenPrice = getTokenPrice(tokenAddress, tokenPrices);
-                                const usdValue = amount * tokenPrice;
-                                
-                                return (
-                                  <div key={`${tokenAddress}-${idx}`} className="flex items-center space-x-2 mb-3">
-                                    <TokenLogo src={tokenInfo.logo} alt={tokenInfo.ticker} className="w-6 h-6 rounded-full" />
-                                    <div className="flex flex-col">
-                                      <span className="text-white text-sm font-medium whitespace-nowrap">
-                                        {formatTokenTicker(tokenInfo.ticker)}
-                                      </span>
-                                      <span className="text-gray-400 text-xs whitespace-nowrap">
-                                        {formatTokenAmountDisplay(amount)}
-                                      </span>
-                                      {/* Only show individual USD price if there are multiple tokens */}
-                                      {hasMultipleTokens && tokenPrice > 0 && (
-                                        <span className="text-gray-500 text-xs">
-                                          {formatUSD(usdValue)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              }).filter(Boolean);
-                            }
-                            
-                            // For completed and active orders, use original logic
+                            // For completed and active orders
                             const hasMultipleTokens = buyTokensIndex.length > 1;
                             return buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                       const tokenInfo = getTokenInfoByIndex(Number(tokenIndex));
@@ -2393,7 +2403,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               });
                             }
                               const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
-                                const tokenAmount = (isCompleted || isOrderHistory) ? 
+                                const tokenAmount = isCompleted ? 
                                   parseFloat(formatTokenAmount(originalAmount, tokenInfo.decimals)) :
                                   parseFloat(formatTokenAmount(remainingAmount, tokenInfo.decimals));
                             const tokenPrice = getTokenPrice(tokenInfo.address, tokenPrices);
@@ -2449,63 +2459,26 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   <div className="flex flex-col items-center space-y-2 min-w-0">
                     {(() => {
                       const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
-                      const isOrderHistory = statusFilter === 'order-history';
-                      const transactionData = (order as any)._transactionData;
-                      
-                      // Calculate user's share percentage for order history
-                      let userSharePercentage = 0;
-                      if (isOrderHistory && transactionData?.sellAmount) {
-                        const originalSellAmount = order.orderDetailsWithId.orderDetails.sellAmount;
-                        const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                        const totalAmount = parseFloat(formatTokenAmount(originalSellAmount, sellTokenInfo.decimals));
-                        userSharePercentage = (transactionData.sellAmount / totalAmount) * 100;
-                      }
                       
                       return (
                         <span className={`text-xs ${fillPercentage === 0 ? 'text-gray-500' : 'text-white'}`}>
-                          {isOrderHistory && userSharePercentage > 0 
-                            ? `${formatPercentage(userSharePercentage)} / ${formatPercentage(fillPercentage)}`
-                            : formatPercentage(fillPercentage)
-                          }
+                          {formatPercentage(fillPercentage)}
                     </span>
                       );
                     })()}
                     <div className="w-[60px] h-1 bg-gray-500 rounded-full overflow-hidden relative">
                       {(() => {
                         const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
-                        const isOrderHistory = statusFilter === 'order-history';
-                        const transactionData = (order as any)._transactionData;
-                        
-                        // Calculate user's share percentage for order history
-                        let userSharePercentage = 0;
-                        if (isOrderHistory && transactionData?.sellAmount) {
-                          const originalSellAmount = order.orderDetailsWithId.orderDetails.sellAmount;
-                          const sellTokenInfo = getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken);
-                          const totalAmount = parseFloat(formatTokenAmount(originalSellAmount, sellTokenInfo.decimals));
-                          userSharePercentage = (transactionData.sellAmount / totalAmount) * 100;
-                        }
                         
                         return (
-                          <>
-                            {/* Total fill percentage (green) */}
-                            <div 
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                fillPercentage === 0 ? 'bg-gray-500' : 'bg-green-500'
-                              }`}
-                              style={{ 
-                                width: `${fillPercentage}%` 
-                              }}
-                            />
-                            {/* User's share (blue overlay) - only for order history */}
-                            {isOrderHistory && userSharePercentage > 0 && (
-                              <div 
-                                className="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all duration-300"
-                                style={{ 
-                                  width: `${userSharePercentage}%` 
-                                }}
-                              />
-                            )}
-                          </>
+                          <div 
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              fillPercentage === 0 ? 'bg-gray-500' : 'bg-green-500'
+                            }`}
+                            style={{ 
+                              width: `${fillPercentage}%` 
+                            }}
+                          />
                         );
                       })()}
                     </div>
@@ -2597,9 +2570,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   
                   {/* COLUMN 8: Actions Content */}
                     <div className="text-center min-w-0">
-                      {ownershipFilter === 'mine' && 
-                       order.orderDetailsWithId.status === 0 && 
-                       statusFilter !== 'order-history' ? (
+                      {ownershipFilter === 'mine' && order.orderDetailsWithId.status === 0 ? (
                           <button
                             onClick={() => handleCancelOrder(order)}
                             disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
@@ -2611,37 +2582,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               <Trash2 className="w-4 h-4" />
                             )}
                           </button>
-                      ) : statusFilter === 'order-history' && order.orderDetailsWithId.status === 0 ? (
-                        // Show Buy More button with Order ID for Order History orders that are still active
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            onClick={() => navigateToMarketplaceOrder(order)}
-                            className="px-3 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors font-medium"
-                            title="View in Marketplace"
-                          >
-                            Buy More
-                          </button>
-                          {(() => {
-                            const transactionData = (order as any)._transactionData;
-                            if (transactionData?.transactionHash) {
-                              return (
-                                <button
-                                  onClick={() => window.open(`https://otter.pulsechain.com/tx/${transactionData.transactionHash}`, '_blank')}
-                                  className="px-3 py-2 bg-transparent text-white text-xs border-1 border-white rounded-full hover:bg-white hover:text-blacktransition-colors font-medium"
-                                  title="View Transaction on Otterscan"
-                                >
-                                  View Tx
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                        <span className="text-gray-600 text-xs mt-1">
-                          Order ID: {order.orderDetailsWithId.orderId.toString()}
-                        </span>
-                      </div>
                       ) : ownershipFilter === 'non-mine' && order.orderDetailsWithId.status === 0 && statusFilter === 'active' ? (
                           <button
                             onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
@@ -2956,6 +2896,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           </div>
         )}
         </div>
+        )}
       </div>
       
       {/* Edit Order Modal */}

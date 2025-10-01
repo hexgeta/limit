@@ -19,7 +19,7 @@ const Footer = () => {
               Peer-to-peer pooled HEX stake trading
             </p>
             <p className="text-sm mt-1 text-[rgb(153,153,153)]">
-              Powered by <a href="https://www.0xbistro.io/" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">0xBistro</a>
+              Powered by <a href="https://docs.mcr369.io/dapp-documents/bistro/bistro-market-place" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">0xBistro</a>
             </p>
           </div>
 

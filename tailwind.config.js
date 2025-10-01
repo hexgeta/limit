@@ -97,14 +97,14 @@ module.exports = {
     			'accordion-up': 'accordion-up 0.2s ease-out',
     			shine: 'shine 1s linear infinite'
     		},
-    		fontFamily: {
-    			sans: [
-					'Persephone',
-    				'ui-sans-serif',
-    				'system-ui',
-    				'sans-serif',
-    			],
-    		},
+		fontFamily: {
+			sans: [
+				'League Spartan',
+				'ui-sans-serif',
+				'system-ui',
+				'sans-serif',
+			],
+		},
     	}
     },
     plugins: [

@@ -16,6 +16,30 @@ import { useTransaction } from '@/context/TransactionContext';
 import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
 import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
 
+// Helper function to find the highest version of a token in tokenStats
+// e.g. if API has eBASE, eBASE2, eBASE3, it returns "eBASE3"
+const getHighestTokenVersion = (tokenStats: Record<string, any>, prefix: string, baseTicker: string): string => {
+  const pattern = new RegExp(`^${prefix}${baseTicker}(\\d*)$`);
+  let highestVersion = 0;
+  let highestKey = `${prefix}${baseTicker}`;
+  
+  Object.keys(tokenStats).forEach(key => {
+    const match = key.match(pattern);
+    if (match) {
+      const version = match[1] ? parseInt(match[1], 10) : 0;
+      if (version > highestVersion) {
+        highestVersion = version;
+        highestKey = key;
+      } else if (version === 0 && highestVersion === 0) {
+        // If no version found yet, use the base version (e.g., "eBASE")
+        highestKey = key;
+      }
+    }
+  });
+  
+  return highestKey;
+};
+
 // Contract whitelist mapping - index to token address
 const CONTRACT_WHITELIST_MAP = {
   0: '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX - PulseX
@@ -567,12 +591,48 @@ export function CreatePositionModal({
   // Helper to determine if a token should show stats (exclude HEX and other non-backed tokens)
   const shouldShowTokenStats = (token: TokenOption | null) => {
     if (!token) return false;
-    const tokenKey = token.ticker.startsWith('e') ? `e${token.ticker.slice(1)}` : `p${token.ticker}`;
+    // Map wrapped tokens (we*) to their ethereum versions (e*) for stats lookup
+    // For tokens with multiple versions (DECI, LUCKY, TRIO, BASE), find the highest version
+    const tokensWithVersions = ['DECI', 'LUCKY', 'TRIO', 'BASE'];
+    let tokenKey: string;
+    
+    if (token.ticker.startsWith('we')) {
+      const baseTicker = token.ticker.slice(2); // Remove 'we' prefix
+      if (tokensWithVersions.includes(baseTicker)) {
+        tokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+      } else {
+        tokenKey = `e${baseTicker}`;
+      }
+    } else if (token.ticker.startsWith('e')) {
+      const baseTicker = token.ticker.slice(1);
+      if (tokensWithVersions.includes(baseTicker)) {
+        tokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+      } else {
+        tokenKey = token.ticker;
+      }
+    } else {
+      if (tokensWithVersions.includes(token.ticker)) {
+        tokenKey = getHighestTokenVersion(tokenStats, 'p', token.ticker);
+      } else {
+        tokenKey = `p${token.ticker}`;
+      }
+    }
     return tokenStats[tokenKey] && token.ticker !== 'HEX';
   };
 
-  const showSellStats = shouldShowTokenStats(sellToken);
-  const showBuyStats = shouldShowTokenStats(buyToken);
+  // Check for chain mismatch between sell and buy tokens
+  const hasChainMismatch = () => {
+    if (!sellToken || !buyToken) return false;
+    
+    const isEthereumWrappedSell = sellToken.ticker.startsWith('we') || sellToken.ticker.startsWith('e');
+    const isEthereumWrappedBuy = buyToken.ticker.startsWith('we') || buyToken.ticker.startsWith('e');
+    
+    // Mismatch if one is Ethereum wrapped and the other is PulseChain native
+    return (isEthereumWrappedSell && !isEthereumWrappedBuy) || (!isEthereumWrappedSell && isEthereumWrappedBuy);
+  };
+  
+  const showSellStats = !hasChainMismatch() && shouldShowTokenStats(sellToken);
+  const showBuyStats = !hasChainMismatch() && shouldShowTokenStats(buyToken);
   const gridColsClass = (showSellStats && showBuyStats) ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1';
 
   // Calculate OTC price in HEX terms for any token pair
@@ -594,15 +654,20 @@ export function CreatePositionModal({
       return null;
     }
 
-    if (buyToken.ticker === 'HEX') {
-      // If buying HEX, your price is buyAmount/sellAmount HEX per sellToken
+    // Helper to check if a token is a HEX variant (HEX, eHEX, pHEX, weHEX)
+    const isHexVariant = (ticker: string) => {
+      return ticker === 'HEX' || ticker === 'eHEX' || ticker === 'pHEX' || ticker === 'weHEX';
+    };
+
+    if (isHexVariant(buyToken.ticker)) {
+      // If buying HEX (or variant), your price is buyAmount/sellAmount HEX per sellToken
       const price = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
-      console.log('Calculated OTC price (buying HEX):', price);
+      console.log('Calculated OTC price (buying HEX variant):', price);
       return price;
-    } else if (sellToken.ticker === 'HEX') {
-      // If selling HEX, your price is sellAmount/buyAmount HEX per buyToken
+    } else if (isHexVariant(sellToken.ticker)) {
+      // If selling HEX (or variant), your price is sellAmount/buyAmount HEX per buyToken
       const price = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
-      console.log('Calculated OTC price (selling HEX):', price);
+      console.log('Calculated OTC price (selling HEX variant):', price);
       return price;
     } else {
       // For any other token pair, convert using DexScreener prices
@@ -1237,7 +1302,31 @@ export function CreatePositionModal({
                             <span>{formatTokenTicker(sellToken.ticker)} Stats</span>
                           </h4>
                           {(() => {
-                            const sellTokenKey = sellToken.ticker.startsWith('e') ? `e${sellToken.ticker.slice(1)}` : `p${sellToken.ticker}`;
+                            // Map wrapped tokens (we*) to their ethereum versions (e*) for stats lookup
+                            const tokensWithVersions = ['DECI', 'LUCKY', 'TRIO', 'BASE'];
+                            let sellTokenKey: string;
+                            
+                            if (sellToken.ticker.startsWith('we')) {
+                              const baseTicker = sellToken.ticker.slice(2);
+                              if (tokensWithVersions.includes(baseTicker)) {
+                                sellTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+                              } else {
+                                sellTokenKey = `e${baseTicker}`;
+                              }
+                            } else if (sellToken.ticker.startsWith('e')) {
+                              const baseTicker = sellToken.ticker.slice(1);
+                              if (tokensWithVersions.includes(baseTicker)) {
+                                sellTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+                              } else {
+                                sellTokenKey = sellToken.ticker;
+                              }
+                            } else {
+                              if (tokensWithVersions.includes(sellToken.ticker)) {
+                                sellTokenKey = getHighestTokenVersion(tokenStats, 'p', sellToken.ticker);
+                              } else {
+                                sellTokenKey = `p${sellToken.ticker}`;
+                              }
+                            }
                             const sellStats = tokenStats[sellTokenKey];
 
                             if (!sellStats) {
@@ -1246,6 +1335,14 @@ export function CreatePositionModal({
 
                             // Use the calculated OTC price
                             const yourPriceInHEX = calculateOtcPriceInHex;
+                            
+                            // Determine which HEX variant to display based on what's being used
+                            const hexDisplayName = buyToken.ticker === 'eHEX' || buyToken.ticker === 'weHEX' ? 'eHEX' : 
+                                                   buyToken.ticker === 'pHEX' ? 'pHEX' : 'HEX';
+                            
+                            // Check if token is BASE variant (hide mint stats for BASE)
+                            const isBaseToken = sellToken.ticker === 'BASE' || sellToken.ticker === 'eBASE' || 
+                                                sellToken.ticker === 'pBASE' || sellToken.ticker === 'weBASE';
 
                             // Calculate discounts based on your price
                             let yourDiscountFromBacking: number | null = null;
@@ -1281,19 +1378,21 @@ export function CreatePositionModal({
                                     {(sellStats.token.discountFromBacking * 100).toFixed(2)}%
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Current Discount / Premium from Mint:</span>
-                                  <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(sellStats.token.discountFromMint * 100).toFixed(2)}%
-                                  </span>
-                                </div>
+                                {!isBaseToken && (
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Current Discount / Premium from Mint:</span>
+                                    <span className={`font-medium ${sellStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      {(sellStats.token.discountFromMint * 100).toFixed(2)}%
+                                    </span>
+                                  </div>
+                                )}
 
                                 {/* Subtle divider */}
                                 <div className="border-t border-white/10 my-3"></div>
 
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your OTC Price:</span>
-                                  <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
+                                  <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} {hexDisplayName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your Discount / Premium from Backing:</span>
@@ -1301,12 +1400,14 @@ export function CreatePositionModal({
                                     {yourDiscountFromBacking !== null ? (yourDiscountFromBacking * 100).toFixed(2) + '%' : 'N/A'}
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
-                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                  </span>
-                                </div>
+                                {!isBaseToken && (
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Your Discount / Premium from Mint:</span>
+                                    <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                      {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
                                   <span className={`font-medium ${yourPriceInHEX !== null && sellStats.token.priceHEX > 0 ?
@@ -1341,7 +1442,31 @@ export function CreatePositionModal({
                             <span>{formatTokenTicker(buyToken.ticker)} Stats</span>
                           </h4>
                           {(() => {
-                            const buyTokenKey = buyToken.ticker.startsWith('e') ? `e${buyToken.ticker.slice(1)}` : `p${buyToken.ticker}`;
+                            // Map wrapped tokens (we*) to their ethereum versions (e*) for stats lookup
+                            const tokensWithVersions = ['DECI', 'LUCKY', 'TRIO', 'BASE'];
+                            let buyTokenKey: string;
+                            
+                            if (buyToken.ticker.startsWith('we')) {
+                              const baseTicker = buyToken.ticker.slice(2);
+                              if (tokensWithVersions.includes(baseTicker)) {
+                                buyTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+                              } else {
+                                buyTokenKey = `e${baseTicker}`;
+                              }
+                            } else if (buyToken.ticker.startsWith('e')) {
+                              const baseTicker = buyToken.ticker.slice(1);
+                              if (tokensWithVersions.includes(baseTicker)) {
+                                buyTokenKey = getHighestTokenVersion(tokenStats, 'e', baseTicker);
+                              } else {
+                                buyTokenKey = buyToken.ticker;
+                              }
+                            } else {
+                              if (tokensWithVersions.includes(buyToken.ticker)) {
+                                buyTokenKey = getHighestTokenVersion(tokenStats, 'p', buyToken.ticker);
+                              } else {
+                                buyTokenKey = `p${buyToken.ticker}`;
+                              }
+                            }
                             const buyStats = tokenStats[buyTokenKey];
 
                             if (!buyStats) {
@@ -1350,6 +1475,14 @@ export function CreatePositionModal({
 
                             // Use the calculated OTC price
                             const yourPriceInHEX = calculateOtcPriceInHex;
+                            
+                            // Determine which HEX variant to display based on what's being used
+                            const hexDisplayName = sellToken.ticker === 'eHEX' || sellToken.ticker === 'weHEX' ? 'eHEX' : 
+                                                   sellToken.ticker === 'pHEX' ? 'pHEX' : 'HEX';
+                            
+                            // Check if token is BASE variant (hide mint stats for BASE)
+                            const isBaseToken = buyToken.ticker === 'BASE' || buyToken.ticker === 'eBASE' || 
+                                                buyToken.ticker === 'pBASE' || buyToken.ticker === 'weBASE';
 
                             // Calculate discounts based on your price
                             let yourDiscountFromBacking: number | null = null;
@@ -1386,16 +1519,20 @@ export function CreatePositionModal({
                                     {(buyStats.token.discountFromBacking * 100).toFixed(2)}%
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Current Mint Price:</span>
-                                  <span className="text-white">1 HEX</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Market Discount / Premium from Mint:</span>
-                                  <span className={`font-medium ${buyStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(buyStats.token.discountFromMint * 100).toFixed(2)}%
-                                  </span>
-                                </div>
+                                {!isBaseToken && (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-400">Current Mint Price:</span>
+                                      <span className="text-white">1 HEX</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-400">Market Discount / Premium from Mint:</span>
+                                      <span className={`font-medium ${buyStats.token.discountFromMint > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {(buyStats.token.discountFromMint * 100).toFixed(2)}%
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
 
 
                                 {/* Subtle divider */}
@@ -1403,7 +1540,7 @@ export function CreatePositionModal({
 
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your OTC Price:</span>
-                                  <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} HEX</span>
+                                  <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} {hexDisplayName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
@@ -1416,12 +1553,14 @@ export function CreatePositionModal({
                                       })() : 'N/A'}
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
-                                  <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
-                                    {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
-                                  </span>
-                                </div>
+                                {!isBaseToken && (
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Your Discount / Premium from Mint:</span>
+                                    <span className={`font-medium ${yourDiscountFromMint !== null ? (yourDiscountFromMint > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
+                                      {yourDiscountFromMint !== null ? (yourDiscountFromMint * 100).toFixed(2) + '%' : 'N/A'}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your Discount / Premium from Backing:</span>
                                   <span className={`font-medium ${yourDiscountFromBacking !== null ? (yourDiscountFromBacking > 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'}`}>
