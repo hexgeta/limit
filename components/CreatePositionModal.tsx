@@ -1287,7 +1287,8 @@ export function CreatePositionModal({
               )}
 
               {/* Pro Plan - Show token stats when both tokens are selected, at least one has stats, and tokens are different */}
-              {sellToken && buyToken && (showSellStats || showBuyStats) && !(sellToken.address === buyToken.address) && (
+              {sellToken && buyToken && (showSellStats || showBuyStats) && !(sellToken.address === buyToken.address) && 
+               !(MAXI_TOKENS.includes(sellToken.address.toLowerCase()) && MAXI_TOKENS.includes(buyToken.address.toLowerCase())) && (
                 <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${(PAYWALL_ENABLED && !hasTokenAccess) ? 'overflow-hidden' : ''}`}>
                   <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
                   
@@ -1394,11 +1395,11 @@ export function CreatePositionModal({
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Backing per Token:</span>
-                                  <span className="text-white">{sellStats.token.backingPerToken.toFixed(4)} HEX</span>
+                                  <span className="text-white">{sellStats.token.backingPerToken.toFixed(4)} {hexDisplayName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Current Market Price:</span>
-                                  <span className="text-white">{sellStats.token.priceHEX.toFixed(4)} HEX</span>
+                                  <span className="text-white">{sellStats.token.priceHEX.toFixed(4)} {hexDisplayName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Current Discount / Premium from Backing:</span>
@@ -1535,11 +1536,11 @@ export function CreatePositionModal({
                                                                 <div className="flex justify-between">
                                                                   
                                   <span className="text-gray-400">Current Market Price:</span>
-                                  <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} HEX</span>
+                                  <span className="text-white">{buyStats.token.priceHEX.toFixed(4)} {hexDisplayName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Backing per Token:</span>
-                                  <span className="text-white">{buyStats.token.backingPerToken.toFixed(4)} HEX</span>
+                                  <span className="text-white">{buyStats.token.backingPerToken.toFixed(4)} {hexDisplayName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Market Discount / Premium from Backing:</span>
@@ -1551,7 +1552,7 @@ export function CreatePositionModal({
                                   <>
                                     <div className="flex justify-between">
                                       <span className="text-gray-400">Current Mint Price:</span>
-                                      <span className="text-white">1 HEX</span>
+                                      <span className="text-white">1 {hexDisplayName}</span>
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-gray-400">Market Discount / Premium from Mint:</span>

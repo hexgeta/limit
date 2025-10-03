@@ -402,7 +402,7 @@ export const TOKEN_CONSTANTS = [{
   chain: 369,
   a: "0x4581af35199bbde87a89941220e04e27ce4b0099",
   dexs: "0x70966CcB20C10Ae326D6368A107C80fb825F3028",
-  ticker: "PARTY",
+  ticker: "PARTY",.
   decimals: 18,
   name: "Pool Party on PulseChain"
 }, {
