@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import { OpenPositionsTable } from '@/components/OpenPositionsTable';
 import { CreatePositionModal } from '@/components/CreatePositionModal';
 import { WhitelistDebugger } from '@/components/WhitelistDebugger';
+import { DisclaimerDialog } from '@/components/DisclaimerDialog';
 import useToast from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { Loader2 } from 'lucide-react';
@@ -50,8 +51,10 @@ export default function Home() {
   };
   
   return (
-    <main className="flex min-h-screen flex-col items-center">
-      {/* Hero Section */}
+    <>
+      <DisclaimerDialog />
+      <main className="flex min-h-screen flex-col items-center">
+        {/* Hero Section */}
       <div className="w-full px-2 md:px-8 mt-24 mb-0 bg-black">
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-3xl md:text-5xl md:leading-[90px] font-bold text-white mb-0">
@@ -127,6 +130,7 @@ export default function Home() {
           }
         }}
       />
-    </main>
+      </main>
+    </>
   );
 } 
