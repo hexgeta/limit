@@ -1290,7 +1290,9 @@ export function CreatePositionModal({
               {sellToken && buyToken && (showSellStats || showBuyStats) && !(sellToken.address === buyToken.address) && 
                !(MAXI_TOKENS.includes(sellToken.address.toLowerCase()) && MAXI_TOKENS.includes(buyToken.address.toLowerCase())) && (
                 <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${(PAYWALL_ENABLED && !hasTokenAccess) ? 'overflow-hidden' : ''}`}>
-                  <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
+                  <h3 className="text-white font-semibold mb-4">
+                    Pro Plan <span className="text-gray-400 text-sm font-normal">(HEX Day {Math.floor((Date.now() - new Date('2019-12-02T00:00:00Z').getTime()) / (1000 * 60 * 60 * 24))})</span>
+                  </h3>
                   
                   {/* Paywall Overlay */}
                   {(PAYWALL_ENABLED && !hasTokenAccess) && (
