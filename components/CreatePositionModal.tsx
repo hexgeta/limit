@@ -14,7 +14,8 @@ import { parseEther, formatEther } from 'viem';
 import { useBalance, usePublicClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
-import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
+import { useTokenAccess } from '@/context/TokenAccessContext';
+import { PAYWALL_ENABLED, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
 
 // Helper function to find the highest version of a token in tokenStats
 // e.g. if API has eBASE, eBASE2, eBASE3, it returns "eBASE3"
@@ -139,18 +140,17 @@ export function CreatePositionModal({
 }: CreatePositionModalProps) {
   const [showPaywallModal, setShowPaywallModal] = useState(false);
 
-  // Token-gating state
-  const [hasTokenAccess, setHasTokenAccess] = useState(false);
-  const [checkingTokenBalance, setCheckingTokenBalance] = useState(false);
-  const [partyBalance, setPartyBalance] = useState(0);
-  const [teamBalance, setTeamBalance] = useState(0);
+  // Token-gating - use centralized validation
+  const { hasTokenAccess, partyBalance, teamBalance, isChecking: checkingTokenBalance } = useTokenAccess();
 
   // Default initial tokens
   const DEFAULT_SELL_TOKEN = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
   const DEFAULT_BUY_TOKEN = '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b'; // MAXI
 
-  // Fetch token stats from LookIntoMaxi API
-  const { tokenStats, isLoading: statsLoading, error: statsError } = useTokenStats();
+  // Fetch token stats from LookIntoMaxi API - only if user has access
+  const { tokenStats, isLoading: statsLoading, error: statsError } = useTokenStats({ 
+    enabled: PAYWALL_ENABLED ? hasTokenAccess : true 
+  });
 
 
   // Contract functions
@@ -352,80 +352,6 @@ export function CreatePositionModal({
     };
   }, [isOpen]);
 
-  // Check PARTY and TEAM token balances for paywall access
-  useEffect(() => {
-    const checkTokenBalances = async () => {
-      if (!address || !publicClient || !PAYWALL_ENABLED) {
-        setHasTokenAccess(false);
-        return;
-      }
-
-      setCheckingTokenBalance(true);
-      try {
-        // Check PARTY balance
-        const partyBalance = await publicClient.readContract({
-          address: PARTY_TOKEN_ADDRESS,
-          abi: [
-            {
-              "inputs": [{"name": "account", "type": "address"}],
-              "name": "balanceOf",
-              "outputs": [{"name": "", "type": "uint256"}],
-              "stateMutability": "view",
-              "type": "function"
-            }
-          ],
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
-
-        // Check TEAM balance
-        const teamBalance = await publicClient.readContract({
-          address: TEAM_TOKEN_ADDRESS,
-          abi: [
-            {
-              "inputs": [{"name": "account", "type": "address"}],
-              "name": "balanceOf",
-              "outputs": [{"name": "", "type": "uint256"}],
-              "stateMutability": "view",
-              "type": "function"
-            }
-          ],
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
-
-        const partyBalanceInTokens = Number(partyBalance) / 1e18; // PARTY has 18 decimals
-        const teamBalanceInTokens = Number(teamBalance) / 1e8; // TEAM has 8 decimals
-        
-        const hasPartyAccess = partyBalanceInTokens >= REQUIRED_PARTY_TOKENS;
-        const hasTeamAccess = teamBalanceInTokens >= REQUIRED_TEAM_TOKENS;
-        const hasAccess = hasPartyAccess || hasTeamAccess;
-        
-        setHasTokenAccess(hasAccess);
-        setPartyBalance(partyBalanceInTokens);
-        setTeamBalance(teamBalanceInTokens);
-        
-        console.log('Token Balance Check (CreatePositionModal):', {
-          address,
-          partyBalance: partyBalanceInTokens.toFixed(2),
-          teamBalance: teamBalanceInTokens.toFixed(2),
-          requiredParty: REQUIRED_PARTY_TOKENS,
-          requiredTeam: REQUIRED_TEAM_TOKENS,
-          hasPartyAccess,
-          hasTeamAccess,
-          hasAccess
-        });
-      } catch (error) {
-        console.error('Error checking token balances:', error);
-        setHasTokenAccess(false);
-      } finally {
-        setCheckingTokenBalance(false);
-      }
-    };
-
-    checkTokenBalances();
-  }, [address, publicClient]);
-
   // Token approval state
   const [approvalError, setApprovalError] = useState<string | null>(null);
 
@@ -615,6 +541,12 @@ export function CreatePositionModal({
   const buyDropdownRef = useRef<HTMLDivElement>(null);
   const sellAmountRef = useRef<HTMLInputElement>(null);
   const buyAmountRef = useRef<HTMLInputElement>(null);
+
+  // Helper to check if token is eligible for stats (MAXI tokens only, regardless of data availability)
+  const isTokenEligibleForStats = (token: TokenOption | null) => {
+    if (!token) return false;
+    return MAXI_TOKENS.includes(token.address.toLowerCase());
+  };
 
   // Helper to determine if a token should show stats (exclude HEX and other non-backed tokens)
   const shouldShowTokenStats = (token: TokenOption | null) => {
@@ -1286,38 +1218,76 @@ export function CreatePositionModal({
                 </div>
               )}
 
-              {/* Pro Plan - Show token stats when both tokens are selected, at least one has stats, and tokens are different */}
-              {sellToken && buyToken && (showSellStats || showBuyStats) && !(sellToken.address === buyToken.address) && 
+              {/* Pro Plan - Show token stats when both tokens are selected, at least one is eligible for stats, and tokens are different */}
+              {sellToken && buyToken && (showSellStats || showBuyStats || (isTokenEligibleForStats(sellToken) || isTokenEligibleForStats(buyToken))) && !(sellToken.address === buyToken.address) && 
                !(MAXI_TOKENS.includes(sellToken.address.toLowerCase()) && MAXI_TOKENS.includes(buyToken.address.toLowerCase())) && (
-                <div className={`bg-white/5 rounded-xl p-6 mt-6 relative ${(PAYWALL_ENABLED && !hasTokenAccess) ? 'overflow-hidden' : ''}`}>
-                  <h3 className="text-white font-semibold mb-4">
-                    Pro Plan <span className="text-gray-400 text-sm font-normal">(HEX Day {Math.floor((Date.now() - new Date('2019-12-02T00:00:00Z').getTime()) / (1000 * 60 * 60 * 24))})</span>
-                  </h3>
+                <div className="bg-white/5 rounded-xl p-6 mt-6 relative overflow-hidden">
+                  <h3 className="text-white font-semibold mb-4">Pro Plan</h3>
                   
-                  {/* Paywall Overlay */}
-                  {(PAYWALL_ENABLED && !hasTokenAccess) && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowPaywallModal(true);
-                        }}
-                        className="flex flex-col items-center space-y-3 p-6 rounded-lg hover:bg-white/5 transition-colors"
-                      >
-                        <Lock className="w-12 h-12 text-gray-400 hover:text-white transition-colors" />
-                        <div className="text-center">
-                          <p className="text-white font-semibold">Premium Data Access</p>
-                          <p className="text-gray-400 text-sm">Click to unlock advanced analytics</p>
-                        </div>
-                      </button>
-                    </div>
-                  )}
-                  {statsLoading ? (
-                    <div className="text-gray-400 text-center py-4">Loading token stats...</div>
-                  ) : statsError ? (
-                    <div className="text-red-400 text-center py-4">Failed to load token stats</div>
-                  ) : (
-                    <div className={`grid ${gridColsClass} gap-6`}>
+                  {/* Content with conditional blur */}
+                  <div className={(PAYWALL_ENABLED && !hasTokenAccess) ? 'blur-md select-none pointer-events-none' : ''}>
+                    {statsLoading && hasTokenAccess ? (
+                      <div className="text-gray-400 text-center py-4">Loading token stats...</div>
+                    ) : statsError && hasTokenAccess ? (
+                      <div className="text-red-400 text-center py-4">Failed to load token stats</div>
+                    ) : (PAYWALL_ENABLED && !hasTokenAccess) ? (
+                      // Show placeholder content when no access (for blur effect)
+                      <div className={`grid ${gridColsClass} gap-6`}>
+                        {(showSellStats || !hasTokenAccess) && (
+                          <div className="space-y-3">
+                            <h4 className="text-white font-medium flex items-center space-x-2">
+                              <div className="w-5 h-5 rounded-full bg-gray-600"></div>
+                              <span>MAXI Stats</span>
+                            </h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Progress:</span>
+                                <span className="text-blue-400">22.5%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Backing per Token:</span>
+                                <span className="text-white">2.1977 HEX</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Current Market Price:</span>
+                                <span className="text-white">1.1433 HEX</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Market Discount / Premium from Backing:</span>
+                                <span className="text-red-400">-47.98%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Current Mint Price:</span>
+                                <span className="text-white">1 HEX</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Market Discount / Premium from Mint:</span>
+                                <span className="text-green-400">14.33%</span>
+                              </div>
+                              <div className="mt-4 pt-3 border-t border-white/10">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your OTC Price:</span>
+                                  <span className="text-white">1.0000 HEX</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
+                                  <span className="text-red-400">-12.53%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Mint:</span>
+                                  <span className="text-gray-400">0.00%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Your Discount / Premium from Backing:</span>
+                                  <span className="text-red-400">-54.50%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className={`grid ${gridColsClass} gap-6`}>
                       {/* Sell Token Stats */}
                       {showSellStats && (
                         <div className="space-y-3">
@@ -1605,6 +1575,26 @@ export function CreatePositionModal({
                           })()}
                         </div>
                       )}
+                    </div>
+                  )}
+                  </div>
+                  
+                  {/* Paywall Overlay with Lock Button */}
+                  {(PAYWALL_ENABLED && !hasTokenAccess) && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center z-10">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowPaywallModal(true);
+                        }}
+                        className="flex flex-col items-center space-y-3 p-6 rounded-lg bg-black/60 hover:bg-white/10 transition-all border border-white/10"
+                      >
+                        <Lock className="w-12 h-12 text-gray-300 group-hover:text-white transition-colors" />
+                        <div className="text-center">
+                          <p className="text-white font-semibold">Premium Data Access</p>
+                          <p className="text-gray-400 text-sm">Click to unlock advanced backing data for this trade.</p>
+                        </div>
+                      </button>
                     </div>
                   )}
                 </div>

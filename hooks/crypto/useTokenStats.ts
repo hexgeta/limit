@@ -50,9 +50,15 @@ const fetcher = async (url: string): Promise<TokenStatsResponse> => {
   return response.json();
 };
 
-export const useTokenStats = () => {
+interface UseTokenStatsOptions {
+  enabled?: boolean;
+}
+
+export const useTokenStats = (options?: UseTokenStatsOptions) => {
+  const { enabled = true } = options || {};
+  
   const { data, error, isLoading } = useSWR<TokenStatsResponse>(
-    'https://app.lookintomaxi.com/api/tokens',
+    enabled ? 'https://app.lookintomaxi.com/api/tokens' : null,
     fetcher,
     {
       refreshInterval: 30000, // Refresh every 30 seconds

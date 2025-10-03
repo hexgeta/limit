@@ -17,7 +17,8 @@ import { isNativeToken } from '@/utils/tokenApproval';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
-import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
+import { useTokenAccess } from '@/context/TokenAccessContext';
+import { PAYWALL_ENABLED, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
 
 // Sorting types
 type SortField = 'sellAmount' | 'askingFor' | 'progress' | 'owner' | 'status' | 'date' | 'backingPrice' | 'currentPrice' | 'otcVsMarket';
@@ -282,11 +283,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const { setTransactionPending } = useTransaction();
   const { toast } = useToast();
   
-  // Token-gating state
-  const [hasTokenAccess, setHasTokenAccess] = useState(false);
-  const [checkingTokenBalance, setCheckingTokenBalance] = useState(false);
-  const [partyBalance, setPartyBalance] = useState(0);
-  const [teamBalance, setTeamBalance] = useState(0);
+  // Token-gating - use centralized validation
+  const { hasTokenAccess, partyBalance, teamBalance, isChecking: checkingTokenBalance } = useTokenAccess();
   
   // Expose refresh function to parent component
   useImperativeHandle(ref, () => ({
@@ -419,7 +417,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   
   // Use contract addresses directly for price fetching
   const { prices: tokenPrices, isLoading: pricesLoading } = useTokenPrices(allTokenAddresses);
-  const { tokenStats, isLoading: statsLoading } = useTokenStats();
+  const { tokenStats, isLoading: statsLoading } = useTokenStats({ 
+    enabled: PAYWALL_ENABLED ? hasTokenAccess : true 
+  });
   
   // Check if we have valid price data for all tokens
   const hasValidPriceData = useMemo(() => {
@@ -444,80 +444,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     setIsClient(true);
     setMounted(true);
   }, []);
-
-  // Check PARTY and TEAM token balances for paywall access
-  useEffect(() => {
-    const checkTokenBalances = async () => {
-      if (!address || !publicClient || !PAYWALL_ENABLED) {
-        setHasTokenAccess(false);
-        return;
-      }
-
-      setCheckingTokenBalance(true);
-      try {
-        // Check PARTY balance
-        const partyBalance = await publicClient.readContract({
-          address: PARTY_TOKEN_ADDRESS,
-          abi: [
-            {
-              "inputs": [{"name": "account", "type": "address"}],
-              "name": "balanceOf",
-              "outputs": [{"name": "", "type": "uint256"}],
-              "stateMutability": "view",
-              "type": "function"
-            }
-          ],
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
-
-        // Check TEAM balance
-        const teamBalance = await publicClient.readContract({
-          address: TEAM_TOKEN_ADDRESS,
-          abi: [
-            {
-              "inputs": [{"name": "account", "type": "address"}],
-              "name": "balanceOf",
-              "outputs": [{"name": "", "type": "uint256"}],
-              "stateMutability": "view",
-              "type": "function"
-            }
-          ],
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
-
-        const partyBalanceInTokens = Number(partyBalance) / 1e18; // PARTY has 18 decimals
-        const teamBalanceInTokens = Number(teamBalance) / 1e8; // TEAM has 8 decimals
-        
-        const hasPartyAccess = partyBalanceInTokens >= REQUIRED_PARTY_TOKENS;
-        const hasTeamAccess = teamBalanceInTokens >= REQUIRED_TEAM_TOKENS;
-        const hasAccess = hasPartyAccess || hasTeamAccess;
-        
-        setHasTokenAccess(hasAccess);
-        setPartyBalance(partyBalanceInTokens);
-        setTeamBalance(teamBalanceInTokens);
-        
-        console.log('Token Balance Check:', {
-          address,
-          partyBalance: partyBalanceInTokens.toFixed(2),
-          teamBalance: teamBalanceInTokens.toFixed(2),
-          requiredParty: REQUIRED_PARTY_TOKENS,
-          requiredTeam: REQUIRED_TEAM_TOKENS,
-          hasPartyAccess,
-          hasTeamAccess,
-          hasAccess
-        });
-      } catch (error) {
-        console.error('Error checking token balances:', error);
-        setHasTokenAccess(false);
-      } finally {
-        setCheckingTokenBalance(false);
-      }
-    };
-
-    checkTokenBalances();
-  }, [address, publicClient]);
 
   // Effect to handle initial load completion
   useEffect(() => {
@@ -2281,6 +2207,11 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 let backingPriceDiscount = null;
                 let isAboveBackingPrice = false;
                 
+                // Check if this token is eligible for backing stats (is a MAXI token)
+                const isEligibleForBackingStats = maxiTokenAddresses.some(addr => 
+                  addr.toLowerCase() === sellTokenInfo.address.toLowerCase()
+                );
+                
                 // Check if this is a MAXI token that has backing price data
                 // Don't show stats if there's a chain mismatch (pHEX with weMAXI or weHEX with pMAXI)
                 const isEthereumWrappedSell = sellTokenInfo.ticker.startsWith('we') || sellTokenInfo.ticker.startsWith('e');
@@ -2625,7 +2556,22 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           )}
                         </>
                       ) : (
-                        <span className="text-gray-500">--</span>
+                        <>
+                          {/* Show lock for MAXI tokens even when data doesn't load if user has no access */}
+                          {isEligibleForBackingStats && (PAYWALL_ENABLED && !hasTokenAccess) ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowPaywallModal(true);
+                              }}
+                              className="p-2 inline-flex items-center justify-center hover:opacity-80 transition-opacity"
+                            >
+                              <Lock className="w-5 h-5 -mt-1 text-gray-400 hover:text-white" />
+                            </button>
+                          ) : (
+                            <span className="text-gray-500">--</span>
+                          )}
+                        </>
                       )}
                     </div>
                     {backingPriceDiscount !== null && !(PAYWALL_ENABLED && !hasTokenAccess) && (

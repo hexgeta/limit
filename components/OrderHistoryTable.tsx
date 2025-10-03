@@ -6,7 +6,8 @@ import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, formatTokenAmount
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
 import { useAccount, usePublicClient } from 'wagmi';
-import { PAYWALL_ENABLED, PARTY_TOKEN_ADDRESS, TEAM_TOKEN_ADDRESS, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
+import { useTokenAccess } from '@/context/TokenAccessContext';
+import { PAYWALL_ENABLED, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
 import PaywallModal from './PaywallModal';
 
 // Helper function to find the highest version of a token in tokenStats
@@ -201,11 +202,8 @@ export default function OrderHistoryTable({
   const { address } = useAccount();
   const publicClient = usePublicClient();
   
-  // Token-gating state
-  const [hasTokenAccess, setHasTokenAccess] = useState(false);
-  const [checkingTokenBalance, setCheckingTokenBalance] = useState(false);
-  const [partyBalance, setPartyBalance] = useState(0);
-  const [teamBalance, setTeamBalance] = useState(0);
+  // Token-gating - use centralized validation
+  const { hasTokenAccess, partyBalance, teamBalance, isChecking: checkingTokenBalance } = useTokenAccess();
   const [showPaywallModal, setShowPaywallModal] = useState(false);
   
   // Collect all unique token addresses from transactions
@@ -219,72 +217,11 @@ export default function OrderHistoryTable({
   }, [purchaseTransactions]);
 
   const { prices: tokenPrices } = useTokenPrices(allTokenAddresses);
-  const { tokenStats } = useTokenStats();
+  const { tokenStats } = useTokenStats({ 
+    enabled: PAYWALL_ENABLED ? hasTokenAccess : true 
+  });
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-
-  // Check PARTY and TEAM token balances for paywall access
-  useEffect(() => {
-    const checkTokenBalances = async () => {
-      if (!address || !publicClient || !PAYWALL_ENABLED) {
-        setHasTokenAccess(false);
-        return;
-      }
-
-      setCheckingTokenBalance(true);
-      try {
-        // Check PARTY balance
-        const partyBalance = await publicClient.readContract({
-          address: PARTY_TOKEN_ADDRESS,
-          abi: [
-            {
-              "inputs": [{"name": "account", "type": "address"}],
-              "name": "balanceOf",
-              "outputs": [{"name": "", "type": "uint256"}],
-              "stateMutability": "view",
-              "type": "function"
-            }
-          ],
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
-
-        // Check TEAM balance
-        const teamBalance = await publicClient.readContract({
-          address: TEAM_TOKEN_ADDRESS,
-          abi: [
-            {
-              "inputs": [{"name": "account", "type": "address"}],
-              "name": "balanceOf",
-              "outputs": [{"name": "", "type": "uint256"}],
-              "stateMutability": "view",
-              "type": "function"
-            }
-          ],
-          functionName: 'balanceOf',
-          args: [address as `0x${string}`]
-        });
-
-        const partyBalanceInTokens = Number(partyBalance) / 1e18; // PARTY has 18 decimals
-        const teamBalanceInTokens = Number(teamBalance) / 1e8; // TEAM has 8 decimals
-        
-        const hasPartyAccess = partyBalanceInTokens >= REQUIRED_PARTY_TOKENS;
-        const hasTeamAccess = teamBalanceInTokens >= REQUIRED_TEAM_TOKENS;
-        const hasAccess = hasPartyAccess || hasTeamAccess;
-        
-        setHasTokenAccess(hasAccess);
-        setPartyBalance(partyBalanceInTokens);
-        setTeamBalance(teamBalanceInTokens);
-      } catch (error) {
-        console.error('Error checking token balances:', error);
-        setHasTokenAccess(false);
-      } finally {
-        setCheckingTokenBalance(false);
-      }
-    };
-
-    checkTokenBalances();
-  }, [address, publicClient]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
