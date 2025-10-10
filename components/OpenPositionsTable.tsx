@@ -15,6 +15,7 @@ import { formatEther, parseEther, parseAbiItem } from 'viem';
 import { getTokenInfo, getTokenInfoByIndex, formatAddress, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
 import { isNativeToken } from '@/utils/tokenApproval';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
+import { waitForTransactionWithTimeout, TRANSACTION_TIMEOUTS } from '@/utils/transactionTimeout';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTransaction } from '@/context/TransactionContext';
 import { useTokenAccess } from '@/context/TokenAccessContext';
@@ -30,7 +31,6 @@ const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
     // You could add a toast notification here if you have one
   } catch (err) {
-    console.error('Failed to copy: ', err);
   }
 };
 
@@ -135,12 +135,6 @@ const getTokenPrice = (tokenAddress: string, tokenPrices: any): number => {
   // Debug for other tokens that return 0
   const price = tokenPrices[tokenAddress]?.price || 0;
   if (price === 0) {
-    console.log('Token Price Debug (0 price):', {
-      tokenAddress,
-      hasTokenInPrices: tokenAddress in tokenPrices,
-      tokenData: tokenPrices[tokenAddress],
-      price
-    });
   }
   
   // Return regular price for other tokens
@@ -242,12 +236,6 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
   // Debug logging for logo loading
   useEffect(() => {
     if (alt === 'DARK' || alt === 'BRIBE' || alt === 'OG' || alt === 'MAXI') {
-      console.log(`TokenLogo debug for ${alt}:`, {
-        src,
-        hasError,
-        isClient,
-        shouldShowFallback: !isClient || hasError || src.includes('default.svg')
-      });
     }
   }, [alt, src, hasError, isClient]);
 
@@ -315,7 +303,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       // Refresh the orders to show the new order
       refetch();
       
-      console.log(`Navigated to ${isMaxiDeal ? 'MAXI' : 'Non-MAXI'} > My Deals > Active orders`);
     }
   }));
   
@@ -526,7 +513,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       return newErrors;
     });
 
-    console.log(`Navigated to ${isMaxiDeal ? 'MAXI' : 'Non-MAXI'} marketplace and expanded order ${orderId}`);
   };
 
   // Clear all expanded positions
@@ -616,14 +602,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               return transferLog.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
             });
             
-            console.log(`Transaction ${log.transactionHash} for order ${orderId} (${isBuyerTransaction ? 'BUYER' : 'SELLER'}):`, {
-              totalLogs: receipt.logs.length,
-              transferLogs: transferLogs.length,
-              transferLogAddresses: transferLogs.map(tl => tl.address),
-              buyerAddress,
-              connectedAddress: address.toLowerCase(),
-              relevantAddress
-            });
             
             let sellAmount = 0;
             let sellToken = '';
@@ -635,30 +613,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               const to = `0x${transferLog.topics[2]?.slice(26)}`.toLowerCase(); // Remove padding
               const value = transferLog.data ? BigInt(transferLog.data) : BigInt(0);
               
-              console.log(`Transfer log analysis:`, {
-                tokenAddress,
-                from,
-                to,
-                value: value.toString(),
-                contractAddress: OTC_CONTRACT_ADDRESS.toLowerCase(),
-                relevantAddress,
-                isFromContractToRelevant: from === OTC_CONTRACT_ADDRESS.toLowerCase() && to === relevantAddress,
-                isFromRelevantToContract: from === relevantAddress && to === OTC_CONTRACT_ADDRESS.toLowerCase()
-              });
               
               // If transfer is FROM the contract TO the relevant address, it's what was received (sell token)
               if (from === OTC_CONTRACT_ADDRESS.toLowerCase() && to === relevantAddress) {
                 // Find token info by address
                 const tokenInfo = getTokenInfo(tokenAddress);
-                console.log(`Found sell token transfer:`, {
-                  tokenAddress,
-                  tokenInfo: tokenInfo ? { ticker: tokenInfo.ticker, decimals: tokenInfo.decimals } : null,
-                  rawValue: value.toString()
-                });
                 if (tokenInfo && tokenInfo.address !== '0x0000000000000000000000000000000000000000') {
                   sellAmount = parseFloat(formatTokenAmount(value, tokenInfo.decimals));
                   sellToken = tokenAddress;
-                  console.log(`Parsed sell amount:`, { sellAmount, sellToken });
                 }
               }
               
@@ -666,14 +628,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               if (from === relevantAddress && to === OTC_CONTRACT_ADDRESS.toLowerCase()) {
                 // Find token info by address
                 const tokenInfo = getTokenInfo(tokenAddress);
-                console.log(`Found buy token transfer:`, {
-                  tokenAddress,
-                  tokenInfo: tokenInfo ? { ticker: tokenInfo.ticker, decimals: tokenInfo.decimals } : null,
-                  rawValue: value.toString()
-                });
                 if (tokenInfo && tokenInfo.address !== '0x0000000000000000000000000000000000000000') {
                   buyTokens[tokenAddress] = parseFloat(formatTokenAmount(value, tokenInfo.decimals));
-                  console.log(`Parsed buy amount:`, { tokenAddress, amount: buyTokens[tokenAddress] });
                 }
               }
             }
@@ -695,27 +651,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               });
             }
           } catch (txError) {
-            console.error(`Error fetching transaction data for order ${orderId}:`, txError);
           }
         }
         
         setPurchaseTransactions(transactions);
-        console.log(`Found ${transactions.length} purchase transactions from ${orderIds.size} unique orders:`, transactions);
         
         // Debug: Log each transaction
         transactions.forEach((transaction) => {
-          console.log(`Transaction ${transaction.transactionHash}:`, {
-            orderId: transaction.orderId,
-            sellToken: transaction.sellToken,
-            sellAmount: transaction.sellAmount,
-            buyTokens: transaction.buyTokens,
-            buyTokenCount: Object.keys(transaction.buyTokens).length,
-            blockNumber: transaction.blockNumber.toString()
-          });
         });
         
       } catch (error) {
-        console.error('Error fetching purchase history:', error);
         // Set empty set on error
         setPurchasedOrderIds(new Set());
         setPurchaseTransactions([]);
@@ -831,12 +776,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     const buyAmounts = order.orderDetailsWithId.orderDetails.buyAmounts;
     
     if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
-      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
       return;
     }
     
     if (!buyAmounts || !Array.isArray(buyAmounts)) {
-      console.error('buyAmounts is not available or not an array:', buyAmounts);
       return;
     }
     
@@ -874,7 +817,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     const buyTokensIndex = order.orderDetailsWithId.orderDetails.buyTokensIndex;
     
     if (!buyTokensIndex || !Array.isArray(buyTokensIndex)) {
-      console.error('buyTokensIndex is not available or not an array:', buyTokensIndex);
       return;
     }
     
@@ -968,7 +910,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
       // For ERC20 tokens, check if we need to approve first
       if (!isNativeToken(buyTokenInfo.address)) {
-        console.log('Checking allowance for ERC20 token:', buyTokenInfo.address);
         
         // Check current allowance
         const allowance = await publicClient.readContract({
@@ -989,12 +930,9 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           args: [address as `0x${string}`, '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as `0x${string}`]
         });
 
-        console.log('Current allowance:', allowance.toString());
-        console.log('Required amount:', buyAmount.toString());
 
         // If allowance is insufficient, approve the token
         if (allowance < buyAmount) {
-          console.log('Insufficient allowance, approving token...');
           
           // Set approving state
           setApprovingOrders(prev => new Set(prev).add(orderId));
@@ -1021,15 +959,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             args: ['0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as `0x${string}`, buyAmount]
           });
 
-          console.log('Approval transaction sent:', approveTxHash);
           
-          // Wait for approval confirmation
-          await publicClient.waitForTransactionReceipt({
-            hash: approveTxHash,
-            timeout: 60_000,
-          });
+          // Wait for approval confirmation with proper timeout handling
+          await waitForTransactionWithTimeout(
+            publicClient,
+            approveTxHash,
+            TRANSACTION_TIMEOUTS.APPROVAL
+          );
           
-          console.log('Token approved successfully');
           
           // Clear approving state
           setApprovingOrders(prev => {
@@ -1051,16 +988,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         value
       );
 
-      console.log('Transaction sent:', txHash);
       
-      // Wait for transaction confirmation
-      console.log('Waiting for transaction confirmation...');
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: txHash as `0x${string}`,
-        timeout: 60_000, // 60 second timeout
-      });
+      // Wait for transaction confirmation with proper timeout handling
+      const receipt = await waitForTransactionWithTimeout(
+        publicClient,
+        txHash as `0x${string}`,
+        TRANSACTION_TIMEOUTS.TRANSACTION
+      );
       
-      console.log('Order executed successfully:', receipt);
       
       // Show success toast only after confirmation
       toast({
@@ -1102,7 +1037,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       fetchPurchaseHistory();
       
     } catch (error: any) {
-      console.error('Error executing order:', error);
       setExecuteErrors(prev => ({
         ...prev,
         [orderId]: simplifyErrorMessage(error) || 'Failed to execute order. Please try again.'
@@ -1125,14 +1059,11 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const handleCancelOrder = async (order: any) => {
     const orderId = order.orderDetailsWithId.orderId.toString();
     
-    console.log('handleCancelOrder called for order:', orderId);
     
     if (cancelingOrders.has(orderId)) {
-      console.log('Order already being cancelled, returning');
       return;
     }
     
-    console.log('Setting canceling state for order:', orderId);
     setCancelingOrders(prev => new Set(prev).add(orderId));
     setCancelErrors(prev => ({ ...prev, [orderId]: '' }));
     setTransactionPending(true);
@@ -1140,19 +1071,16 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     try {
       const txHash = await cancelOrder(order.orderDetailsWithId.orderId);
       
-      console.log('Transaction sent:', txHash);
       
-      // Wait for transaction confirmation
-      console.log('Waiting for transaction confirmation...');
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: txHash as `0x${string}`,
-        timeout: 60_000, // 60 second timeout
-      });
+      // Wait for transaction confirmation with proper timeout handling
+      const receipt = await waitForTransactionWithTimeout(
+        publicClient,
+        txHash as `0x${string}`,
+        TRANSACTION_TIMEOUTS.TRANSACTION
+      );
       
-      console.log('Order cancelled successfully:', receipt);
       
       // Show success toast only after confirmation
-      console.log('Showing success toast for cancelled order');
       toast({
         title: "Order Cancelled!",
         description: "Your order has been cancelled and tokens returned.",
@@ -1195,13 +1123,11 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       });
       
     } catch (error: any) {
-      console.error('Error canceling order:', error);
       setCancelErrors(prev => ({ 
         ...prev, 
         [orderId]: simplifyErrorMessage(error) || 'Failed to cancel order' 
       }));
     } finally {
-      console.log('Clearing canceling state for order:', orderId);
       setCancelingOrders(prev => {
         const newSet = new Set(prev);
         newSet.delete(orderId);
@@ -1274,7 +1200,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         newBuyAmounts
       );
       
-      console.log('Update info transaction sent:', txHash1);
       
       // Update expiration time
       const newExpirationTime = Math.floor(new Date(editFormData.expirationTime).getTime() / 1000);
@@ -1283,22 +1208,21 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         BigInt(newExpirationTime)
       );
       
-      console.log('Update expiration transaction sent:', txHash2);
       
-      // Wait for both transactions to be confirmed
-      console.log('Waiting for transaction confirmations...');
+      // Wait for both transactions to be confirmed with proper timeout handling
       const [receipt1, receipt2] = await Promise.all([
-        publicClient.waitForTransactionReceipt({
-          hash: txHash1 as `0x${string}`,
-          timeout: 60_000,
-        }),
-        publicClient.waitForTransactionReceipt({
-          hash: txHash2 as `0x${string}`,
-          timeout: 60_000,
-        })
+        waitForTransactionWithTimeout(
+          publicClient,
+          txHash1 as `0x${string}`,
+          TRANSACTION_TIMEOUTS.TRANSACTION
+        ),
+        waitForTransactionWithTimeout(
+          publicClient,
+          txHash2 as `0x${string}`,
+          TRANSACTION_TIMEOUTS.TRANSACTION
+        )
       ]);
       
-      console.log('Order updated successfully');
       
       // Show success toast only after both transactions are confirmed
       toast({
@@ -1336,7 +1260,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       });
       
     } catch (error: any) {
-      console.error('Error updating order:', error);
       setUpdateErrors(prev => ({ 
         ...prev, 
         [orderId]: simplifyErrorMessage(error) || 'Failed to update order' 
@@ -2272,40 +2195,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     // Calculate OTC price per token in USD (use the already calculated sellTokenAmount from line 1587)
                     const otcPriceUsd = sellTokenAmount > 0 ? askingUsdValue / sellTokenAmount : 0; // asking total USD / sell token units
                     
-                    console.log('OTC Price Debug Values:', {
-                      askingUsdValue,
-                      sellUsdValue,
-                      sellTokenAmount,
-                      otcPriceUsd,
-                      rawSellAmount: order.sellAmount?.toString(),
-                      sellTokenDecimals: sellTokenInfo.decimals,
-                      sellTokenAddress: sellTokenInfo.address,
-                      sellTokenTicker: sellTokenInfo.ticker,
-                      formatTokenAmountResult: order.sellAmount ? formatTokenAmount(order.sellAmount, sellTokenInfo.decimals) : 'no sellAmount'
-                    });
                     
                     if (otcPriceUsd > 0 && backingPriceUsd > 0) {
                       // Calculate percentage: how much above/below backing price the OTC price is
                       backingPriceDiscount = ((otcPriceUsd - backingPriceUsd) / backingPriceUsd) * 100;
                       isAboveBackingPrice = backingPriceDiscount > 0;
                       
-                      console.log('Backing Price Discount Calculation:', {
-                        token: sellTokenInfo.ticker,
-                        otcPriceUsd: otcPriceUsd.toFixed(6),
-                        backingPriceUsd: backingPriceUsd.toFixed(6),
-                        backingPriceDiscount: backingPriceDiscount.toFixed(2) + '%',
-                        askingUsdValue,
-                        sellTokenAmount
-                      });
                     } else {
-                      console.log('Backing Price Discount Failed:', {
-                        token: sellTokenInfo.ticker,
-                        otcPriceUsd,
-                        backingPriceUsd,
-                        hexPrice,
-                        backingPerToken: sellTokenStat.token.backingPerToken,
-                        sellTokenStat: sellTokenStat ? 'found' : 'not found'
-                      });
                     }
                   }
                 }
@@ -2411,14 +2307,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             
                             // Debug: Log status for completed orders (only once per order)
                             if (statusFilter === 'completed' && idx === 0) {
-                              console.log('Completed Order Buy Debug:', {
-                                orderId: order.orderDetailsWithId.orderId.toString(),
-                                status: order.orderDetailsWithId.status,
-                                isCompleted,
-                                buyToken: tokenInfo.ticker,
-                                originalAmount: originalAmount.toString(),
-                                remainingPercentage
-                              });
                             }
                               const remainingAmount = (originalAmount * BigInt(Math.floor(remainingPercentage * 1e18))) / BigInt(1e18);
                                 const tokenAmount = isCompleted ? 
@@ -2429,17 +2317,6 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             
                             // Enhanced debug: Log the actual calculation
                             if (statusFilter === 'completed' && idx === 0) {
-                              console.log('Completed Order Buy Enhanced Debug:', {
-                                orderId: order.orderDetailsWithId.orderId.toString(),
-                                buyToken: tokenInfo.ticker,
-                                originalAmount: originalAmount.toString(),
-                                remainingAmount: remainingAmount.toString(),
-                                formattedOriginal: formatTokenAmount(originalAmount, tokenInfo.decimals),
-                                formattedRemaining: formatTokenAmount(remainingAmount, tokenInfo.decimals),
-                                calculatedTokenAmount: tokenAmount,
-                                isCompleted,
-                                remainingPercentage
-                              });
                             }
                             
                             

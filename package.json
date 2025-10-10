@@ -10,7 +10,8 @@
     "compile": "hardhat compile",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network pulsechainTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy.ts --network pulsechain",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "check-whitelist": "node scripts/check-whitelist.js"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
@@ -26,15 +27,15 @@
     "clsx": "^2.1.0",
     "framer-motion": "^10.18.0",
     "lucide-react": "^0.309.0",
-    "next": "14.0.4",
+    "next": "^15.5.4",
     "next-themes": "^0.2.1",
     "react": "^18",
     "react-dom": "^18",
     "swr": "^2.2.4",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
-    "viem": "^2.31.3",
-    "wagmi": "^2.12.31"
+    "viem": "^2.38.0",
+    "wagmi": "^2.18.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",

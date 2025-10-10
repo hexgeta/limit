@@ -70,7 +70,6 @@ export function TokenAccessProvider({ children }: { children: ReactNode }) {
       };
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(cacheData));
     } catch (err) {
-      console.error('Failed to cache validation result:', err);
     }
   };
 
@@ -90,7 +89,6 @@ export function TokenAccessProvider({ children }: { children: ReactNode }) {
     // Check cache first
     const cached = getCachedValidation(address);
     if (cached) {
-      console.log('Using cached token validation:', cached);
       setHasTokenAccess(cached.hasAccess);
       setPartyBalance(cached.partyBalance);
       setTeamBalance(cached.teamBalance);
@@ -130,14 +128,8 @@ export function TokenAccessProvider({ children }: { children: ReactNode }) {
         address
       );
 
-      console.log('Token validation result:', {
-        hasAccess: data.hasAccess,
-        partyBalance: data.partyBalance,
-        teamBalance: data.teamBalance,
-      });
 
     } catch (err) {
-      console.error('Error checking token access:', err);
       setError(err instanceof Error ? err.message : 'Failed to check access');
       setHasTokenAccess(false);
     } finally {

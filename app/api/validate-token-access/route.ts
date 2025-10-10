@@ -7,6 +7,7 @@ import {
   REQUIRED_PARTY_TOKENS, 
   REQUIRED_TEAM_TOKENS 
 } from '@/config/paywall';
+import { rateLimit, RATE_LIMITS } from '@/utils/rateLimit';
 
 // Create a public client for blockchain reads
 const publicClient = createPublicClient({
@@ -26,6 +27,12 @@ const ERC20_BALANCE_ABI = [
 ] as const;
 
 export async function POST(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResponse = rateLimit(request, RATE_LIMITS.validation);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const { address } = await request.json();
 
@@ -79,7 +86,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error validating token access:', error);
     return NextResponse.json(
       { 
         error: 'Failed to validate token access',

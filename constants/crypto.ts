@@ -12,7 +12,27 @@ export interface TokenConfig {
   type?: "lp" | "token"
   platform?: string
   hardcodedPrice?: number
+  isWhitelisted?: boolean
 }
+
+// ===================================
+// WHITELISTED TOKENS (Active on OTC Contract: 0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2)
+// Last verified: 2025-10-10 via RPC
+// Total Active: 8 tokens
+// ===================================
+// 1. PLSX - 0x95B303987A60C71504D99Aa1b13B4DA07b0790ab ✅
+// 2. weDAI - 0xefD766cCb38EaF1dfd701853BFCe31359239F305 ✅
+// 3. PLS - 0x000000000000000000000000000000000000dEaD ✅
+// 4. INC - 0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d ✅
+// 5. HEX - 0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39 ✅
+// 6. USDL - 0x0dEEd1486bc52aA0d3E6f8849cEC5adD6598A162 ✅
+// 7. weWETH - 0x02DcdD04e3F455D838cd1249292C58f3B79e3C3C ✅
+// 8. 2PHUX - 0x115f3Fa979a936167f9D208a7B7c4d85081e84BD ✅
+// 
+// INACTIVE:
+// - weUSDC - 0x15D38573d2feeb82e7ad5187aB8c1D52810B1f07 ❌
+// - weUSDT - 0x0Cb6F5a34ad42ec934882A05265A7d5F59b51A2f ❌
+// ===================================
 
 export const TOKEN_CONSTANTS = [{
   chain: 369,
@@ -20,28 +40,32 @@ export const TOKEN_CONSTANTS = [{
   dexs: "0xe56043671df55de5cdf8459710433c10324de0ae",
   ticker: "PLS",
   decimals: 18,
-  name: "Pulse"
+  name: "Pulse",
+  isWhitelisted: true
 }, {
   chain: 369,
   a: "0x95b303987a60c71504d99aa1b13b4da07b0790ab",
   dexs: "0x1b45b9148791d3a104184cd5dfe5ce57193a3ee9",
   ticker: "PLSX",
   decimals: 18,
-  name: "PulseX"
+  name: "PulseX",
+  isWhitelisted: true
 }, {
   chain: 369,
   a: "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39",
   dexs: "0xf1f4ee610b2babb05c635f726ef8b0c568c8dc65",
   ticker: "HEX",
     decimals: 8,
-  name: "HEX on Pls"
+  name: "HEX on Pls",
+  isWhitelisted: true
 }, {
   chain: 369,
   a: "0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d",
   dexs: "0xf808bb6265e9ca27002c0a04562bf50d4fe37eaa",
   ticker: "INC",
   decimals: 18,
-  name: "Incentive"
+  name: "Incentive",
+  isWhitelisted: true
 }, {
   chain: 369,
   a: "0xc10A4Ed9b4042222d69ff0B374eddd47ed90fC1F",
@@ -98,7 +122,7 @@ export const TOKEN_CONSTANTS = [{
   dexs: "0xe56043671df55de5cdf8459710433c10324de0ae",
   ticker: "WPLS",
   decimals: 18,
-  name: "Wrapped PLS, from here these arent whitelisted",
+  name: "Wrapped PLS",
   origin: [369, "0x0"]
 }, {
   chain: 369,
@@ -107,7 +131,8 @@ export const TOKEN_CONSTANTS = [{
   ticker: "weWETH",
   decimals: 18,
   name: "Wrapped WETH from Eth",
-  origin: [1, "0x0"]
+  origin: [1, "0x0"],
+  isWhitelisted: true
 },  {
   chain: 369,
   a: "0xefd766ccb38eaf1dfd701853bfce31359239f305",
@@ -115,7 +140,8 @@ export const TOKEN_CONSTANTS = [{
   ticker: "weDAI",
   decimals: 18,
   name: "Wrapped DAI from Eth",
-  origin: [1, "0x6b175474e89094c44da98b954eedeac495271d0f"]
+  origin: [1, "0x6b175474e89094c44da98b954eedeac495271d0f"],
+  isWhitelisted: true
 }, {
   chain: 369,
   a: "0x15d38573d2feeb82e7ad5187ab8c1d52810b1f07",
@@ -123,7 +149,8 @@ export const TOKEN_CONSTANTS = [{
   ticker: "weUSDC",
   decimals: 6,
   name: "Wrapped USDC from Eth",
-  origin: [1, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"]
+  origin: [1, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"],
+  isWhitelisted: false
 }, {
   chain: 369,
   a: "0x0cb6f5a34ad42ec934882a05265a7d5f59b51a2f",
@@ -131,7 +158,8 @@ export const TOKEN_CONSTANTS = [{
   ticker: "weUSDT",
   decimals: 6,
   name: "Wrapped USDT from Eth",
-  origin: [1, "0xdac17f958d2ee523a2206206994597c13d831ec7"]
+  origin: [1, "0xdac17f958d2ee523a2206206994597c13d831ec7"],
+  isWhitelisted: false
 }, {
   chain: 369,
   a: "0x3819f64f282bf135d62168c1e513280daf905e06",
@@ -275,7 +303,8 @@ export const TOKEN_CONSTANTS = [{
   dexs: "0x27557d148293d1c8e8f8c5deeab93545b1eb8410",
   ticker: "USDL",
   decimals: 18,
-  name: "USDL"
+  name: "USDL",
+  isWhitelisted: true
 }, {
   chain: 369,
   a: "0xeb6b7932da20c6d7b3a899d5887d86dfb09a6408",
@@ -1645,7 +1674,8 @@ export const TOKEN_CONSTANTS = [{
     dexs: "0xF283597c0f17F7EEf9eD7323c84755d8Ad1c64CB",
     ticker: "2PHUX",
   decimals: 18,
-    name: "2PHUX Governance Token"
+    name: "2PHUX Governance Token",
+    isWhitelisted: true
   },
 {
     chain: 369,
@@ -3926,6 +3956,17 @@ export const API_ENDPOINTS = {
   historic_pulsechain: 'https://hexdailystats.com/fulldatapulsechain',
   historic_ethereum: 'https://hexdailystats.com/fulldata',
   livedata: 'https://hexdailystats.com/livedata'
+}
+
+// Helper to get only whitelisted tokens
+export const WHITELISTED_TOKENS = TOKEN_CONSTANTS.filter(token => token.isWhitelisted === true)
+
+// Helper to check if a token is whitelisted by address
+export const isTokenWhitelisted = (address: string): boolean => {
+  const normalizedAddress = address.toLowerCase()
+  return TOKEN_CONSTANTS.some(
+    token => token.a && token.a.toLowerCase() === normalizedAddress && token.isWhitelisted === true
+  )
 }
 
 // LP Token detection is now handled via the `type: "lp"` field in TOKEN_CONSTANTS

@@ -552,7 +552,6 @@ export function useContractWhitelist() {
 
       return result;
     } catch (error) {
-      console.error(`Error executing ${functionName}:`, error);
       throw error;
     }
   };

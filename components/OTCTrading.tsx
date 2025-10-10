@@ -101,7 +101,6 @@ export function OTCTrading() {
         expirationDays: '30'
       });
     } catch (error) {
-      console.error('Error creating order:', error);
     }
   };
 

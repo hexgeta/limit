@@ -16,6 +16,8 @@ import { useTransaction } from '@/context/TransactionContext';
 import { useTokenApproval, isNativeToken } from '@/utils/tokenApproval';
 import { useTokenAccess } from '@/context/TokenAccessContext';
 import { PAYWALL_ENABLED, REQUIRED_PARTY_TOKENS, REQUIRED_TEAM_TOKENS, PAYWALL_TITLE, PAYWALL_DESCRIPTION } from '@/config/paywall';
+import { validateAmount, validateAmountStrict, removeCommas, sanitizeAmount } from '@/utils/amountValidation';
+import { waitForTransactionWithTimeout, TRANSACTION_TIMEOUTS } from '@/utils/transactionTimeout';
 
 // Helper function to find the highest version of a token in tokenStats
 // e.g. if API has eBASE, eBASE2, eBASE3, it returns "eBASE3"
@@ -171,13 +173,6 @@ export function CreatePositionModal({
   };
 
   const handleApproveToken = async () => {
-    console.log('handleApproveToken called:', {
-      needsApproval,
-      sellToken: sellToken?.address,
-      sellAmountWei: sellAmountWei.toString(),
-      OTC_CONTRACT_ADDRESS
-    });
-
     if (!needsApproval || !sellToken) {
       setApprovalError('No token approval needed');
       return;
@@ -189,41 +184,42 @@ export function CreatePositionModal({
     onTransactionStart?.();
 
     try {
-      console.log('Calling approveToken with:', {
-        tokenAddress: sellToken.address,
-        spenderAddress: OTC_CONTRACT_ADDRESS,
-        amount: sellAmountWei.toString()
-      });
 
       const txHash = await approveToken();
-      console.log('Approval transaction sent:', txHash);
 
       // Wait for the approval transaction to be confirmed
-      console.log('Waiting for approval transaction to be confirmed...');
 
       // Wait for the allowance to be updated (this indicates approval is complete)
       let attempts = 0;
       const maxAttempts = 30; // 30 seconds max wait
 
       const waitForApproval = async () => {
+        const startTime = Date.now();
+        const APPROVAL_TIMEOUT_MS = TRANSACTION_TIMEOUTS.APPROVAL_VERIFICATION;
+        
         try {
           while (attempts < maxAttempts) {
+            // Check if we've exceeded the timeout
+            if (Date.now() - startTime > APPROVAL_TIMEOUT_MS) {
+              throw new Error('Approval verification timed out. Please check your wallet and try again.');
+            }
+
             await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
             attempts++;
 
             // Check if approval is now complete
             if (tokenNeedsApproval === false || isApproved === true) {
-              console.log('Approval confirmed, proceeding to create order...');
               handleCreateDeal();
               return;
             }
 
-            console.log(`Waiting for approval... attempt ${attempts}/${maxAttempts}`);
           }
 
           // If we get here, approval didn't complete in time
-          console.log('Approval timeout, but proceeding anyway...');
-          handleCreateDeal();
+          throw new Error('Approval verification timed out after 30 seconds. Transaction may still be pending.');
+        } catch (error: any) {
+          setApprovalError(error.message || 'Approval verification failed');
+          setOrderError(error.message || 'Approval verification failed');
         } finally {
           // Clear approval loading state after the entire process
           setIsLocalApproving(false);
@@ -234,7 +230,6 @@ export function CreatePositionModal({
 
       waitForApproval();
     } catch (error: any) {
-      console.error('Token approval failed:', error);
       const errorMessage = error.message || 'Failed to approve token. Please try again.';
       setApprovalError(errorMessage);
       onTransactionError?.(errorMessage);
@@ -327,12 +322,6 @@ export function CreatePositionModal({
   
   // Debug tokenPrices
   useEffect(() => {
-    console.log('CreatePositionModal - tokenPrices updated:', {
-      tokenPrices,
-      tokenAddresses,
-      hasTokenPrices: !!tokenPrices,
-      keys: tokenPrices ? Object.keys(tokenPrices) : []
-    });
   }, [tokenPrices, tokenAddresses]);
 
   // Lock scrolling when modal is open
@@ -356,23 +345,15 @@ export function CreatePositionModal({
   const [approvalError, setApprovalError] = useState<string | null>(null);
 
   // Helper function to remove commas for calculations
-  const removeCommas = (value: string): string => {
-    return value.replace(/,/g, '');
-  };
+  // Validation error states
+  const [sellAmountError, setSellAmountError] = useState<string | null>(null);
+  const [buyAmountError, setBuyAmountError] = useState<string | null>(null);
 
   // Token approval hook - only for ERC20 tokens (not native PLS)
   const sellAmountWei = sellToken && sellAmount ? parseTokenAmount(removeCommas(sellAmount), sellToken.decimals) : 0n;
   const needsApproval = Boolean(sellToken && !isNativeToken(sellToken.address) && sellAmountWei > 0n);
 
   // Debug logging for approval
-  console.log('Approval Debug:', {
-    sellToken: sellToken?.address,
-    sellAmount,
-    sellAmountWei: sellAmountWei.toString(),
-    needsApproval,
-    isNative: sellToken ? isNativeToken(sellToken.address) : false,
-    OTC_CONTRACT_ADDRESS
-  });
 
   const {
     allowance,
@@ -415,24 +396,8 @@ export function CreatePositionModal({
   });
 
   // Debug logging for balance issues
-  console.log('Balance Debug:', {
-    address,
-    sellToken: sellToken?.address,
-    sellTokenBalance,
-    sellBalanceLoading,
-    sellBalanceError,
-    chainId: 369,
-    isNativeToken: sellToken?.address === '0x0'
-  });
 
   // UI Debug logging
-  console.log('UI Debug:', {
-    sellTokenExists: !!sellToken,
-    sellTokenBalanceExists: !!sellTokenBalance,
-    sellTokenBalanceValue: sellTokenBalance?.value,
-    sellTokenBalanceFormatted: sellTokenBalance?.formatted,
-    shouldShowBalance: sellToken && sellTokenBalance && !sellBalanceLoading && !sellBalanceError
-  });
 
   // Helper function to format numbers with commas
   const formatNumberWithCommas = (value: string): string => {
@@ -462,7 +427,6 @@ export function CreatePositionModal({
   // Helper function to convert any token price to HEX terms
   const getTokenPriceInHex = (tokenAddress: string): number | null => {
     if (!tokenPrices) {
-      console.log('No tokenPrices available');
       return null;
     }
     
@@ -470,39 +434,50 @@ export function CreatePositionModal({
     const tokenUsdPrice = tokenPrices[tokenAddress]?.price;
     const hexUsdPrice = tokenPrices[hexAddress]?.price;
     
-    console.log('Price conversion debug:', {
-      tokenAddress,
-      tokenUsdPrice,
-      hexUsdPrice,
-      tokenPrices: Object.keys(tokenPrices)
-    });
     
     if (!tokenUsdPrice || !hexUsdPrice || hexUsdPrice === 0) return null;
     
     // Convert: 1 token unit -> USD -> HEX equivalent
     const priceInHex = tokenUsdPrice / hexUsdPrice;
-    console.log('Calculated price in HEX:', priceInHex);
     return priceInHex;
   };
 
-  // Helper function to preserve cursor position during formatting
+  // Helper function to preserve cursor position during formatting with validation
   const handleAmountChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (value: string) => void,
-    inputRef: React.RefObject<HTMLInputElement>
+    inputRef: React.RefObject<HTMLInputElement>,
+    token: TokenOption | null,
+    setError: (error: string | null) => void
   ) => {
     const input = e.target;
     const rawValue = removeCommas(input.value);
 
-    if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
-      setter(rawValue);
+    // Sanitize input first
+    const sanitized = sanitizeAmount(rawValue);
+
+    // Only update if value is valid or empty
+    if (sanitized === '' || /^\d*\.?\d*$/.test(sanitized)) {
+      setter(sanitized);
+
+      // Validate the amount if we have a token
+      if (token && sanitized !== '') {
+        const validation = validateAmount(sanitized, token.decimals);
+        if (!validation.valid) {
+          setError(validation.error || 'Invalid amount');
+        } else {
+          setError(null);
+        }
+      } else {
+        setError(null);
+      }
 
       // Use a more reliable approach with double requestAnimationFrame
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (inputRef.current) {
             // Calculate cursor position more intelligently
-            const formattedValue = formatNumberWithCommas(rawValue);
+            const formattedValue = formatNumberWithCommas(sanitized);
             const originalCursorPos = input.selectionStart || 0;
             const originalValue = input.value;
 
@@ -597,20 +572,11 @@ export function CreatePositionModal({
 
   // Calculate OTC price in HEX terms for any token pair
   const calculateOtcPriceInHex = useMemo(() => {
-    console.log('calculateOtcPriceInHex called with:', {
-      sellToken: sellToken?.ticker,
-      buyToken: buyToken?.ticker,
-      sellAmount,
-      buyAmount,
-      hasTokenPrices: !!tokenPrices
-    });
 
     if (!sellToken || !buyToken || !sellAmount || !buyAmount) {
-      console.log('Missing required data for OTC price calculation');
       return null;
     }
     if (parseFloat(removeCommas(sellAmount)) <= 0 || parseFloat(removeCommas(buyAmount)) <= 0) {
-      console.log('Invalid amounts for OTC price calculation');
       return null;
     }
 
@@ -622,28 +588,22 @@ export function CreatePositionModal({
     if (isHexVariant(buyToken.ticker)) {
       // If buying HEX (or variant), your price is buyAmount/sellAmount HEX per sellToken
       const price = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
-      console.log('Calculated OTC price (buying HEX variant):', price);
       return price;
     } else if (isHexVariant(sellToken.ticker)) {
       // If selling HEX (or variant), your price is sellAmount/buyAmount HEX per buyToken
       const price = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
-      console.log('Calculated OTC price (selling HEX variant):', price);
       return price;
     } else {
       // For any other token pair, convert using DexScreener prices
-      console.log('Attempting to calculate via DexScreener prices...');
       const buyTokenPriceInHex = getTokenPriceInHex(buyToken.address);
       if (buyTokenPriceInHex) {
         // Convert: buyAmount of buyToken -> HEX equivalent, then divide by sellAmount
         const buyAmountInHex = parseFloat(removeCommas(buyAmount)) * buyTokenPriceInHex;
         const pricePerSellToken = buyAmountInHex / parseFloat(removeCommas(sellAmount));
-        console.log('Calculated OTC price via DexScreener:', pricePerSellToken);
         return pricePerSellToken;
       } else {
-        console.log('Could not get buyToken price in HEX');
       }
     }
-    console.log('Returning null - no valid calculation path');
     return null;
   }, [sellToken, buyToken, sellAmount, buyAmount, tokenPrices]);
 
@@ -713,7 +673,6 @@ export function CreatePositionModal({
       if (sellToken.address === '0x0') {
         // Native PLS balance
         const balance = await publicClient.getBalance({ address: address as `0x${string}` });
-        console.log('Manual PLS balance:', formatEther(balance));
       } else {
         // ERC20/PRC20 balance
         const balance = await publicClient.readContract({
@@ -730,10 +689,8 @@ export function CreatePositionModal({
           functionName: 'balanceOf',
           args: [address as `0x${string}`],
         });
-        console.log('Manual token balance:', formatEther(balance as bigint));
       }
     } catch (error) {
-      console.error('Manual balance check failed:', error);
     }
   };
 
@@ -754,15 +711,27 @@ export function CreatePositionModal({
       return;
     }
 
+    // Strict validation before submission
+    const sellValidation = validateAmountStrict(sellAmount, sellToken.decimals);
+    if (!sellValidation.valid) {
+      setSellAmountError(sellValidation.error || 'Invalid sell amount');
+      setOrderError(`Sell amount error: ${sellValidation.error}`);
+      return;
+    }
 
-    console.log('Starting order creation process...');
+    const buyValidation = validateAmountStrict(buyAmount, buyToken.decimals);
+    if (!buyValidation.valid) {
+      setBuyAmountError(buyValidation.error || 'Invalid buy amount');
+      setOrderError(`Buy amount error: ${buyValidation.error}`);
+      return;
+    }
+
     setIsCreatingOrder(true);
     setIsLocalApproving(false); // Clear approval loading state when starting order creation
     setOrderError(null);
     setApprovalError(null);
     setTransactionPending(true);
     onTransactionStart?.();
-    console.log('Loading states set, isCreatingOrder should now be true');
 
     try {
       // Convert amounts to wei using correct token decimals
@@ -788,45 +757,36 @@ export function CreatePositionModal({
         expirationTime: expirationTime
       };
 
-      console.log('Creating order with details:', orderDetails);
 
       // Call the contract function - only send value if selling native PLS
       const value = sellToken.address === '0x000000000000000000000000000000000000dead' ? sellAmountWei : undefined;
       const txHash = await placeOrder(orderDetails, value);
 
-      console.log('Transaction sent:', txHash);
 
-      // Wait for transaction confirmation using public client
-      console.log('Waiting for transaction confirmation...');
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: txHash as `0x${string}`,
-        timeout: 60_000, // 60 second timeout
-      });
+      // Wait for transaction confirmation with proper timeout handling
+      const receipt = await waitForTransactionWithTimeout(
+        publicClient,
+        txHash as `0x${string}`,
+        TRANSACTION_TIMEOUTS.TRANSACTION
+      );
 
-      console.log('Order created successfully:', receipt);
 
       // Refresh data and navigate to show the new order
       onOrderCreated?.(sellToken, buyToken);
 
       // Show success toast with transaction link
-      console.log('Calling onTransactionSuccess with message and txHash:', txHash);
       onTransactionSuccess?.('Order created successfully! Your deal is now live on the marketplace.', txHash);
 
-      console.log('Closing modal...');
       handleClose();
 
     } catch (error: any) {
-      console.error('Error creating order:', error);
       const errorMessage = error.message || 'Failed to create order. Please try again.';
       setOrderError(errorMessage);
-      console.log('Calling onTransactionError with:', errorMessage);
       onTransactionError?.(errorMessage);
     } finally {
-      console.log('Cleaning up loading states...');
       setIsCreatingOrder(false);
       setTransactionPending(false);
       onTransactionEnd?.();
-      console.log('Order creation process finished');
     }
   };
 
@@ -1017,9 +977,16 @@ export function CreatePositionModal({
                     type="text"
                     placeholder="Enter amount"
                     value={formatNumberWithCommas(sellAmount)}
-                    onChange={(e) => handleAmountChange(e, setSellAmount, sellAmountRef)}
-                    className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
+                    onChange={(e) => handleAmountChange(e, setSellAmount, sellAmountRef, sellToken, setSellAmountError)}
+                    className={`w-full bg-black border ${sellAmountError ? 'border-red-500' : 'border-gray-600'} rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none`}
                   />
+                  
+                  {/* Validation Error */}
+                  {sellAmountError && (
+                    <div className="mt-1 text-xs text-red-400">
+                      {sellAmountError}
+                    </div>
+                  )}
 
                   {/* Balance and MAX button */}
                   {sellToken && (
@@ -1137,9 +1104,16 @@ export function CreatePositionModal({
                     type="text"
                     placeholder="Enter amount"
                     value={formatNumberWithCommas(buyAmount)}
-                    onChange={(e) => handleAmountChange(e, setBuyAmount, buyAmountRef)}
-                    className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none"
+                    onChange={(e) => handleAmountChange(e, setBuyAmount, buyAmountRef, buyToken, setBuyAmountError)}
+                    className={`w-full bg-black border ${buyAmountError ? 'border-red-500' : 'border-gray-600'} rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none`}
                   />
+                  
+                  {/* Validation Error */}
+                  {buyAmountError && (
+                    <div className="mt-1 text-xs text-red-400">
+                      {buyAmountError}
+                    </div>
+                  )}
 
                   {/* Invisible placeholder to match height with YOUR OFFER section */}
                   <div className="flex justify-between items-center mt-2 invisible">

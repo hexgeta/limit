@@ -74,14 +74,6 @@ export function useTokenApproval(tokenAddress: Address, spenderAddress: Address,
   const isApproved = tokenAddress === '0x0000000000000000000000000000000000000000' || amount === 0n ? true : (allowance !== undefined && allowance >= amount)
 
   const approveToken = async () => {
-    console.log('approveToken called with:', {
-      tokenAddress,
-      spenderAddress,
-      amount: amount.toString(),
-      hasValidTokenAddress: tokenAddress !== '0x0000000000000000000000000000000000000000',
-      hasValidSpenderAddress: spenderAddress !== '0x0000000000000000000000000000000000000000',
-      hasValidAmount: amount > 0n
-    });
 
     if (!tokenAddress || !spenderAddress || !amount || tokenAddress === '0x0000000000000000000000000000000000000000' || amount === 0n) {
       throw new Error('Missing required parameters for approval')
@@ -100,15 +92,13 @@ export function useTokenApproval(tokenAddress: Address, spenderAddress: Address,
         gas: 100000n // Standard gas limit for approval
       })
       
-      console.log('Approval transaction submitted:', txHash);
       
       // Refetch allowance after approval
       await refetchAllowance()
       
       return txHash;
     } catch (error) {
-      console.error('Token approval failed:', error)
-      throw error
+      throw error;
     }
   }
 
@@ -122,8 +112,7 @@ export function useTokenApproval(tokenAddress: Address, spenderAddress: Address,
   }
 }
 
-// Helper function to check if an address is the native token
+// Helper to check if a token is native (PLS in this case)
 export function isNativeToken(address: string): boolean {
-  const nativeAddresses = ['0x0', '0x0000000000000000000000000000000000000000', '0x000000000000000000000000000000000000dead']
-  return nativeAddresses.includes(address.toLowerCase())
+  return address.toLowerCase() === '0x000000000000000000000000000000000000dead';
 }

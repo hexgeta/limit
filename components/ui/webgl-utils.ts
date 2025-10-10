@@ -66,7 +66,6 @@ export function initWebGL(canvas: HTMLCanvasElement): WebGLContext | null {
       },
     };
   } catch (error) {
-    console.error('Error initializing WebGL:', error);
     return null;
   }
 }
@@ -80,14 +79,12 @@ export function createShader(gl: WebGLRenderingContext | WebGL2RenderingContext,
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', gl.getShaderInfoLog(shader));
       gl.deleteShader(shader);
       return null;
     }
 
     return shader;
   } catch (error) {
-    console.error('Error creating shader:', error);
     return null;
   }
 }
@@ -102,14 +99,12 @@ export function createProgram(gl: WebGLRenderingContext | WebGL2RenderingContext
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.error('Program link error:', gl.getProgramInfoLog(program));
       gl.deleteProgram(program);
       return null;
     }
 
     return program;
   } catch (error) {
-    console.error('Error creating program:', error);
     return null;
   }
 }
@@ -146,7 +141,6 @@ export function createTexture(gl: WebGLRenderingContext | WebGL2RenderingContext
 
     return texture;
   } catch (error) {
-    console.error('Error creating texture:', error);
     return null;
   }
 }
@@ -161,7 +155,6 @@ export function createFramebuffer(gl: WebGLRenderingContext | WebGL2RenderingCon
 
     return fbo;
   } catch (error) {
-    console.error('Error creating framebuffer:', error);
     return null;
   }
 } 

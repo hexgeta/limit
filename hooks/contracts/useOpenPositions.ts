@@ -278,8 +278,6 @@ function createClient() {
 // Helper function to fetch contract data
 async function fetchContractData() {
   try {
-    console.log('Fetching contract data from:', OTC_CONTRACT_ADDRESS);
-    console.log('Using RPC:', 'https://rpc.pulsechain.com');
     
     // Create client only when needed (client-side only)
     const client = createClient();
@@ -287,9 +285,7 @@ async function fetchContractData() {
     // Test basic connectivity first
     try {
       const blockNumber = await client.getBlockNumber();
-      console.log('Connected to PulseChain, current block:', blockNumber.toString());
     } catch (rpcError) {
-      console.error('RPC connection failed:', rpcError);
       throw rpcError;
     }
     
@@ -300,7 +296,6 @@ async function fetchContractData() {
         abi: OTC_ABI,
         functionName: 'name',
       }).catch(err => {
-        console.error('Error fetching name:', err.message);
         return null;
       }),
       
@@ -309,7 +304,6 @@ async function fetchContractData() {
         abi: OTC_ABI,
         functionName: 'owner',
       }).catch(err => {
-        console.error('Error fetching owner:', err.message);
         return null;
       }),
       
@@ -318,7 +312,6 @@ async function fetchContractData() {
         abi: OTC_ABI,
         functionName: 'symbol',
       }).catch(err => {
-        console.error('Error fetching symbol:', err.message);
         return null;
       }),
       
@@ -327,7 +320,6 @@ async function fetchContractData() {
         abi: OTC_ABI,
         functionName: 'totalSupply',
       }).catch(err => {
-        console.error('Error fetching totalSupply:', err.message);
         return null;
       }),
       
@@ -336,7 +328,6 @@ async function fetchContractData() {
         abi: OTC_ABI,
         functionName: 'getOrderCounter',
       }).catch(err => {
-        console.error('Error fetching orderCounter:', err.message);
         return null;
       })
     ]);
@@ -344,7 +335,6 @@ async function fetchContractData() {
     // Fetch all orders if we have an order counter
     let allOrders: CompleteOrderDetails[] = [];
     if (orderCounter && orderCounter > 0n) {
-      console.log(`Fetching ${orderCounter.toString()} orders...`);
       
       // Create array of order IDs (1 to orderCounter)
       const orderIds = Array.from({ length: Number(orderCounter) }, (_, i) => i + 1);
@@ -356,11 +346,9 @@ async function fetchContractData() {
         batches.push(orderIds.slice(i, i + batchSize));
       }
       
-      console.log(`Processing ${batches.length} batches of ${batchSize} orders each...`);
       
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
-        console.log(`Processing batch ${batchIndex + 1}/${batches.length} (orders ${batch[0]}-${batch[batch.length - 1]})`);
         
         const batchPromises = batch.map(orderId => 
           client.readContract({
@@ -369,7 +357,6 @@ async function fetchContractData() {
             functionName: 'getOrderDetails',
             args: [BigInt(orderId)],
           }).catch(err => {
-            console.error(`Error fetching order ${orderId}:`, err.message);
             return null;
           })
         );
@@ -380,7 +367,6 @@ async function fetchContractData() {
         const validOrders = batchResults.filter((order): order is CompleteOrderDetails => order !== null);
         allOrders.push(...validOrders);
         
-        console.log(`Batch ${batchIndex + 1} complete: ${validOrders.length}/${batch.length} orders fetched successfully`);
         
         // Small delay between batches to be nice to the RPC
         if (batchIndex < batches.length - 1) {
@@ -388,7 +374,6 @@ async function fetchContractData() {
         }
       }
       
-      console.log(`Total orders fetched: ${allOrders.length}/${orderCounter.toString()}`);
     }
 
     // Filter orders by status
@@ -396,17 +381,6 @@ async function fetchContractData() {
     const completedOrders = allOrders.filter(order => order.orderDetailsWithId.status === 2);
     const cancelledOrders = allOrders.filter(order => order.orderDetailsWithId.status === 1);
 
-    console.log('Contract data fetched successfully:', {
-      name: contractName,
-      owner: contractOwner,
-      symbol: contractSymbol,
-      totalSupply: totalSupply?.toString(),
-      orderCounter: orderCounter?.toString(),
-      totalOrders: allOrders.length,
-      activeOrders: activeOrders.length,
-      completedOrders: completedOrders.length,
-      cancelledOrders: cancelledOrders.length
-    });
 
     return {
       contractName: contractName as string | null,
@@ -420,7 +394,6 @@ async function fetchContractData() {
       cancelledOrders: cancelledOrders,
     };
   } catch (error) {
-    console.error('Critical error fetching contract data:', error);
     return {
       contractName: null,
       contractOwner: null,
@@ -466,7 +439,6 @@ export function useOpenPositions() {
         setError(new Error('All contract calls failed. Check console for details.'));
       }
     } catch (err) {
-      console.error('Hook error:', err);
       setError(err as Error);
     } finally {
       setIsLoading(false);

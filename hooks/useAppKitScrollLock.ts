@@ -31,37 +31,3 @@ export const useAppKitScrollLock = () => {
                           document.querySelector('w3m-modal:not([style*="display: none"])') ||
                           document.querySelector('[data-w3m-modal]:not([style*="display: none"])')
           
-          console.log('Modal check:', { 
-            hasModal: !!hasModal, 
-            isModalOpen: isModalOpen.current,
-            modalElements: {
-              w3mModal: !!document.querySelector('w3m-modal'),
-              dataW3mModal: !!document.querySelector('[data-w3m-modal]'),
-              w3mModalClass: !!document.querySelector('.w3m-modal')
-            }
-          })
-          
-          if (hasModal && !isModalOpen.current) {
-            console.log('Disabling scroll - modal detected')
-            disableScroll()
-          } else if (!hasModal && isModalOpen.current) {
-            console.log('Enabling scroll - no modal detected')
-            enableScroll()
-          }
-        }
-      })
-    })
-
-    // Start observing
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
-
-    // Cleanup
-    return () => {
-      observer.disconnect()
-      enableScroll()
-    }
-  }, [])
-}

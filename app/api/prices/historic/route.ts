@@ -1,83 +1,86 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { rateLimit, RATE_LIMITS } from '@/utils/rateLimit';
 
 // We need dynamic for query params
 export const dynamic = 'force-dynamic';
 
-// Log environment variables (masking sensitive data)
-console.log('[Historic API] Supabase URL:', process.env.SUPABASE_URL ? '✓ Found' : '✗ Missing')
-console.log('[Historic API] Supabase Anon Key:', process.env.SUPABASE_ANON_KEY ? '✓ Found' : '✗ Missing')
-
-// Only create Supabase client if environment variables are available
-let supabase: any = null;
-if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-  supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  )
-}
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const symbol = searchParams.get('symbol')
-  const field = searchParams.get('field')
-
-  console.log('[Historic API] Request:', { symbol, field })
-
-  if (!symbol || !field) {
-    return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
-  }
-
-  // Check if Supabase is available
-  if (!supabase) {
-    console.log('[Historic API] Supabase not configured, returning empty data')
-    return NextResponse.json({ data: null })
+  // Apply rate limiting
+  const rateLimitResponse = rateLimit(request, RATE_LIMITS.data);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   try {
-    console.log('[Historic API] Querying Supabase for:', field)
-    
-    // Fetch all data for this token, matching the original query
-    const { data: rows, error } = await supabase
-      .from('historic_prices')
-      .select(`date, ${field}`)
-      .not(field, 'is', null)
-      .order('date', { ascending: true })
+    // Check if Supabase is configured
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { error: 'Supabase not configured' },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const tokenAddress = searchParams.get('token');
+    const limit = parseInt(searchParams.get('limit') || '100');
+
+    if (!tokenAddress) {
+      return NextResponse.json(
+        { error: 'Token address is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate token address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
+      return NextResponse.json(
+        { error: 'Invalid token address format' },
+        { status: 400 }
+      );
+    }
+
+    // Validate limit
+    if (limit < 1 || limit > 1000) {
+      return NextResponse.json(
+        { error: 'Limit must be between 1 and 1000' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch historic prices from Supabase
+    const { data, error } = await supabase
+      .from('token_prices_historic')
+      .select('*')
+      .eq('token_address', tokenAddress.toLowerCase())
+      .order('timestamp', { ascending: false })
+      .limit(limit);
 
     if (error) {
-      console.error('[Historic API] Supabase Error:', error)
-      throw error
+      throw error;
     }
 
-    if (!rows || rows.length === 0) {
-      console.log('[Historic API] No data found')
-      return NextResponse.json({ data: null })
-    }
-
-    // Parse dates and prices exactly as before
-    const parsed = rows.map((row: any) => ({
-      date: new Date(row.date),
-      price: parseFloat(row[field]),
-    })).filter((row: any) => !isNaN(row.price))
-
-    if (parsed.length === 0) {
-      console.log('[Historic API] No valid data after parsing')
-      return NextResponse.json({ data: null })
-    }
-
-    console.log('[Historic API] Success, returned rows:', parsed.length)
-
-    // Return response with caching headers
-    return new NextResponse(JSON.stringify({ data: rows }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate'
-      }
+    return NextResponse.json({
+      success: true,
+      data: data || [],
+      count: data?.length || 0,
     });
+
   } catch (error) {
-    console.error('[Historic API] Error fetching historic prices:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch historic prices',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
-} 
+}

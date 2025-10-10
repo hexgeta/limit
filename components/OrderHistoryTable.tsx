@@ -244,7 +244,6 @@ export default function OrderHistoryTable({
         );
         
         if (!baseOrder) {
-          console.warn(`No base order found for transaction ${transaction.orderId}`);
           return null;
         }
         
