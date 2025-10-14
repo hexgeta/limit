@@ -14,7 +14,7 @@ export const TRANSACTION_TIMEOUTS = {
   APPROVAL: 60_000, // 60 seconds for token approvals
   TRANSACTION: 60_000, // 60 seconds for standard transactions
   COMPLEX_TRANSACTION: 120_000, // 2 minutes for complex operations
-  APPROVAL_VERIFICATION: 30_000, // 30 seconds for approval state verification
+  APPROVAL_VERIFICATION: 90_000, // 90 seconds for approval state verification (increased for PulseChain)
 } as const;
 
 /**

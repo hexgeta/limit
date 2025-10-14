@@ -192,7 +192,7 @@ export function CreatePositionModal({
 
       // Wait for the allowance to be updated (this indicates approval is complete)
       let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max wait
+      const maxAttempts = 90; // 90 seconds max wait (matches APPROVAL_VERIFICATION timeout)
 
       const waitForApproval = async () => {
         const startTime = Date.now();
@@ -217,7 +217,7 @@ export function CreatePositionModal({
           }
 
           // If we get here, approval didn't complete in time
-          throw new Error('Approval verification timed out after 30 seconds. Transaction may still be pending.');
+          throw new Error('Approval verification timed out after 90 seconds. Transaction may still be pending.');
         } catch (error: any) {
           setApprovalError(error.message || 'Approval verification failed');
           setOrderError(error.message || 'Approval verification failed');
@@ -1306,7 +1306,7 @@ export function CreatePositionModal({
                                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                 </svg>
-                                <span className="text-white text-sm">Add another token ({buyTokens.length}/10)</span>
+                                <span className="text-white text-sm">Add another token</span>
                               </button>
                             ) : (
                               <div className="mt-3 w-full py-2 text-center text-gray-500 text-sm">
