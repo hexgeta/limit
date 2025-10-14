@@ -677,6 +677,10 @@ export function CreatePositionModal({
 
   // Add a new buy token field
   const handleAddBuyToken = () => {
+    if (buyTokens.length >= 10) {
+      setOrderError('Maximum of 10 buy tokens allowed');
+      return;
+    }
     setBuyTokens([...buyTokens, null]);
     setBuyAmounts([...buyAmounts, '']);
     setBuyAmountErrors([...buyAmountErrors, null]);
@@ -1291,17 +1295,25 @@ export function CreatePositionModal({
                           </div>
                         </div>
 
-                        {/* Add button - only show if this is the last token and it has an amount */}
+                        {/* Add button - only show if this is the last token and it has an amount and limit not reached */}
                         {index === buyTokens.length - 1 && buyAmounts[index] && buyAmounts[index].trim() !== '' && (
-                          <button
-                            onClick={handleAddBuyToken}
-                            className="mt-3 w-full py-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-lg transition-colors flex items-center justify-center space-x-2 opacity-60 hover:opacity-100"
-                          >
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span className="text-white text-sm">Add another token</span>
-                          </button>
+                          <>
+                            {buyTokens.length < 10 ? (
+                              <button
+                                onClick={handleAddBuyToken}
+                                className="mt-3 w-full py-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-lg transition-colors flex items-center justify-center space-x-2 opacity-60 hover:opacity-100"
+                              >
+                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span className="text-white text-sm">Add another token ({buyTokens.length}/10)</span>
+                              </button>
+                            ) : (
+                              <div className="mt-3 w-full py-2 text-center text-gray-500 text-sm">
+                                Maximum of 10 tokens reached
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}
@@ -1865,6 +1877,13 @@ export function CreatePositionModal({
 
             {/* Approval Status Info */}
 
+            {/* Error Display */}
+            {orderError && (
+              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg">
+                <p className="text-red-400 text-sm">{orderError}</p>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex justify-end space-x-4 mt-6">
               <button
@@ -1880,7 +1899,7 @@ export function CreatePositionModal({
                   !sellToken || 
                   !sellAmount || 
                   buyTokens.some(token => !token) || 
-                  buyAmounts.some(amount => !amount || amount.trim() === '') || 
+                  buyTokens.some((token, i) => token && (!buyAmounts[i] || buyAmounts[i].trim() === '')) || 
                   !!isCreatingOrder || 
                   !!isLocalApproving || 
                   !isWalletConnected || 
