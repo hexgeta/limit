@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeftRight, Lock } from 'lucide-react';
 import PaywallModal from './PaywallModal';
+import { Slider } from '@/components/ui/slider';
 import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { MORE_COINS } from '@/constants/more-coins';
@@ -1345,66 +1346,61 @@ export function CreatePositionModal({
                       <span className="text-gray-400">Your Offer:</span>
                       <span className="text-white font-medium">{formatNumberWithCommas(removeCommas(sellAmount))} {formatTokenTicker(sellToken.ticker)}</span>
                     </div>
-                    <div className="space-y-2">
-                      <span className="text-gray-400">
-                        Your Ask{buyTokens.filter((token, idx) => token && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (Either)' : ''}:
-                      </span>
+                    {buyTokens.map((token, index) => {
+                      const amount = buyAmounts[index];
+                      if (!token || !amount || amount.trim() === '') return null;
+                      return (
+                        <div key={`ask-${index}`} className="flex justify-between items-center">
+                          <span className="text-gray-400">
+                            {index === 0 ? `Your Ask${buyTokens.filter((t, idx) => t && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (Either of)' : ''}:` : ''}
+                          </span>
+                          <span className="text-white font-medium">
+                            {formatNumberWithCommas(removeCommas(amount))} {formatTokenTicker(token.ticker)}
+                          </span>
+                    </div>
+                      );
+                    })}
+                    
+                    {/* Show fees for each token */}
+                    {buyTokens.some((token, index) => token && buyAmounts[index] && buyAmounts[index].trim() !== '') && (
+                      <>
+                        {buyTokens.map((token, index) => {
+                          const amount = buyAmounts[index];
+                          if (!token || !amount || amount.trim() === '') return null;
+                          return (
+                            <div key={`fee-${index}`} className="flex justify-between items-center">
+                              <span className="text-gray-400">
+                                {index === 0 ? (
+                                  <>
+                                    MAX Fee{buyTokens.filter((t, idx) => t && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (Either of)' : ''}:
+                        <div className="text-xs text-gray-500 mt-1">Max 1% fee deducted from buyer at sale (0.5% with NFT)</div>
+                                  </>
+                                ) : ''}
+                              </span>
+                              <span className="text-red-400 font-medium">
+                                -{formatNumberWithCommas((parseFloat(removeCommas(amount)) * 0.01).toFixed(2))} {formatTokenTicker(token.ticker)}
+                              </span>
+                      </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    <div className="border-t border-white/10 pt-3 space-y-3">
                       {buyTokens.map((token, index) => {
                         const amount = buyAmounts[index];
                         if (!token || !amount || amount.trim() === '') return null;
                         return (
-                          <div key={index} className="flex justify-between items-center pl-4">
-                            <span className="text-gray-300 text-sm">•</span>
-                            <span className="text-white font-medium flex-1 ml-2">
-                              {formatNumberWithCommas(removeCommas(amount))} {formatTokenTicker(token.ticker)}
+                          <div key={`receive-${index}`} className="flex justify-between items-center">
+                            <span className="text-white font-semibold">
+                              {index === 0 ? `You Receive${buyTokens.filter((t, idx) => t && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (Either of)' : ''}:` : ''}
                             </span>
-                    </div>
+                            <span className="text-white font-bold">
+                              {formatNumberWithCommas((parseFloat(removeCommas(amount)) * 0.99).toFixed(2))} {formatTokenTicker(token.ticker)}
+                            </span>
+                      </div>
                         );
                       })}
-                    </div>
-                    
-                    {/* Show fees for each token */}
-                    {buyTokens.some((token, index) => token && buyAmounts[index] && buyAmounts[index].trim() !== '') && (
-                      <div className="space-y-2">
-                      <div>
-                          <span className="text-gray-400">
-                            MAX Fee{buyTokens.filter((token, idx) => token && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (per option)' : ''}:
-                          </span>
-                        <div className="text-xs text-gray-500 mt-1">Max 1% fee deducted from buyer at sale (0.5% with NFT)</div>
-                      </div>
-                        {buyTokens.map((token, index) => {
-                          const amount = buyAmounts[index];
-                          if (!token || !amount || amount.trim() === '') return null;
-                          return (
-                            <div key={index} className="flex justify-between items-center pl-4">
-                              <span className="text-gray-300 text-sm">•</span>
-                              <span className="text-red-400 font-medium flex-1 ml-2">
-                                -{formatNumberWithCommas((parseFloat(removeCommas(amount)) * 0.01).toFixed(2))} {formatTokenTicker(token.ticker)}
-                              </span>
-                    </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="border-t border-white/10 pt-3">
-                      <div className="space-y-2">
-                        <span className="text-white font-semibold">
-                          You Receive{buyTokens.filter((token, idx) => token && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' either' : ''}:
-                        </span>
-                        {buyTokens.map((token, index) => {
-                          const amount = buyAmounts[index];
-                          if (!token || !amount || amount.trim() === '') return null;
-                          return (
-                            <div key={index} className="flex justify-between items-center pl-4">
-                              <span className="text-gray-300 text-sm">•</span>
-                              <span className="text-white font-bold flex-1 ml-2">
-                                {formatNumberWithCommas((parseFloat(removeCommas(amount)) * 0.99).toFixed(2))} {formatTokenTicker(token.ticker)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1421,7 +1417,10 @@ export function CreatePositionModal({
                     {statsLoading && hasTokenAccess ? (
                       <div className="text-gray-400 text-center py-4">Loading token stats...</div>
                     ) : statsError && hasTokenAccess ? (
-                      <div className="text-red-400 text-center py-4">Failed to load token stats</div>
+                      <div className="text-red-400 text-center py-4">
+                        <div className="font-semibold mb-2">Failed to load token stats</div>
+                        <div className="text-xs text-red-300">{statsError.message || 'Unknown error'}</div>
+                      </div>
                     ) : (PAYWALL_ENABLED && !hasTokenAccess) ? (
                       // Show placeholder content when no access (for blur effect)
                       <div className={`grid ${gridColsClass} gap-6`}>
@@ -1620,22 +1619,24 @@ export function CreatePositionModal({
                         </div>
                       )}
 
-                      {/* Buy Token Stats */}
-                      {showBuyStats && buyTokens[0] && (
-                        <div className="space-y-3">
+                      {/* Buy Token Stats - Show for all buy tokens */}
+                      {buyTokens.map((buyToken, buyIndex) => {
+                        if (!buyToken || !shouldShowTokenStats(buyToken)) return null;
+                        
+                        return (
+                          <div key={`buy-stats-${buyIndex}`} className="space-y-3">
                           <h4 className="text-white font-medium flex items-center space-x-2">
                             <img
-                              src={buyTokens[0].logo}
-                              alt={buyTokens[0].ticker}
+                              src={buyToken.logo}
+                              alt={buyToken.ticker}
                               className="w-5 h-5 rounded-full"
                               onError={(e) => {
                                 e.currentTarget.src = '/coin-logos/default.svg';
                               }}
                             />
-                            <span>{formatTokenTicker(buyTokens[0].ticker)} Stats</span>
+                            <span>{formatTokenTicker(buyToken.ticker)} Stats</span>
                           </h4>
                           {(() => {
-                            const buyToken = buyTokens[0];
                             // Map wrapped tokens (we*) to their ethereum versions (e*) for stats lookup
                             const tokensWithVersions = ['DECI', 'LUCKY', 'TRIO', 'BASE'];
                             let buyTokenKey: string;
@@ -1667,8 +1668,28 @@ export function CreatePositionModal({
                               return <div className="text-gray-400 text-sm">Stats not available</div>;
                             }
 
-                            // Use the calculated OTC price
-                            const yourPriceInHEX = calculateOtcPriceInHex;
+                            // Calculate OTC price for THIS specific buy token
+                            const buyAmount = buyAmounts[buyIndex];
+                            let yourPriceInHEX: number | null = null;
+                            
+                            if (sellToken && buyToken && sellAmount && buyAmount && 
+                                parseFloat(removeCommas(sellAmount)) > 0 && parseFloat(removeCommas(buyAmount)) > 0) {
+                              const isHexVariant = (ticker: string) => {
+                                return ticker === 'HEX' || ticker === 'eHEX' || ticker === 'pHEX' || ticker === 'weHEX';
+                              };
+
+                              if (isHexVariant(buyToken.ticker)) {
+                                yourPriceInHEX = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
+                              } else if (isHexVariant(sellToken.ticker)) {
+                                yourPriceInHEX = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmount));
+                              } else {
+                                const buyTokenPriceInHex = getTokenPriceInHex(buyToken.address);
+                                if (buyTokenPriceInHex) {
+                                  const buyAmountInHex = parseFloat(removeCommas(buyAmount)) * buyTokenPriceInHex;
+                                  yourPriceInHEX = buyAmountInHex / parseFloat(removeCommas(sellAmount));
+                                }
+                              }
+                            }
                             
                             // Determine which HEX variant to display based on what's being used
                             const hexDisplayName = sellToken.ticker === 'eHEX' || sellToken.ticker === 'weHEX' ? 'eHEX' : 
@@ -1736,6 +1757,28 @@ export function CreatePositionModal({
                                   <span className="text-gray-400">Your OTC Price:</span>
                                   <span className="text-white">{yourPriceInHEX ? yourPriceInHEX.toFixed(4) : 'N/A'} {hexDisplayName}</span>
                                 </div>
+                                {/* Single OTC Price Slider */}
+                                {buyStats.token.priceHEX > 0 && (
+                                  <div className="mt-3 mb-4 py-2">
+                                    <Slider
+                                      min={0}
+                                      max={200}
+                                      step={0.5}
+                                      value={[yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ? (yourPriceInHEX / buyStats.token.priceHEX) * 100 : 100]}
+                                      onValueChange={(value: number[]) => {
+                                        const percentOfMarket = value[0] / 100;
+                                        const targetPrice = buyStats.token.priceHEX * percentOfMarket;
+                                        if (sellAmount && parseFloat(removeCommas(sellAmount)) > 0) {
+                                          const newBuyAmount = (parseFloat(removeCommas(sellAmount)) / targetPrice).toFixed(6);
+                                          const newAmounts = [...buyAmounts];
+                                          newAmounts[buyIndex] = newBuyAmount;
+                                          setBuyAmounts(newAmounts);
+                                        }
+                                      }}
+                                      className="w-full px-1"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">Your Discount / Premium from Market Price:</span>
                                   <span className={`font-medium ${yourPriceInHEX !== null && buyStats.token.priceHEX > 0 ?
@@ -1767,7 +1810,8 @@ export function CreatePositionModal({
                             );
                           })()}
                         </div>
-                      )}
+                        );
+                      })}
                     </div>
                   )}
                   </div>

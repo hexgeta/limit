@@ -58,7 +58,7 @@ export const useTokenStats = (options?: UseTokenStatsOptions) => {
   const { enabled = true } = options || {};
   
   const { data, error, isLoading } = useSWR<TokenStatsResponse>(
-    enabled ? 'https://app.lookintomaxi.com/api/tokens' : null,
+    enabled ? '/api/token-stats' : null,
     fetcher,
     {
       refreshInterval: 30000, // Refresh every 30 seconds
