@@ -66,7 +66,6 @@ const INACTIVE_CONTRACT_INDICES = [7, 8];
 
 // MAXI tokens (not in contract whitelist but kept for reference)
 const MAXI_TOKENS = [
-  '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WPLS
   '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b', // pMAXI
   '0x6b32022693210cd2cfc466b9ac0085de8fc34ea6', // pDECI
   '0x6b0956258ff7bd7645aa35369b55b61b8e6d6140', // pLUCKY
@@ -77,7 +76,6 @@ const MAXI_TOKENS = [
   '0x8924f56df76ca9e7babb53489d7bef4fb7caff19', // weLUCKY
   '0x0f3c6134f4022d85127476bc4d3787860e5c5569', // weTRIO
   '0xda073388422065fe8d3b5921ec2ae475bae57bed', // weBASE
-  '0x57fde0a71132198BBeC939B98976993d8D89D225', // weHEX
 ];
 
 // Custom dropdown order - specify the order you want tokens to appear
@@ -366,6 +364,7 @@ export function CreatePositionModal({
   const [sellAmountError, setSellAmountError] = useState<string | null>(null);
   const [buyAmountErrors, setBuyAmountErrors] = useState<(string | null)[]>(['']);
   const [duplicateTokenError, setDuplicateTokenError] = useState<string | null>(null);
+  const [maxiTokenError, setMaxiTokenError] = useState<string | null>(null);
 
   // Token approval hook - only for ERC20 tokens (not native PLS)
   const sellAmountWei = sellToken && sellAmount ? parseTokenAmount(removeCommas(sellAmount), sellToken.decimals) : 0n;
@@ -432,6 +431,29 @@ export function CreatePositionModal({
     }
     
     return num.toLocaleString();
+  };
+
+  // Helper function to format balance display with limited precision
+  const formatBalanceDisplay = (balance: string): string => {
+    if (!balance) return '';
+    
+    const num = parseFloat(balance);
+    if (isNaN(num)) return balance;
+    
+    // If the number is 0 or very small, show up to 8 decimals
+    if (num === 0) return '0';
+    if (num < 0.0001) {
+      return num.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 8
+      });
+    }
+    
+    // For larger numbers, show up to 4 decimal places
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4
+    });
   };
 
   // Helper function to convert any token price to HEX terms
@@ -716,6 +738,29 @@ export function CreatePositionModal({
     return false;
   };
 
+  // Check for MAXI token presence - runs whenever tokens change
+  useEffect(() => {
+    if (!sellToken || buyTokens.length === 0 || !buyTokens[0]) {
+      setMaxiTokenError(null);
+      return;
+    }
+
+    const isMaxiToken = (address: string) => {
+      return MAXI_TOKENS.some(
+        maxiAddress => maxiAddress.toLowerCase() === address.toLowerCase()
+      );
+    };
+
+    const sellIsMaxiToken = isMaxiToken(sellToken.address);
+    const anyBuyIsMaxiToken = buyTokens.some(token => token && isMaxiToken(token.address));
+
+    if (!sellIsMaxiToken && !anyBuyIsMaxiToken) {
+      setMaxiTokenError('At least one token must be a MAXI token (MAXI, DECI, LUCKY, TRIO, BASE, or their wrapped versions)');
+    } else {
+      setMaxiTokenError(null);
+    }
+  }, [sellToken, buyTokens]);
+
   // Manual balance check for debugging
   const checkBalanceManually = async () => {
     if (!address || !sellToken || !publicClient) return;
@@ -772,6 +817,12 @@ export function CreatePositionModal({
       setOrderError(`Cannot trade ${sellToken.ticker} for ${buyToken.ticker}. Please select different tokens for your offer and ask.`);
       return;
       }
+    }
+
+    // MAXI token check (already validated in real-time, but check again for safety)
+    if (maxiTokenError) {
+      setOrderError(maxiTokenError);
+      return;
     }
 
     // Strict validation before submission
@@ -1107,7 +1158,7 @@ export function CreatePositionModal({
                         ) : sellBalanceError ? (
                           'Error loading balance'
                         ) : sellTokenBalance ? (
-                          `Balance: ${formatNumberWithCommas(sellTokenBalance.formatted)} ${formatTokenTicker(sellToken.ticker)}`
+                          `Balance: ${formatBalanceDisplay(sellTokenBalance.formatted)} ${formatTokenTicker(sellToken.ticker)}`
                         ) : (
                           'Balance: --'
                         )}
@@ -1136,7 +1187,7 @@ export function CreatePositionModal({
                           <div key={index} className="text-xs text-gray-400">
                       1 {formatTokenTicker(sellToken.ticker)} = {(() => {
                         const ratio = parseFloat(removeCommas(buyAmount)) / parseFloat(removeCommas(sellAmount));
-                        return parseFloat(ratio.toPrecision(4)).toString();
+                        return formatNumberWithCommas(parseFloat(ratio.toPrecision(4)).toString());
                       })()} {formatTokenTicker(buyToken.ticker)}
                           </div>
                         );
@@ -1146,13 +1197,22 @@ export function CreatePositionModal({
                 </div>
 
                 {/* Swap Button - Middle Column */}
-                <div className="flex justify-center items-start w-fit mx-auto pt-12">
+                <div className="flex justify-center items-center w-fit mx-auto self-center">
                   <button
                     onClick={handleSwapTokens}
-                    className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                    title="Swap tokens and amounts"
+                    disabled={buyTokens.length > 1}
+                    className={`p-2 rounded-full transition-colors ${
+                      buyTokens.length > 1 
+                        ? 'cursor-not-allowed opacity-100' 
+                        : 'hover:bg-white/10 cursor-pointer'
+                    }`}
+                    title={buyTokens.length > 1 ? "Cannot swap with multiple tokens" : "Swap tokens and amounts"}
                   >
-                    <ArrowLeftRight className="w-5 h-5 text-gray-400 hover:text-white transition-colors" />
+                    <ArrowLeftRight className={`w-5 h-5 text-gray-400 ${
+                      buyTokens.length > 1 
+                        ? '' 
+                        : 'hover:text-white'
+                    } transition-colors`} />
                   </button>
                 </div>
 
@@ -1288,7 +1348,7 @@ export function CreatePositionModal({
                     <div className="mt-2 text-xs text-gray-400">
                       1 {formatTokenTicker(buyToken.ticker)} = {(() => {
                                   const ratio = parseFloat(removeCommas(sellAmount)) / parseFloat(removeCommas(buyAmounts[index]));
-                        return parseFloat(ratio.toPrecision(4)).toString();
+                        return formatNumberWithCommas(parseFloat(ratio.toPrecision(4)).toString());
                       })()} {formatTokenTicker(sellToken.ticker)}
                               </div>
                             )}
@@ -1356,7 +1416,7 @@ export function CreatePositionModal({
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">Your Offer:</span>
-                      <span className="text-white font-medium">{formatNumberWithCommas(removeCommas(sellAmount))} {formatTokenTicker(sellToken.ticker)}</span>
+                      <span className="text-white font-medium">{formatBalanceDisplay(removeCommas(sellAmount))} {formatTokenTicker(sellToken.ticker)}</span>
                     </div>
                     {buyTokens.map((token, index) => {
                       const amount = buyAmounts[index];
@@ -1367,7 +1427,7 @@ export function CreatePositionModal({
                             {index === 0 ? `Your Ask${buyTokens.filter((t, idx) => t && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (Either of)' : ''}:` : ''}
                           </span>
                           <span className="text-white font-medium">
-                            {formatNumberWithCommas(removeCommas(amount))} {formatTokenTicker(token.ticker)}
+                            {formatBalanceDisplay(removeCommas(amount))} {formatTokenTicker(token.ticker)}
                           </span>
                     </div>
                       );
@@ -1390,7 +1450,7 @@ export function CreatePositionModal({
                                 ) : ''}
                               </span>
                               <span className="text-red-400 font-medium">
-                                -{formatNumberWithCommas((parseFloat(removeCommas(amount)) * 0.01).toFixed(2))} {formatTokenTicker(token.ticker)}
+                                -{formatBalanceDisplay((parseFloat(removeCommas(amount)) * 0.01).toFixed(4))} {formatTokenTicker(token.ticker)}
                               </span>
                       </div>
                           );
@@ -1408,7 +1468,7 @@ export function CreatePositionModal({
                               {index === 0 ? `You Receive${buyTokens.filter((t, idx) => t && buyAmounts[idx] && buyAmounts[idx].trim() !== '').length > 1 ? ' (Either of)' : ''}:` : ''}
                             </span>
                             <span className="text-white font-bold">
-                              {formatNumberWithCommas((parseFloat(removeCommas(amount)) * 0.99).toFixed(2))} {formatTokenTicker(token.ticker)}
+                              {formatBalanceDisplay((parseFloat(removeCommas(amount)) * 0.99).toFixed(4))} {formatTokenTicker(token.ticker)}
                             </span>
                       </div>
                         );
@@ -1866,6 +1926,15 @@ export function CreatePositionModal({
               </div>
             )}
 
+            {/* MAXI Token Warning */}
+            {maxiTokenError && (
+              <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                <p className="text-yellow-400 text-sm">
+                  ⚠️ {maxiTokenError}
+                </p>
+              </div>
+            )}
+
             {/* Approval Error Display */}
             {approvalError && (
               <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg max-h-32 overflow-y-auto">
@@ -1904,6 +1973,7 @@ export function CreatePositionModal({
                   !!isLocalApproving || 
                   !isWalletConnected || 
                   !!duplicateTokenError ||
+                  !!maxiTokenError ||
                   (sellToken && buyTokens.some(buyToken => buyToken && sellToken.address === buyToken.address))
                 }
                 className={`px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${needsApproval && tokenNeedsApproval
