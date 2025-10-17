@@ -1599,9 +1599,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   };
 
   // Helper functions for cascading filter counts
-  const getLevel1Orders = (tokenType: 'maxi' | 'non-maxi') => {
+  const getLevel1Orders = (tokenType: 'maxi' | 'non-maxi' | 'all') => {
     // Use allOrders directly (order history is handled separately)
     const cleanOrders = allOrders;
+    
+    // If 'all', return all orders without filtering
+    if (tokenType === 'all') {
+      return cleanOrders;
+    }
     
     if (tokenType === 'maxi') {
         return cleanOrders.filter(order => {
@@ -1636,7 +1641,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     }
   };
 
-  const getLevel2Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'mine' | 'non-mine') => {
+  const getLevel2Orders = (tokenType: 'maxi' | 'non-maxi' | 'all', ownership: 'mine' | 'non-mine') => {
     const level1Orders = getLevel1Orders(tokenType);
     if (ownership === 'mine') {
       return level1Orders.filter(order => 
@@ -1649,7 +1654,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     }
   };
 
-  const getLevel3Orders = (tokenType: 'maxi' | 'non-maxi', ownership: 'mine' | 'non-mine', status: 'active' | 'completed' | 'inactive' | 'cancelled' | 'order-history') => {
+  const getLevel3Orders = (tokenType: 'maxi' | 'non-maxi' | 'all', ownership: 'mine' | 'non-mine', status: 'active' | 'completed' | 'inactive' | 'cancelled' | 'order-history') => {
     const level2Orders = getLevel2Orders(tokenType, ownership);
     switch (status) {
       case 'active':
@@ -1674,6 +1679,11 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               order.orderDetailsWithId.orderId.toString() === transaction.orderId
             );
             if (!baseOrder) return false;
+            
+            // If 'all', include all transactions
+            if (tokenType === 'all') {
+              return true;
+            }
             
             // Apply token filter
             if (tokenType === 'maxi') {
