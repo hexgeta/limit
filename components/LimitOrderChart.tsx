@@ -122,7 +122,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
   };
 
   return (
-    <div className="w-full bg-black border-2 border-[#FF0080] rounded-lg p-6 shadow-[0_0_30px_rgba(255,0,128,0.3)]">
+    <div className="w-full bg-black/80 backdrop-blur-sm border-2 border-[#FF0080] rounded-lg p-6 shadow-[0_0_30px_rgba(255,0,128,0.3)]">
       {/* Controls */}
       <div className="flex justify-between items-center gap-4 mb-6">
         {/* Token Info */}

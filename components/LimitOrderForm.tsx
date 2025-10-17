@@ -235,7 +235,7 @@ export function LimitOrderForm({
   };
 
   return (
-    <div className="bg-black border-2 border-[#00D9FF] rounded-lg p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Sell Section */}
       <div className="mb-4">
         <label className="text-[#FF0080] text-sm mb-2 block font-semibold drop-shadow-[0_0_5px_rgba(255,0,128,0.5)]">SELL</label>

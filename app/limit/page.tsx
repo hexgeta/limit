@@ -7,6 +7,7 @@ import { ToastAction } from '@/components/ui/toast';
 import { LimitOrderChart } from '@/components/LimitOrderChart';
 import { LimitOrderForm } from '@/components/LimitOrderForm';
 import { MyLimitOrders } from '@/components/MyLimitOrders';
+import { AsciiNoiseEffect } from '@/components/ui/bg-asiic';
 
 export default function LimitPage() {
   const [isTransactionLoading, setIsTransactionLoading] = useState(false);
@@ -18,9 +19,33 @@ export default function LimitPage() {
   return (
     <>
       <DisclaimerDialog />
-      <main className="flex min-h-screen flex-col items-center">
+      {/* ASCII Background Effect */}
+      <div className="fixed inset-0 w-full h-full z-0">
+        <AsciiNoiseEffect
+          noiseStrength={0.15}
+          noiseScale={0.003}
+          speed={0.02}
+          cell={18}
+          bw={false}
+          charset={1}
+          tint={[1, 0.2, 0.8]}
+          distortAmp={1.5}
+          frequency={4}
+          zRate={0.15}
+          brightness={1.2}
+          contrast={1.8}
+          hue={320}
+          sat={1.5}
+          gamma={1.5}
+          vignette={0.6}
+          vignetteSoftness={1}
+          glyphSharpness={0.08}
+          bg={[0, 0, 0]}
+        />
+      </div>
+      <main className="relative flex min-h-screen flex-col items-center z-10">
         {/* Hero Section */}
-        <div className="w-full px-2 md:px-8 mt-24 mb-6 bg-black">
+        <div className="w-full px-2 md:px-8 mt-24 mb-6">
           <div className="max-w-[1400px] mx-auto text-center">
             <h2 className="text-3xl md:text-5xl font-bold neon-text-pink mb-2 tracking-wider">
               LIMIT ORDERS
