@@ -63,12 +63,27 @@ export function LimitOrderForm({
   const [priceDirection, setPriceDirection] = useState<'above' | 'below'>('above'); // Track if buying above or below market
   const [showSellDropdown, setShowSellDropdown] = useState(false);
   const [showBuyDropdown, setShowBuyDropdown] = useState(false);
+  const [sellSearchQuery, setSellSearchQuery] = useState('');
+  const [buySearchQuery, setBuySearchQuery] = useState('');
   
   const sellDropdownRef = useRef<HTMLDivElement>(null);
   const buyDropdownRef = useRef<HTMLDivElement>(null);
+  const sellSearchRef = useRef<HTMLInputElement>(null);
+  const buySearchRef = useRef<HTMLInputElement>(null);
 
   // Use all tokens from TOKEN_CONSTANTS
   const availableTokens = TOKEN_CONSTANTS.filter(t => t.a && t.dexs); // Only tokens with addresses and dex pairs
+
+  // Filter tokens based on search queries
+  const filteredSellTokens = availableTokens.filter(token => 
+    token.ticker.toLowerCase().includes(sellSearchQuery.toLowerCase()) ||
+    token.name.toLowerCase().includes(sellSearchQuery.toLowerCase())
+  );
+
+  const filteredBuyTokens = availableTokens.filter(token => 
+    token.ticker.toLowerCase().includes(buySearchQuery.toLowerCase()) ||
+    token.name.toLowerCase().includes(buySearchQuery.toLowerCase())
+  );
 
   // Get all token addresses for price fetching
   const tokenAddresses = availableTokens.map(t => t.a).filter(Boolean) as string[];
@@ -130,15 +145,30 @@ export function LimitOrderForm({
     const handleClickOutside = (event: MouseEvent) => {
       if (sellDropdownRef.current && !sellDropdownRef.current.contains(event.target as Node)) {
         setShowSellDropdown(false);
+        setSellSearchQuery(''); // Clear search on close
       }
       if (buyDropdownRef.current && !buyDropdownRef.current.contains(event.target as Node)) {
         setShowBuyDropdown(false);
+        setBuySearchQuery(''); // Clear search on close
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Auto-focus search input when dropdown opens
+  useEffect(() => {
+    if (showSellDropdown && sellSearchRef.current) {
+      sellSearchRef.current.focus();
+    }
+  }, [showSellDropdown]);
+
+  useEffect(() => {
+    if (showBuyDropdown && buySearchRef.current) {
+      buySearchRef.current.focus();
+    }
+  }, [showBuyDropdown]);
 
   const getTokenLogo = (ticker: string) => {
     return `/coin-logos/${ticker}.svg`;
@@ -324,14 +354,31 @@ export function LimitOrderForm({
 
           {/* Dropdown */}
           {showSellDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF]  max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
-              {availableTokens.map((token) => (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF] z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
+              {/* Search Input */}
+              <div className="sticky top-0 p-2 bg-black border-b border-[#00D9FF]/30">
+                <input
+                  ref={sellSearchRef}
+                  type="text"
+                  value={sellSearchQuery}
+                  onChange={(e) => setSellSearchQuery(e.target.value)}
+                  placeholder="Search tokens..."
+                  className="w-full bg-black border border-[#00D9FF]/50 p-2 text-[#00D9FF] text-sm placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF]"
+                />
+              </div>
+              {/* Token List */}
+              <div className="max-h-60 overflow-y-auto scrollbar-hide">
+                {filteredSellTokens.length === 0 ? (
+                  <div className="p-4 text-center text-[#00D9FF]/50 text-sm">No tokens found</div>
+                ) : (
+                  filteredSellTokens.map((token) => (
                 <button
                   key={token.a}
                   onClick={() => {
                     setSellToken(token);
                     localStorage.setItem('limitOrderSellToken', token.a);
                     setShowSellDropdown(false);
+                    setSellSearchQuery(''); // Clear search on selection
                   }}
                   className="w-full p-3 flex items-center space-x-3 hover:bg-[#00D9FF]/10 transition-all text-left border-b border-[#00D9FF]/20 last:border-b-0"
                 >
@@ -345,10 +392,12 @@ export function LimitOrderForm({
                   />
                   <div>
                     <div className="text-[#00D9FF] font-medium">{token.ticker}</div>
-                    <div className="text-[#39FF14] text-xs">{token.name}</div>
+                    <div className="text-[#00D9FF]/70 text-xs">{token.name}</div>
                   </div>
                 </button>
-              ))}
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -429,14 +478,31 @@ export function LimitOrderForm({
 
           {/* Dropdown */}
           {showBuyDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF]  max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
-              {availableTokens.map((token) => (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF] z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
+              {/* Search Input */}
+              <div className="sticky top-0 p-2 bg-black border-b border-[#00D9FF]/30">
+                <input
+                  ref={buySearchRef}
+                  type="text"
+                  value={buySearchQuery}
+                  onChange={(e) => setBuySearchQuery(e.target.value)}
+                  placeholder="Search tokens..."
+                  className="w-full bg-black border border-[#00D9FF]/50 p-2 text-[#00D9FF] text-sm placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF]"
+                />
+              </div>
+              {/* Token List */}
+              <div className="max-h-60 overflow-y-auto scrollbar-hide">
+                {filteredBuyTokens.length === 0 ? (
+                  <div className="p-4 text-center text-[#00D9FF]/50 text-sm">No tokens found</div>
+                ) : (
+                  filteredBuyTokens.map((token) => (
                 <button
                   key={token.a}
                   onClick={() => {
                     setBuyToken(token);
                     localStorage.setItem('limitOrderBuyToken', token.a);
                     setShowBuyDropdown(false);
+                    setBuySearchQuery(''); // Clear search on selection
                   }}
                   className="w-full p-3 flex items-center space-x-3 hover:bg-[#00D9FF]/10 transition-all text-left border-b border-[#00D9FF]/20 last:border-b-0"
                 >
@@ -453,7 +519,9 @@ export function LimitOrderForm({
                     <div className="text-[#00D9FF]/70 text-xs">{token.name}</div>
                   </div>
                 </button>
-              ))}
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
