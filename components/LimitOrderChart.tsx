@@ -23,9 +23,10 @@ interface ChartData {
 interface LimitOrderChartProps {
   sellTokenAddress?: string;
   buyTokenAddress?: string;
+  limitOrderPrice?: number;
 }
 
-export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrderChartProps) {
+export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice }: LimitOrderChartProps) {
   const [historicData, setHistoricData] = useState<ChartData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -219,6 +220,23 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
                 }}
               />
             )}
+            
+            {/* Limit Order Price Reference Line (Pink) */}
+            {limitOrderPrice && (
+              <ReferenceLine
+                y={limitOrderPrice}
+                stroke="#FF0080"
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                label={{
+                  value: `Limit: $${limitOrderPrice.toFixed(6)}`,
+                  fill: '#FF0080',
+                  fontSize: 12,
+                  position: 'left',
+                  style: { textShadow: '0 0 10px rgba(255,0,128,0.8)' }
+                }}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -233,6 +251,12 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
           <div className="w-8 h-1 border-t-2 border-dashed border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.8)]"></div>
           <span className="text-[#00D9FF]">Current Price</span>
         </div>
+        {limitOrderPrice && (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-1 border-t-2 border-dashed border-[#FF0080] shadow-[0_0_10px_rgba(255,0,128,0.8)]"></div>
+            <span className="text-[#FF0080]">Limit Order Price</span>
+          </div>
+        )}
       </div>
     </div>
   );

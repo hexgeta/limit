@@ -8,6 +8,7 @@ import { formatEther, parseEther } from 'viem';
 
 interface LimitOrderFormProps {
   onTokenChange?: (sellToken: string | undefined, buyToken: string | undefined) => void;
+  onLimitPriceChange?: (price: number | undefined) => void;
   onTransactionStart: () => void;
   onTransactionEnd: () => void;
   onTransactionSuccess: (message: string, txHash: string) => void;
@@ -46,6 +47,7 @@ const formatBalanceDisplay = (balance: string): string => {
 
 export function LimitOrderForm({
   onTokenChange,
+  onLimitPriceChange,
   onTransactionStart,
   onTransactionEnd,
   onTransactionSuccess,
@@ -164,11 +166,16 @@ export function LimitOrderForm({
       const currentLimitPrice = buyAmountNum / sellAmountNum;
       setLimitPrice(currentLimitPrice.toFixed(8));
       
+      // Notify parent of limit price change
+      if (onLimitPriceChange) {
+        onLimitPriceChange(currentLimitPrice);
+      }
+      
       // Calculate percentage above market
       const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
       setPricePercentage(percentageAboveMarket);
     }
-  }, [sellAmountNum, buyAmountNum, marketPrice]);
+  }, [sellAmountNum, buyAmountNum, marketPrice, onLimitPriceChange]);
 
   const handleCreateOrder = () => {
     // This would integrate with your existing CreatePositionModal logic
@@ -189,6 +196,11 @@ export function LimitOrderForm({
     setPricePercentage(percentage === 0 ? null : percentage);
     const newPrice = marketPrice * (1 + percentage / 100);
     setLimitPrice(newPrice.toFixed(8));
+    
+    // Notify parent of limit price change
+    if (onLimitPriceChange) {
+      onLimitPriceChange(newPrice);
+    }
     
     // Calculate new buy amount based on limit price
     const newBuyAmount = sellAmountNum * newPrice;
@@ -256,6 +268,11 @@ export function LimitOrderForm({
     // Clear limit price and percentage since they're no longer valid
     setLimitPrice('');
     setPricePercentage(null);
+    
+    // Notify parent of limit price change (cleared)
+    if (onLimitPriceChange) {
+      onLimitPriceChange(undefined);
+    }
     
     // Notify parent of token change
     if (onTokenChange) {

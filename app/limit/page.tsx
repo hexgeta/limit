@@ -15,6 +15,7 @@ export default function LimitPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sellTokenAddress, setSellTokenAddress] = useState<string | undefined>();
   const [buyTokenAddress, setBuyTokenAddress] = useState<string | undefined>();
+  const [limitOrderPrice, setLimitOrderPrice] = useState<number | undefined>();
 
   return (
     <>
@@ -38,6 +39,7 @@ export default function LimitPage() {
                 <LimitOrderChart 
                   sellTokenAddress={sellTokenAddress}
                   buyTokenAddress={buyTokenAddress}
+                  limitOrderPrice={limitOrderPrice}
                 />
               </div>
               
@@ -47,6 +49,9 @@ export default function LimitPage() {
                   onTokenChange={(sell, buy) => {
                     setSellTokenAddress(sell);
                     setBuyTokenAddress(buy);
+                  }}
+                  onLimitPriceChange={(price) => {
+                    setLimitOrderPrice(price);
                   }}
                   onTransactionStart={() => setIsTransactionLoading(true)}
                   onTransactionEnd={() => setIsTransactionLoading(false)}
