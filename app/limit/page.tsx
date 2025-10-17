@@ -12,6 +12,8 @@ export default function LimitPage() {
   const [isTransactionLoading, setIsTransactionLoading] = useState(false);
   const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [sellTokenAddress, setSellTokenAddress] = useState<string | undefined>();
+  const [buyTokenAddress, setBuyTokenAddress] = useState<string | undefined>();
 
   return (
     <>
@@ -35,12 +37,19 @@ export default function LimitPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Chart - Takes up 2 columns */}
               <div className="lg:col-span-2">
-                <LimitOrderChart />
+                <LimitOrderChart 
+                  sellTokenAddress={sellTokenAddress}
+                  buyTokenAddress={buyTokenAddress}
+                />
               </div>
               
               {/* Order Form - Takes up 1 column */}
               <div className="lg:col-span-1">
                 <LimitOrderForm
+                  onTokenChange={(sell, buy) => {
+                    setSellTokenAddress(sell);
+                    setBuyTokenAddress(buy);
+                  }}
                   onTransactionStart={() => setIsTransactionLoading(true)}
                   onTransactionEnd={() => setIsTransactionLoading(false)}
                   onTransactionSuccess={(message, txHash) => {

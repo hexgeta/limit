@@ -7,6 +7,7 @@ import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther, parseEther } from 'viem';
 
 interface LimitOrderFormProps {
+  onTokenChange?: (sellToken: string | undefined, buyToken: string | undefined) => void;
   onTransactionStart: () => void;
   onTransactionEnd: () => void;
   onTransactionSuccess: (message: string, txHash: string) => void;
@@ -44,6 +45,7 @@ const formatBalanceDisplay = (balance: string): string => {
 };
 
 export function LimitOrderForm({
+  onTokenChange,
   onTransactionStart,
   onTransactionEnd,
   onTransactionSuccess,
@@ -111,6 +113,13 @@ export function LimitOrderForm({
       if (defaultBuy) setBuyToken(defaultBuy);
     }
   }, []);
+
+  // Notify parent of token changes
+  useEffect(() => {
+    if (onTokenChange && (sellToken || buyToken)) {
+      onTokenChange(sellToken?.a, buyToken?.a);
+    }
+  }, [sellToken, buyToken, onTokenChange]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
