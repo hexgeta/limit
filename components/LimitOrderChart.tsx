@@ -31,7 +31,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const [historicData, setHistoricData] = useState<ChartData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('24h');
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d' | '1m' | '3m' | '1y' | 'all'>('24h');
 
   // Default to PLS -> HEX if no tokens provided
   const sellToken = sellTokenAddress || '0x000000000000000000000000000000000000dead'; // PLS
@@ -95,8 +95,51 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       // Fetch historic prices from PulseX subgraph
       const now = Date.now();
       const hourInMs = 60 * 60 * 1000;
-      const points = 20;
-      const timeStep = timeRange === '1h' ? hourInMs / points : timeRange === '6h' ? (6 * hourInMs) / points : (24 * hourInMs) / points;
+      const dayInMs = 24 * hourInMs;
+      
+      // Adjust points and timeframe based on selected range
+      let points: number;
+      let timeSpan: number;
+      
+      switch (timeRange) {
+        case '1h':
+          points = 20;
+          timeSpan = hourInMs;
+          break;
+        case '6h':
+          points = 20;
+          timeSpan = 6 * hourInMs;
+          break;
+        case '24h':
+          points = 24;
+          timeSpan = dayInMs;
+          break;
+        case '7d':
+          points = 28; // Every 6 hours
+          timeSpan = 7 * dayInMs;
+          break;
+        case '1m':
+          points = 30; // Daily data points
+          timeSpan = 30 * dayInMs;
+          break;
+        case '3m':
+          points = 30; // Every 3 days
+          timeSpan = 90 * dayInMs;
+          break;
+        case '1y':
+          points = 52; // Weekly data points
+          timeSpan = 365 * dayInMs;
+          break;
+        case 'all':
+          points = 100; // Maximum data points
+          timeSpan = 365 * 3 * dayInMs; // 3 years or since launch
+          break;
+        default:
+          points = 20;
+          timeSpan = dayInMs;
+      }
+      
+      const timeStep = timeSpan / points;
       
       const chartData: ChartData[] = [];
       
@@ -117,7 +160,11 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
           ratio = historicSellPrice / historicBuyPrice;
         } else {
           // Fallback to DexScreener price change estimation if subgraph data not available
-          const timeKey = timeRange === '1h' ? 'h1' : timeRange === '6h' ? 'h6' : 'h24';
+          // DexScreener only provides h1, h6, h24 - use closest match
+          let timeKey: 'h1' | 'h6' | 'h24' = 'h24';
+          if (timeRange === '1h') timeKey = 'h1';
+          else if (timeRange === '6h') timeKey = 'h6';
+          
           const sellPriceChange = sellPair.priceChange?.[timeKey] || 0;
           const buyPriceChange = buyPair.priceChange?.[timeKey] || 0;
           
@@ -130,8 +177,21 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
           ratio = oldRatio + (currentRatio - oldRatio) * progress;
         }
         
+        // Format date based on timeframe
+        let dateLabel: string;
+        if (timeRange === '1h' || timeRange === '6h' || timeRange === '24h') {
+          // Short timeframes: show time
+          dateLabel = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (timeRange === '7d') {
+          // Week: show day and time
+          dateLabel = new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+        } else {
+          // Long timeframes: show date
+          dateLabel = new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        
         chartData.push({
-          date: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          date: dateLabel,
           price: ratio,
           timestamp: timestamp,
         });
@@ -204,12 +264,12 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
         )}
 
         {/* Time Range Buttons */}
-        <div className="flex gap-2">
-          {(['1h', '6h', '24h'] as const).map((range) => (
+        <div className="flex flex-wrap gap-2">
+          {(['1h', '6h', '24h', '7d', '1m', '3m', '1y', 'all'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 text-sm font-medium transition-all duration-300 border-2 ${
+              className={`px-3 py-1.5 text-xs font-medium transition-all duration-300 border-2 ${
                 timeRange === range
                   ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF] shadow-[0_0_15px_rgba(0,217,255,0.5)]'
                   : 'bg-black text-[#00D9FF]/50 border-[#00D9FF]/30 hover:border-[#00D9FF] hover:text-[#00D9FF] hover:shadow-[0_0_10px_rgba(0,217,255,0.4)]'
