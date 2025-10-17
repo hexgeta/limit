@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { usePulseXHistoricPrices } from '@/hooks/crypto/usePulseXHistoricPrices';
+import { formatTokenTicker } from '@/utils/tokenUtils';
 
 interface ChartData {
   date: string;
@@ -252,7 +253,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
         <div className="bg-black border-2 border-[#00D9FF] p-3 shadow-[0_0_20px_rgba(0,217,255,0.5)]">
           <p className="text-[#00D9FF]/70 text-sm">{payload[0].payload.date}</p>
           <p className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.8)]">
-            {payload[0].value.toFixed(6)} {buyTokenInfo?.ticker || ''} per {sellTokenInfo?.ticker || ''}
+            {payload[0].value.toFixed(6)} {formatTokenTicker(buyTokenInfo?.ticker || '')} per {formatTokenTicker(sellTokenInfo?.ticker || '')}
           </p>
         </div>
       );
@@ -269,7 +270,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-4">
               <h3 className="text-2xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
-                {buyTokenInfo.ticker}/{sellTokenInfo.ticker}
+                {formatTokenTicker(buyTokenInfo.ticker)}/{formatTokenTicker(sellTokenInfo.ticker)}
               </h3>
               {currentPrice && (
                 <div className="flex items-center gap-2">

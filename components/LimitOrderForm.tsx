@@ -5,6 +5,7 @@ import { useAccount, useBalance } from 'wagmi';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther, parseEther } from 'viem';
+import { formatTokenTicker } from '@/utils/tokenUtils';
 
 interface LimitOrderFormProps {
   onTokenChange?: (sellToken: string | undefined, buyToken: string | undefined) => void;
@@ -342,7 +343,7 @@ export function LimitOrderForm({
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
                   />
-                  <span className="text-[#00D9FF] font-medium">{sellToken.ticker}</span>
+                  <span className="text-[#00D9FF] font-medium">{formatTokenTicker(sellToken.ticker)}</span>
                 </>
               ) : (
                 <span className="text-[#00D9FF]/50">Select token</span>
@@ -403,7 +404,7 @@ export function LimitOrderForm({
                     }}
                   />
                   <div>
-                    <div className="text-[#00D9FF] font-medium">{token.ticker}</div>
+                    <div className="text-[#00D9FF] font-medium">{formatTokenTicker(token.ticker)}</div>
                     <div className="text-[#00D9FF]/70 text-xs">{token.name}</div>
                   </div>
                 </button>
@@ -477,7 +478,7 @@ export function LimitOrderForm({
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
                   />
-                  <span className="text-[#00D9FF] font-medium">{buyToken.ticker}</span>
+                  <span className="text-[#00D9FF] font-medium">{formatTokenTicker(buyToken.ticker)}</span>
                 </>
               ) : (
                 <span className="text-[#00D9FF]/50">Select token</span>
@@ -538,7 +539,7 @@ export function LimitOrderForm({
                     }}
                   />
                   <div>
-                    <div className="text-[#00D9FF] font-medium">{token.ticker}</div>
+                    <div className="text-[#00D9FF] font-medium">{formatTokenTicker(token.ticker)}</div>
                     <div className="text-[#00D9FF]/70 text-xs">{token.name}</div>
                   </div>
                 </button>
@@ -572,7 +573,7 @@ export function LimitOrderForm({
                 type="button"
                 onClick={() => setInvertPriceDisplay(!invertPriceDisplay)}
                 className="p-1 text-[#00D9FF] hover:text-white transition-colors"
-                title={`Show price in ${invertPriceDisplay ? buyToken.ticker : sellToken.ticker}`}
+                title={`Show price in ${invertPriceDisplay ? formatTokenTicker(buyToken.ticker) : formatTokenTicker(sellToken.ticker)}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
@@ -604,7 +605,7 @@ export function LimitOrderForm({
           />
           {sellToken && buyToken && limitPrice && parseFloat(limitPrice) > 0 && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#00D9FF]/70 text-sm font-medium pointer-events-none">
-              {invertPriceDisplay ? `${sellToken.ticker}/${buyToken.ticker}` : `${buyToken.ticker}/${sellToken.ticker}`}
+              {invertPriceDisplay ? `${formatTokenTicker(sellToken.ticker)}/${formatTokenTicker(buyToken.ticker)}` : `${formatTokenTicker(buyToken.ticker)}/${formatTokenTicker(sellToken.ticker)}`}
             </div>
           )}
         </div>
