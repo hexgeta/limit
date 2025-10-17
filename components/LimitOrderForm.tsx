@@ -419,7 +419,7 @@ export function LimitOrderForm({
           <label className="text-gray-400 text-sm">Limit price</label>
           {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
             <span className={`text-sm ${pricePercentage > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {pricePercentage > 0 ? '+' : ''}{pricePercentage.toFixed(2)}%
+              {pricePercentage > 0 ? '+' : ''}{Math.round(pricePercentage)}%
             </span>
           )}
         </div>
