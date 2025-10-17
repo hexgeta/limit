@@ -32,61 +32,80 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('24h');
 
-  // Default to USDL if no sell token provided
-  const tokenAddress = sellTokenAddress || '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'; // USDL
+  // Default to USDL -> HEX if no tokens provided
+  const sellToken = sellTokenAddress || '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'; // USDL
+  const buyToken = buyTokenAddress || '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
 
   useEffect(() => {
     fetchDexScreenerData();
-  }, [tokenAddress, timeRange]);
+  }, [sellToken, buyToken, timeRange]);
 
   const fetchDexScreenerData = async () => {
-    if (!tokenAddress) return;
+    if (!sellToken || !buyToken) return;
     
     setLoading(true);
     try {
-      // Find the token config to get the pair address
-      const tokenConfig = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === tokenAddress.toLowerCase());
+      // Fetch both token configs
+      const sellTokenConfig = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === sellToken.toLowerCase());
+      const buyTokenConfig = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === buyToken.toLowerCase());
       
-      if (!tokenConfig || !tokenConfig.dexs) {
+      if (!sellTokenConfig?.dexs || !buyTokenConfig?.dexs) {
         setHistoricData([]);
         setLoading(false);
         return;
       }
 
-      const pairAddress = Array.isArray(tokenConfig.dexs) ? tokenConfig.dexs[0] : tokenConfig.dexs;
+      // Get pair addresses
+      const sellPairAddress = Array.isArray(sellTokenConfig.dexs) ? sellTokenConfig.dexs[0] : sellTokenConfig.dexs;
+      const buyPairAddress = Array.isArray(buyTokenConfig.dexs) ? buyTokenConfig.dexs[0] : buyTokenConfig.dexs;
       
-      // Fetch pair data from DexScreener
-      const response = await fetch(`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${pairAddress}`);
+      // Fetch both token prices from DexScreener
+      const [sellResponse, buyResponse] = await Promise.all([
+        fetch(`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${sellPairAddress}`),
+        fetch(`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${buyPairAddress}`)
+      ]);
       
-      if (!response.ok) {
+      if (!sellResponse.ok || !buyResponse.ok) {
         throw new Error('Failed to fetch DexScreener data');
       }
 
-      const data = await response.json();
-      const pair = data.pairs?.[0];
+      const [sellData, buyData] = await Promise.all([
+        sellResponse.json(),
+        buyResponse.json()
+      ]);
       
-      if (pair && pair.priceUsd) {
-        // Set current price
-        setCurrentPrice(parseFloat(pair.priceUsd));
+      const sellPair = sellData.pairs?.[0];
+      const buyPair = buyData.pairs?.[0];
+      
+      if (sellPair && buyPair && sellPair.priceUsd && buyPair.priceUsd) {
+        const sellPriceUsd = parseFloat(sellPair.priceUsd);
+        const buyPriceUsd = parseFloat(buyPair.priceUsd);
         
-        // DexScreener doesn't provide historical price arrays in their free API
-        // So we'll use the current price changes to show a simple chart
+        // Calculate ratio: how many buy tokens per sell token
+        const currentRatio = sellPriceUsd / buyPriceUsd;
+        setCurrentPrice(currentRatio);
+        
+        // Use average price change of both tokens for historical data
         const now = Date.now();
         const hourInMs = 60 * 60 * 1000;
         
-        // Create mock historical data based on price changes
-        const chartData: ChartData[] = [];
-        const priceChange = pair.priceChange?.[timeRange === '1h' ? 'h1' : timeRange === '6h' ? 'h6' : 'h24'] || 0;
-        const currentPriceNum = parseFloat(pair.priceUsd);
-        const oldPrice = currentPriceNum / (1 + priceChange / 100);
+        const timeKey = timeRange === '1h' ? 'h1' : timeRange === '6h' ? 'h6' : 'h24';
+        const sellPriceChange = sellPair.priceChange?.[timeKey] || 0;
+        const buyPriceChange = buyPair.priceChange?.[timeKey] || 0;
+        
+        // Calculate historical ratio
+        const oldSellPrice = sellPriceUsd / (1 + sellPriceChange / 100);
+        const oldBuyPrice = buyPriceUsd / (1 + buyPriceChange / 100);
+        const oldRatio = oldSellPrice / oldBuyPrice;
         
         // Generate data points
+        const chartData: ChartData[] = [];
         const points = 20;
         const timeStep = timeRange === '1h' ? hourInMs / points : timeRange === '6h' ? (6 * hourInMs) / points : (24 * hourInMs) / points;
         
         for (let i = 0; i <= points; i++) {
           const ratio = i / points;
-          const price = oldPrice + (currentPriceNum - oldPrice) * ratio;
+          const price = oldRatio + (currentRatio - oldRatio) * ratio;
           const timestamp = now - (points - i) * timeStep;
           
           chartData.push({
@@ -105,7 +124,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
     }
   };
 
-  const tokenInfo = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === tokenAddress.toLowerCase());
+  const sellTokenInfo = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === sellToken.toLowerCase());
+  const buyTokenInfo = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === buyToken.toLowerCase());
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
@@ -114,7 +134,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
         <div className="bg-black border-2 border-[#00D9FF] p-3 shadow-[0_0_20px_rgba(0,217,255,0.5)]">
           <p className="text-[#00D9FF]/70 text-sm">{payload[0].payload.date}</p>
           <p className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.8)]">
-            ${payload[0].value.toFixed(6)}
+            {payload[0].value.toFixed(6)} {buyTokenInfo?.ticker || ''} per {sellTokenInfo?.ticker || ''}
           </p>
         </div>
       );
@@ -126,14 +146,18 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
     <div className="w-full bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] p-6 shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Controls */}
       <div className="flex justify-between items-center gap-4 mb-6">
-        {/* Token Info */}
-        {tokenInfo && (
+        {/* Token Pair Info */}
+        {sellTokenInfo && buyTokenInfo && (
           <div className="flex items-center gap-4">
-            <h3 className="text-2xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">{tokenInfo.ticker}</h3>
+            <h3 className="text-2xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
+              {buyTokenInfo.ticker}/{sellTokenInfo.ticker}
+            </h3>
             {currentPrice && (
               <div className="flex items-center gap-2">
-                <span className="text-[#00D9FF]/70">Current Price:</span>
-                <span className="text-[#00D9FF] text-xl font-semibold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">${currentPrice.toFixed(6)}</span>
+                <span className="text-[#00D9FF]/70">Rate:</span>
+                <span className="text-[#00D9FF] text-xl font-semibold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
+                  {currentPrice.toFixed(6)}
+                </span>
               </div>
             )}
           </div>
@@ -185,7 +209,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
             <YAxis
               stroke="#00D9FF"
               tick={{ fill: '#00D9FF' }}
-              tickFormatter={(value) => `$${value.toFixed(6)}`}
+              tickFormatter={(value) => value.toFixed(6)}
               domain={(() => {
                 // Calculate min/max from historic data
                 const prices = historicData.map(d => d.price);
@@ -234,7 +258,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                 strokeWidth={3}
                 strokeDasharray="5 5"
                 label={{
-                  value: `Current: $${currentPrice.toFixed(6)}`,
+                  value: `Current: ${currentPrice.toFixed(6)}`,
                   fill: '#00D9FF',
                   fontSize: 12,
                   position: 'right',
@@ -251,7 +275,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 label={{
-                  value: `Limit: $${limitOrderPrice.toFixed(6)}`,
+                  value: `Limit: ${limitOrderPrice.toFixed(6)}`,
                   fill: '#FF0080',
                   fontSize: 12,
                   position: 'left',
