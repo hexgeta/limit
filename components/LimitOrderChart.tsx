@@ -110,9 +110,9 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
-          <p className="text-white text-sm">{payload[0].payload.date}</p>
-          <p className="text-green-400 text-sm font-semibold">
+        <div className="bg-black border-2 border-[#00D9FF] p-3 rounded-lg shadow-[0_0_20px_rgba(0,217,255,0.5)]">
+          <p className="text-[#00D9FF] text-sm">{payload[0].payload.date}</p>
+          <p className="text-[#39FF14] text-sm font-semibold drop-shadow-[0_0_5px_rgba(57,255,20,0.8)]">
             ${payload[0].value.toFixed(6)}
           </p>
         </div>
@@ -122,17 +122,17 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
   };
 
   return (
-    <div className="w-full bg-black/40 border border-gray-800 rounded-lg p-6">
+    <div className="w-full bg-black border-2 border-[#FF0080] rounded-lg p-6 shadow-[0_0_30px_rgba(255,0,128,0.3)]">
       {/* Controls */}
       <div className="flex justify-between items-center gap-4 mb-6">
         {/* Token Info */}
         {tokenInfo && (
           <div className="flex items-center gap-4">
-            <h3 className="text-2xl font-bold text-white">{tokenInfo.ticker}</h3>
+            <h3 className="text-2xl font-bold text-[#FF0080] drop-shadow-[0_0_10px_rgba(255,0,128,0.8)]">{tokenInfo.ticker}</h3>
             {currentPrice && (
               <div className="flex items-center gap-2">
-                <span className="text-gray-400">Current Price:</span>
-                <span className="text-green-400 text-xl font-semibold">${currentPrice.toFixed(6)}</span>
+                <span className="text-[#00D9FF]">Current Price:</span>
+                <span className="text-[#39FF14] text-xl font-semibold drop-shadow-[0_0_10px_rgba(57,255,20,0.8)]">${currentPrice.toFixed(6)}</span>
               </div>
             )}
           </div>
@@ -144,10 +144,10 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 border-2 ${
                 timeRange === range
-                  ? 'bg-purple-500/20 text-purple-400 border border-purple-400'
-                  : 'bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-700/50'
+                  ? 'bg-[#FF0080]/20 text-[#FF0080] border-[#FF0080] shadow-[0_0_15px_rgba(255,0,128,0.5)]'
+                  : 'bg-black text-[#00D9FF] border-[#00D9FF]/50 hover:border-[#00D9FF] hover:shadow-[0_0_10px_rgba(0,217,255,0.4)]'
               }`}
             >
               {range.toUpperCase()}
@@ -171,24 +171,24 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
             data={historicData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#FF0080" strokeOpacity={0.2} />
             <XAxis
               dataKey="date"
-              stroke="#9CA3AF"
-              tick={{ fill: '#9CA3AF' }}
+              stroke="#00D9FF"
+              tick={{ fill: '#00D9FF' }}
               tickFormatter={(value) => {
                 // Show fewer ticks on mobile
                 return value;
               }}
             />
             <YAxis
-              stroke="#9CA3AF"
-              tick={{ fill: '#9CA3AF' }}
+              stroke="#00D9FF"
+              tick={{ fill: '#00D9FF' }}
               tickFormatter={(value) => `$${value.toFixed(6)}`}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              wrapperStyle={{ color: '#9CA3AF' }}
+              wrapperStyle={{ color: '#00D9FF' }}
               iconType="line"
             />
             
@@ -196,25 +196,26 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
             <Line
               type="monotone"
               dataKey="price"
-              stroke="#10B981"
-              strokeWidth={2}
+              stroke="#39FF14"
+              strokeWidth={3}
               dot={false}
               name="Market Price"
-              activeDot={{ r: 6 }}
+              activeDot={{ r: 8, fill: '#39FF14', stroke: '#000', strokeWidth: 2 }}
             />
             
             {/* Current Price Reference Line */}
             {currentPrice && (
               <ReferenceLine
                 y={currentPrice}
-                stroke="#A855F7"
-                strokeWidth={2}
+                stroke="#FF0080"
+                strokeWidth={3}
                 strokeDasharray="5 5"
                 label={{
                   value: `Current: $${currentPrice.toFixed(6)}`,
-                  fill: '#A855F7',
+                  fill: '#FF0080',
                   fontSize: 12,
                   position: 'right',
+                  style: { textShadow: '0 0 10px rgba(255,0,128,0.8)' }
                 }}
               />
             )}
@@ -225,12 +226,12 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
       {/* Chart Legend */}
       <div className="mt-4 flex flex-wrap gap-4 justify-center text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-0.5 bg-green-500"></div>
-          <span className="text-gray-400">Price Trend</span>
+          <div className="w-8 h-1 bg-[#39FF14] shadow-[0_0_10px_rgba(57,255,20,0.8)]"></div>
+          <span className="text-[#39FF14]">Price Trend</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-0.5 border-t-2 border-dashed border-purple-500"></div>
-          <span className="text-gray-400">Current Price</span>
+          <div className="w-8 h-1 border-t-2 border-dashed border-[#FF0080] shadow-[0_0_10px_rgba(255,0,128,0.8)]"></div>
+          <span className="text-[#FF0080]">Current Price</span>
         </div>
       </div>
     </div>

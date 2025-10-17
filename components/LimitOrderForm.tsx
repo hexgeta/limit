@@ -235,16 +235,16 @@ export function LimitOrderForm({
   };
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6 h-full">
+    <div className="bg-black border-2 border-[#00D9FF] rounded-lg p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Sell Section */}
       <div className="mb-4">
-        <label className="text-gray-400 text-sm mb-2 block">Sell</label>
+        <label className="text-[#FF0080] text-sm mb-2 block font-semibold drop-shadow-[0_0_5px_rgba(255,0,128,0.5)]">SELL</label>
         
         {/* Token Selector */}
         <div className="relative mb-3" ref={sellDropdownRef}>
           <button
             onClick={() => setShowSellDropdown(!showSellDropdown)}
-            className="w-full bg-black border border-gray-600 rounded-lg p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="w-full bg-black border-2 border-[#00D9FF] rounded-lg p-3 flex items-center justify-between hover:bg-[#00D9FF]/10 transition-all shadow-[0_0_10px_rgba(0,217,255,0.3)]"
           >
             <div className="flex items-center space-x-3">
               {sellToken ? (
@@ -257,20 +257,20 @@ export function LimitOrderForm({
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
                   />
-                  <span className="text-white font-medium">{sellToken.ticker}</span>
+                  <span className="text-[#00D9FF] font-medium">{sellToken.ticker}</span>
                 </>
               ) : (
-                <span className="text-gray-400">Select token</span>
+                <span className="text-[#00D9FF]/50">Select token</span>
               )}
             </div>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#00D9FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           {/* Dropdown */}
           {showSellDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF] rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
               {whitelistedTokens.map((token) => (
                 <button
                   key={token.a}
@@ -279,7 +279,7 @@ export function LimitOrderForm({
                     localStorage.setItem('limitOrderSellToken', token.a);
                     setShowSellDropdown(false);
                   }}
-                  className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
+                  className="w-full p-3 flex items-center space-x-3 hover:bg-[#00D9FF]/10 transition-all text-left border-b border-[#00D9FF]/20 last:border-b-0"
                 >
                   <img
                     src={getTokenLogo(token.ticker)}
@@ -290,8 +290,8 @@ export function LimitOrderForm({
                     }}
                   />
                   <div>
-                    <div className="text-white font-medium">{token.ticker}</div>
-                    <div className="text-gray-400 text-xs">{token.name}</div>
+                    <div className="text-[#00D9FF] font-medium">{token.ticker}</div>
+                    <div className="text-[#39FF14] text-xs">{token.name}</div>
                   </div>
                 </button>
               ))}
@@ -305,21 +305,21 @@ export function LimitOrderForm({
           value={sellAmount}
           onChange={handleSellAmountChange}
           placeholder="0.00"
-          className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white text-2xl placeholder-gray-400 focus:outline-none focus:border-gray-500"
+          className="w-full bg-black border-2 border-[#FF0080] rounded-lg p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#FF0080] focus:shadow-[0_0_15px_rgba(255,0,128,0.5)] transition-all"
         />
         <div className="flex justify-between items-center mt-2">
-          <div className="text-gray-500 text-sm">
+          <div className="text-[#39FF14] text-sm font-semibold">
             {sellUsdValue > 0 ? `$${formatNumberWithCommas(sellUsdValue.toFixed(2))}` : '$0.00'}
           </div>
           {sellToken && actualBalance && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-xs">
+              <span className="text-[#00D9FF] text-xs">
                 Balance: {formatBalanceDisplay(actualBalance.formatted)}
               </span>
               <button
                 type="button"
                 onClick={handleMaxSellAmount}
-                className="text-blue-400 hover:text-white text-xs font-medium transition-colors"
+                className="text-[#FF0080] hover:text-[#39FF14] text-xs font-bold transition-colors drop-shadow-[0_0_5px_rgba(255,0,128,0.5)]"
               >
                 MAX
               </button>
@@ -330,8 +330,8 @@ export function LimitOrderForm({
 
       {/* Swap Arrow */}
       <div className="flex justify-center mb-4">
-        <button className="bg-gray-800 p-2 rounded-full hover:bg-gray-700 transition-colors">
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button className="bg-black border-2 border-[#FF0080] p-2 rounded-full hover:bg-[#FF0080]/20 transition-all shadow-[0_0_15px_rgba(255,0,128,0.4)]">
+          <svg className="w-5 h-5 text-[#FF0080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
         </button>
@@ -339,13 +339,13 @@ export function LimitOrderForm({
 
       {/* Buy Section */}
       <div className="mb-4">
-        <label className="text-gray-400 text-sm mb-2 block">Buy</label>
+        <label className="text-[#39FF14] text-sm mb-2 block font-semibold drop-shadow-[0_0_5px_rgba(57,255,20,0.5)]">BUY</label>
         
         {/* Token Selector */}
         <div className="relative mb-3" ref={buyDropdownRef}>
           <button
             onClick={() => setShowBuyDropdown(!showBuyDropdown)}
-            className="w-full bg-black border border-gray-600 rounded-lg p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="w-full bg-black border-2 border-[#39FF14] rounded-lg p-3 flex items-center justify-between hover:bg-[#39FF14]/10 transition-all shadow-[0_0_10px_rgba(57,255,20,0.3)]"
           >
             <div className="flex items-center space-x-3">
               {buyToken ? (
@@ -358,20 +358,20 @@ export function LimitOrderForm({
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
                   />
-                  <span className="text-white font-medium">{buyToken.ticker}</span>
+                  <span className="text-[#39FF14] font-medium">{buyToken.ticker}</span>
                 </>
               ) : (
-                <span className="text-gray-400">Select token</span>
+                <span className="text-[#39FF14]/50">Select token</span>
               )}
             </div>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#39FF14]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           {/* Dropdown */}
           {showBuyDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#39FF14] rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(57,255,20,0.4)]">
               {whitelistedTokens.map((token) => (
                 <button
                   key={token.a}
@@ -380,7 +380,7 @@ export function LimitOrderForm({
                     localStorage.setItem('limitOrderBuyToken', token.a);
                     setShowBuyDropdown(false);
                   }}
-                  className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
+                  className="w-full p-3 flex items-center space-x-3 hover:bg-[#39FF14]/10 transition-all text-left border-b border-[#39FF14]/20 last:border-b-0"
                 >
                   <img
                     src={getTokenLogo(token.ticker)}
@@ -391,8 +391,8 @@ export function LimitOrderForm({
                     }}
                   />
                   <div>
-                    <div className="text-white font-medium">{token.ticker}</div>
-                    <div className="text-gray-400 text-xs">{token.name}</div>
+                    <div className="text-[#39FF14] font-medium">{token.ticker}</div>
+                    <div className="text-[#00D9FF] text-xs">{token.name}</div>
                   </div>
                 </button>
               ))}
@@ -406,9 +406,9 @@ export function LimitOrderForm({
           value={buyAmount}
           onChange={handleBuyAmountChange}
           placeholder="0.00"
-          className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white text-2xl placeholder-gray-400 focus:outline-none focus:border-gray-500"
+          className="w-full bg-black border-2 border-[#39FF14] rounded-lg p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#39FF14] focus:shadow-[0_0_15px_rgba(57,255,20,0.5)] transition-all"
         />
-        <div className="text-gray-500 text-sm mt-2">
+        <div className="text-[#39FF14] text-sm mt-2 font-semibold">
           {buyUsdValue > 0 ? `$${formatNumberWithCommas(buyUsdValue.toFixed(2))}` : '$0.00'}
         </div>
       </div>
@@ -416,9 +416,9 @@ export function LimitOrderForm({
       {/* Limit Price Section */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <label className="text-gray-400 text-sm">Limit price</label>
+          <label className="text-[#FF0080] text-sm font-semibold drop-shadow-[0_0_5px_rgba(255,0,128,0.5)]">LIMIT PRICE</label>
           {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
-            <span className={`text-sm ${pricePercentage > 0 ? 'text-green-500' : 'text-red-500'}`}>
+            <span className={`text-sm font-bold drop-shadow-[0_0_10px_rgba(57,255,20,0.8)] ${pricePercentage > 0 ? 'text-[#39FF14]' : 'text-[#FF0080]'}`}>
               {pricePercentage > 0 ? '+' : ''}{Math.round(pricePercentage)}%
             </span>
           )}
@@ -428,7 +428,7 @@ export function LimitOrderForm({
           value={limitPrice}
           onChange={(e) => setLimitPrice(e.target.value)}
           placeholder="0.00000000"
-          className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white text-lg placeholder-gray-400 focus:outline-none focus:border-gray-500"
+          className="w-full bg-black border-2 border-[#FF0080] rounded-lg p-3 text-[#00D9FF] text-lg placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#FF0080] transition-all cursor-not-allowed opacity-80"
           disabled
         />
       </div>
@@ -437,55 +437,57 @@ export function LimitOrderForm({
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => handlePercentageClick(0)}
-          className="flex-1 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           Market
         </button>
         <button
           onClick={() => handlePercentageClick(1)}
-          className="flex-1 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           1% ↑
         </button>
         <button
           onClick={() => handlePercentageClick(2)}
-          className="flex-1 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           2% ↑
         </button>
         <button
           onClick={() => handlePercentageClick(5)}
-          className="flex-1 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           5% ↑
         </button>
         <button
           onClick={() => handlePercentageClick(10)}
-          className="flex-1 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           10% ↑
         </button>
       </div>
 
       {/* You Receive Section */}
-      <div className="mb-6 pb-6 border-b border-gray-800">
+      <div className="mb-6 pb-6 border-b-2 border-[#FF0080]/30">
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-400">You receive (incl. fee)</span>
-          <span className="text-white">69.257194 {buyToken?.ticker || 'LINK'}</span>
+          <span className="text-[#00D9FF] font-medium">You receive (incl. fee)</span>
+          <span className="text-[#39FF14] font-bold drop-shadow-[0_0_5px_rgba(57,255,20,0.5)]">
+            {buyAmountNum > 0 ? `${formatNumberWithCommas(buyAmountNum.toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
+          </span>
         </div>
       </div>
 
       {/* Connect/Submit Button */}
       {!isConnected ? (
-        <button className="w-full py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-colors">
-          Connect EVM wallet
+        <button className="w-full py-4 bg-black text-[#FF0080] border-2 border-[#FF0080] rounded-full font-bold hover:bg-[#FF0080] hover:text-black transition-all shadow-[0_0_20px_rgba(255,0,128,0.5)] hover:shadow-[0_0_30px_rgba(255,0,128,0.8)] text-lg tracking-wider">
+          CONNECT EVM WALLET
         </button>
       ) : (
         <button
           onClick={handleCreateOrder}
-          className="w-full py-4 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors"
+          className="w-full py-4 bg-[#FF0080] text-black border-2 border-[#FF0080] rounded-full font-bold hover:bg-black hover:text-[#FF0080] transition-all shadow-[0_0_20px_rgba(255,0,128,0.5)] hover:shadow-[0_0_30px_rgba(255,0,128,0.8)] text-lg tracking-wider"
         >
-          Create Limit Order
+          CREATE LIMIT ORDER
         </button>
       )}
     </div>

@@ -37,10 +37,10 @@ export const ConnectButton = () => {
       <button
         onClick={() => open()}
         disabled={isTransactionPending}
-        className={`px-4 md:px-8 py-2 md:py-3 rounded-full font-semibold transition-colors text-sm md:text-base ${
+        className={`px-4 md:px-8 py-2 md:py-3 rounded-full font-semibold transition-all text-sm md:text-base border-2 ${
           isTransactionPending 
-            ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
-            : 'bg-white text-black hover:bg-gray-200'
+            ? 'bg-gray-900 text-gray-600 border-gray-700 cursor-not-allowed' 
+            : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF] hover:text-black shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]'
         }`}
       >
         {isTransactionPending ? (
@@ -59,9 +59,9 @@ export const ConnectButton = () => {
     <>
       <button
         onClick={handleConnectClick}
-        className="px-4 md:px-8 py-2 md:py-3 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-colors text-sm md:text-base"
+        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#FF0080] border-2 border-[#FF0080] rounded-full font-semibold hover:bg-[#FF0080] hover:text-black transition-all text-sm md:text-base shadow-[0_0_15px_rgba(255,0,128,0.5)] hover:shadow-[0_0_25px_rgba(255,0,128,0.8)]"
       >
-        Connect Wallet
+        CONNECT WALLET
       </button>
       <DisclaimerDialog 
         open={showDisclaimer}

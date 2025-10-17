@@ -22,10 +22,10 @@ export default function LimitPage() {
         {/* Hero Section */}
         <div className="w-full px-2 md:px-8 mt-24 mb-6 bg-black">
           <div className="max-w-[1400px] mx-auto text-center">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-2">
-              Limit Orders
+            <h2 className="text-3xl md:text-5xl font-bold neon-text-pink mb-2 tracking-wider">
+              LIMIT ORDERS
             </h2>
-            <p className="text-md md:text-xl text-gray-400">
+            <p className="text-md md:text-xl text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.5)]">
               Set your price and let the market come to you
             </p>
           </div>
