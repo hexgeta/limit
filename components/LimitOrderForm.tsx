@@ -185,7 +185,8 @@ export function LimitOrderForm({
   const handlePercentageClick = (percentage: number) => {
     if (!marketPrice || !sellAmountNum) return;
     
-    setPricePercentage(percentage);
+    // Set percentage to null for market price (0%), so it doesn't show
+    setPricePercentage(percentage === 0 ? null : percentage);
     const newPrice = marketPrice * (1 + percentage / 100);
     setLimitPrice(newPrice.toFixed(8));
     
@@ -416,7 +417,7 @@ export function LimitOrderForm({
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
           <label className="text-gray-400 text-sm">Limit price</label>
-          {pricePercentage !== null && pricePercentage !== 0 && (
+          {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
             <span className={`text-sm ${pricePercentage > 0 ? 'text-green-500' : 'text-red-500'}`}>
               {pricePercentage > 0 ? '+' : ''}{pricePercentage.toFixed(2)}%
             </span>
