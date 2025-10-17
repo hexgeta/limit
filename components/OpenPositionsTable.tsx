@@ -1848,7 +1848,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           }}
           className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'active'
-              ? 'bg-green-500/20 text-green-400 border-green-400'
+              ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
