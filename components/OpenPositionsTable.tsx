@@ -1897,14 +1897,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-white/10  text-white placeholder-gray-500 focus:outline-none focus:border-white/10 focus:bg-black/10 transition-colors"
+            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-[#00D9FF]  text-[#00D9FF] placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:bg-black/10 transition-colors shadow-[0_0_10px_rgba(0,217,255,0.3)]"
           />
         </div>
       </div>
 
       <div 
-        className={`bg-black border-2 border-white/10  p-6 transition-all duration-500 ease-out ${
-          expandedPositions.size > 0 ? 'shadow-2xl shadow-white/10' : ''
+        className={`bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  p-6 transition-all duration-500 ease-out shadow-[0_0_30px_rgba(0,217,255,0.3)] ${
+          expandedPositions.size > 0 ? 'shadow-[0_0_50px_rgba(0,217,255,0.5)]' : ''
         }`}
         style={{ 
           minHeight: '200px',
@@ -1934,15 +1934,15 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             <div className="w-full min-w-[800px] text-lg">
             {/* Table Header */}
             <div 
-              className={`grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-center gap-4 pb-4 border-b border-white/10 ${
+              className={`grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-center gap-4 pb-4 border-b border-[#00D9FF]/30 ${
                 expandedPositions.size > 0 ? 'opacity-90' : 'opacity-100'
               }`}
             >
               {/* COLUMN 1: Token For Sale */}
               <button 
                 onClick={() => handleSort('sellAmount')}
-                className={`text-sm font-medium text-left hover:text-white transition-colors ${
-                  sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
+                className={`text-sm font-medium text-left hover:text-[#00D9FF] transition-colors ${
+                  sortField === 'sellAmount' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
                 }`}
               >
                             {statusFilter === 'completed' ? 'Sold' : 'For Sale'} {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -1951,8 +1951,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 2: Asking For */}
               <button 
                 onClick={() => handleSort('askingFor')}
-                className={`text-sm font-medium text-left hover:text-white transition-colors ${
-                  sortField === 'askingFor' ? 'text-white' : 'text-gray-400'
+                className={`text-sm font-medium text-left hover:text-[#00D9FF] transition-colors ${
+                  sortField === 'askingFor' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
                 }`}
               >
                             {statusFilter === 'completed' ? 'Bought' : 'Asking For'} {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -1961,8 +1961,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 3: Fill Status % */}
               <button 
                 onClick={() => handleSort('progress')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'progress' ? 'text-white' : 'text-gray-400'
+                className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+                  sortField === 'progress' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
                 }`}
               >
                 Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -1971,8 +1971,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 4: OTC % */}
               <button 
                 onClick={() => handleSort('otcVsMarket')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'otcVsMarket' ? 'text-white' : 'text-gray-400'
+                className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+                  sortField === 'otcVsMarket' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
                 }`}
               >
                 OTC vs Market Price {sortField === 'otcVsMarket' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -1981,8 +1981,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 5: Status */}
               <button 
                 onClick={() => handleSort('status')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'status' ? 'text-white' : 'text-gray-400'
+                className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+                  sortField === 'status' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
                 }`}
               >
                 Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -1991,15 +1991,15 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               {/* COLUMN 6: Expires */}
               <button 
                 onClick={() => handleSort('date')}
-                className={`text-sm font-medium text-center hover:text-white transition-colors ${
-                  sortField === 'date' ? 'text-white' : 'text-gray-400'
+                className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+                  sortField === 'date' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
                 }`}
               >
                 Expires {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </button>
               
               {/* COLUMN 7: Actions / Order ID */}
-              <div className="text-sm font-medium text-center text-gray-400">
+              <div className="text-sm font-medium text-center text-[#00D9FF]/60">
                 {statusFilter === 'inactive' ? 'Order ID' : ''}
             </div>
             </div>
@@ -2150,7 +2150,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                 return (
                   <div key={`${orderId}-${tokenFilter}-${ownershipFilter}-${statusFilter}`} data-order-id={orderId}
                       className={`grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-start gap-4 py-8 ${
-                        index < displayOrders.length - 1 ? 'border-b border-white/10' : ''
+                        index < displayOrders.length - 1 ? 'border-b border-[#00D9FF]/20' : ''
                       }`}
                     >
                     {/* COLUMN 1: Token For Sale Content */}
@@ -2410,14 +2410,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   {/* Expandable Actions Shelf */}
                     {expandedPositions.has(order.orderDetailsWithId.orderId.toString()) && (
                       <div
-                        className="col-span-full  mt-2 border border-white/10 bg-white/5 w-full"
+                        className="col-span-full  mt-2 border-2 border-[#00D9FF] bg-black/60 backdrop-blur-sm w-full shadow-[0_0_20px_rgba(0,217,255,0.3)]"
                       >
                         <div className="p-3">
                           <div className="flex flex-col space-y-2">
                             <h4 className="text-white font-medium text-xl">Your Trade</h4>
                             
                             {/* Offer Input Fields */}
-                            <div className="mt-3 pt-3 border-t border-white/10">
+                            <div className="mt-3 pt-3 border-t border-[#00D9FF]/30">
                               <h5 className="text-white font-medium text-xs mb-2">You pay:</h5>
                               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {order.orderDetailsWithId.orderDetails.buyTokensIndex.map((tokenIndex: bigint, idx: number) => {
@@ -2552,7 +2552,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                             )}
                                           </div>
                                         </div>
-                                        <div className="border-t border-white/10 pt-1">
+                                        <div className="border-t border-[#00D9FF]/30 pt-1">
                                           <div className="flex justify-between">
                                             <span className="text-white font-bold">You Pay:</span>
                                             <div className="flex items-center space-x-1">
@@ -2617,7 +2617,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               )}
 
                               {/* Submit Section */}
-                              <div className="mt-4 pt-3 border-t border-white/10">
+                              <div className="mt-4 pt-3 border-t border-[#00D9FF]/30">
                                 {(() => {
                                   const orderId = order.orderDetailsWithId.orderId.toString();
                                   const currentInputs = offerInputs[orderId];
@@ -2651,7 +2651,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             
                             {/* Owner Actions - Only show for user's own orders */}
                             {address && order.userDetails.orderOwner.toLowerCase() === address.toLowerCase() && (
-                              <div className="mt-3 pt-3 border-t border-white/10">
+                              <div className="mt-3 pt-3 border-t border-[#00D9FF]/30">
                                 <div className="flex gap-2">
                                   {/* Cancel Button */}
                                   <button

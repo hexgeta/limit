@@ -392,12 +392,12 @@ export default function OrderHistoryTable({
   return (
     <div className="w-full min-w-[800px] text-lg">
       {/* Table Header */}
-      <div className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-center gap-4 pb-4 border-b border-white/10">
+      <div className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-center gap-4 pb-4 border-b border-[#00D9FF]/30">
         {/* COLUMN 1: You Bought */}
         <button 
           onClick={() => handleSort('sellAmount')}
-          className={`text-sm font-medium text-left hover:text-white transition-colors ${
-            sortField === 'sellAmount' ? 'text-white' : 'text-gray-400'
+          className={`text-sm font-medium text-left hover:text-[#00D9FF] transition-colors ${
+            sortField === 'sellAmount' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
           }`}
         >
           You Bought {sortField === 'sellAmount' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -406,8 +406,8 @@ export default function OrderHistoryTable({
         {/* COLUMN 2: You Paid */}
         <button 
           onClick={() => handleSort('askingFor')}
-          className={`text-sm font-medium text-left hover:text-white transition-colors ${
-            sortField === 'askingFor' ? 'text-white' : 'text-gray-400'
+          className={`text-sm font-medium text-left hover:text-[#00D9FF] transition-colors ${
+            sortField === 'askingFor' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
           }`}
         >
           You Paid {sortField === 'askingFor' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -416,8 +416,8 @@ export default function OrderHistoryTable({
         {/* COLUMN 3: Fill Status % */}
         <button 
           onClick={() => handleSort('progress')}
-          className={`text-sm font-medium text-center hover:text-white transition-colors ${
-            sortField === 'progress' ? 'text-white' : 'text-gray-400'
+          className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+            sortField === 'progress' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
           }`}
         >
           Your Tx vs Order Filled Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
@@ -426,30 +426,30 @@ export default function OrderHistoryTable({
         {/* COLUMN 4: OTC % */}
         <button 
           onClick={() => handleSort('otcVsMarket')}
-          className={`text-sm font-medium text-center hover:text-white transition-colors ${
-            sortField === 'otcVsMarket' ? 'text-white' : 'text-gray-400'
+          className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+            sortField === 'otcVsMarket' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
           }`}
         >
           OTC vs Market Price {sortField === 'otcVsMarket' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
         </button>
         
         {/* COLUMN 5: Status */}
-        <div className="text-sm font-medium text-center text-gray-400">
+        <div className="text-sm font-medium text-center text-[#00D9FF]/60">
           Status
         </div>
         
         {/* COLUMN 6: Date */}
         <button 
           onClick={() => handleSort('date')}
-          className={`text-sm font-medium text-center hover:text-white transition-colors ${
-            sortField === 'date' ? 'text-white' : 'text-gray-400'
+          className={`text-sm font-medium text-center hover:text-[#00D9FF] transition-colors ${
+            sortField === 'date' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
           }`}
         >
           Tx Date {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
         </button>
         
         {/* COLUMN 7: Actions */}
-        <div className="text-sm font-medium text-center text-gray-400">
+        <div className="text-sm font-medium text-center text-[#00D9FF]/60">
           
         </div>
       </div>
@@ -583,7 +583,7 @@ export default function OrderHistoryTable({
           <div
             key={transaction.transactionHash}
             className={`grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-start gap-4 py-8 ${
-              displayRows.indexOf(displayRows.find(r => r.transaction.transactionHash === transaction.transactionHash)!) < displayRows.length - 1 ? 'border-b border-white/10' : ''
+              displayRows.indexOf(displayRows.find(r => r.transaction.transactionHash === transaction.transactionHash)!) < displayRows.length - 1 ? 'border-b border-[#00D9FF]/20' : ''
             }`}
           >
             {/* COLUMN 1: You Bought Content */}
