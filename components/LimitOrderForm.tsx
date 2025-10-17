@@ -622,25 +622,37 @@ export function LimitOrderForm({
           onClick={() => handlePercentageClick(1)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          1% {priceDirection === 'above' ? '↑' : '↓'}
+          1% {(() => {
+            const showUp = priceDirection === 'above';
+            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
+          })()}
         </button>
         <button
           onClick={() => handlePercentageClick(2)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          2% {priceDirection === 'above' ? '↑' : '↓'}
+          2% {(() => {
+            const showUp = priceDirection === 'above';
+            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
+          })()}
         </button>
         <button
           onClick={() => handlePercentageClick(5)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          5% {priceDirection === 'above' ? '↑' : '↓'}
+          5% {(() => {
+            const showUp = priceDirection === 'above';
+            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
+          })()}
         </button>
         <button
           onClick={() => handlePercentageClick(10)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          10% {priceDirection === 'above' ? '↑' : '↓'}
+          10% {(() => {
+            const showUp = priceDirection === 'above';
+            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
+          })()}
         </button>
       </div>
 
