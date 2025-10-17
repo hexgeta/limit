@@ -116,8 +116,8 @@ export function LimitOrderForm({
         setSellToken(token);
       }
     } else {
-      // Default to USDL
-      const defaultSell = availableTokens.find(t => t.a?.toLowerCase() === '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'); // USDL
+      // Default to PLS
+      const defaultSell = availableTokens.find(t => t.a?.toLowerCase() === '0x000000000000000000000000000000000000dead'); // PLS
       if (defaultSell) setSellToken(defaultSell);
     }
     
@@ -375,8 +375,19 @@ export function LimitOrderForm({
                 <button
                   key={token.a}
                   onClick={() => {
-                    setSellToken(token);
-                    localStorage.setItem('limitOrderSellToken', token.a);
+                    // If selecting the same token as buy side, swap them
+                    if (buyToken && token.a.toLowerCase() === buyToken.a.toLowerCase()) {
+                      // Swap tokens
+                      setBuyToken(sellToken);
+                      setSellToken(token);
+                      if (sellToken) {
+                        localStorage.setItem('limitOrderBuyToken', sellToken.a);
+                      }
+                      localStorage.setItem('limitOrderSellToken', token.a);
+                    } else {
+                      setSellToken(token);
+                      localStorage.setItem('limitOrderSellToken', token.a);
+                    }
                     setShowSellDropdown(false);
                     setSellSearchQuery(''); // Clear search on selection
                   }}
@@ -499,8 +510,19 @@ export function LimitOrderForm({
                 <button
                   key={token.a}
                   onClick={() => {
-                    setBuyToken(token);
-                    localStorage.setItem('limitOrderBuyToken', token.a);
+                    // If selecting the same token as sell side, swap them
+                    if (sellToken && token.a.toLowerCase() === sellToken.a.toLowerCase()) {
+                      // Swap tokens
+                      setSellToken(buyToken);
+                      setBuyToken(token);
+                      if (buyToken) {
+                        localStorage.setItem('limitOrderSellToken', buyToken.a);
+                      }
+                      localStorage.setItem('limitOrderBuyToken', token.a);
+                    } else {
+                      setBuyToken(token);
+                      localStorage.setItem('limitOrderBuyToken', token.a);
+                    }
                     setShowBuyDropdown(false);
                     setBuySearchQuery(''); // Clear search on selection
                   }}

@@ -32,8 +32,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('24h');
 
-  // Default to USDL -> HEX if no tokens provided
-  const sellToken = sellTokenAddress || '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'; // USDL
+  // Default to PLS -> HEX if no tokens provided
+  const sellToken = sellTokenAddress || '0x000000000000000000000000000000000000dead'; // PLS
   const buyToken = buyTokenAddress || '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
 
   useEffect(() => {
