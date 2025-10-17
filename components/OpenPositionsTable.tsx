@@ -1774,8 +1774,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     <div 
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
-      {/* Level 1: Token Type Filter - Hidden (forced to MAXI) */}
-      <div className="hidden">
+      {/* Level 1: Token Type Filter */}
+      <div className="flex justify-center mb-4 gap-4">
         <button
           onClick={() => {
             setTokenFilter('maxi');
