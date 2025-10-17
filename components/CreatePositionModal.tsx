@@ -7,7 +7,6 @@ import PaywallModal from './PaywallModal';
 import { Slider } from '@/components/ui/slider';
 import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, parseTokenAmount, formatTokenAmount } from '@/utils/tokenUtils';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
-import { MORE_COINS } from '@/constants/more-coins';
 import { useTokenStats } from '@/hooks/crypto/useTokenStats';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { useContractWhitelist } from '@/hooks/contracts/useContractWhitelist';

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAccount, useBalance } from 'wagmi';
-import { WHITELISTED_TOKENS } from '@/constants/crypto';
+import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
 import { formatEther, parseEther } from 'viem';
 
@@ -67,10 +67,11 @@ export function LimitOrderForm({
   const sellDropdownRef = useRef<HTMLDivElement>(null);
   const buyDropdownRef = useRef<HTMLDivElement>(null);
 
-  const whitelistedTokens = WHITELISTED_TOKENS;
+  // Use all tokens from TOKEN_CONSTANTS
+  const availableTokens = TOKEN_CONSTANTS.filter(t => t.a && t.dexs); // Only tokens with addresses and dex pairs
 
   // Get all token addresses for price fetching
-  const tokenAddresses = whitelistedTokens.map(t => t.a).filter(Boolean) as string[];
+  const tokenAddresses = availableTokens.map(t => t.a).filter(Boolean) as string[];
   
   // Fetch token prices
   const { prices, isLoading: pricesLoading } = useTokenPrices(tokenAddresses);
@@ -95,24 +96,24 @@ export function LimitOrderForm({
     const savedBuyToken = localStorage.getItem('limitOrderBuyToken');
     
     if (savedSellToken) {
-      const token = whitelistedTokens.find(t => t.a?.toLowerCase() === savedSellToken.toLowerCase());
+      const token = availableTokens.find(t => t.a?.toLowerCase() === savedSellToken.toLowerCase());
       if (token) {
         setSellToken(token);
       }
     } else {
       // Default to USDL
-      const defaultSell = whitelistedTokens.find(t => t.a?.toLowerCase() === '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'); // USDL
+      const defaultSell = availableTokens.find(t => t.a?.toLowerCase() === '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'); // USDL
       if (defaultSell) setSellToken(defaultSell);
     }
     
     if (savedBuyToken) {
-      const token = whitelistedTokens.find(t => t.a?.toLowerCase() === savedBuyToken.toLowerCase());
+      const token = availableTokens.find(t => t.a?.toLowerCase() === savedBuyToken.toLowerCase());
       if (token) {
         setBuyToken(token);
       }
     } else {
       // Default to HEX
-      const defaultBuy = whitelistedTokens.find(t => t.a?.toLowerCase() === '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'); // HEX
+      const defaultBuy = availableTokens.find(t => t.a?.toLowerCase() === '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'); // HEX
       if (defaultBuy) setBuyToken(defaultBuy);
     }
   }, []);
@@ -324,7 +325,7 @@ export function LimitOrderForm({
           {/* Dropdown */}
           {showSellDropdown && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF]  max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
-              {whitelistedTokens.map((token) => (
+              {availableTokens.map((token) => (
                 <button
                   key={token.a}
                   onClick={() => {
@@ -429,7 +430,7 @@ export function LimitOrderForm({
           {/* Dropdown */}
           {showBuyDropdown && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF]  max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
-              {whitelistedTokens.map((token) => (
+              {availableTokens.map((token) => (
                 <button
                   key={token.a}
                   onClick={() => {
