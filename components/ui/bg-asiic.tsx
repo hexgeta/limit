@@ -3,6 +3,48 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
+// ===== EASY CONTROLS - ADJUST THESE =====
+// Animation Speed (0.001 - 0.1, default: 0.02)
+const ANIMATION_SPEED = 0.02;
+
+// Noise Settings
+const NOISE_STRENGTH = 0.15;  // 0.0 - 1.0, default: 0.15
+const NOISE_SCALE = 0.003;     // 0.001 - 0.01, default: 0.003
+
+// Character Settings
+const CELL_SIZE = 18;          // 8 - 40, default: 18 (smaller = more dense)
+const CHARSET = 2;             // 0 = Full, 1 = Minimal, 2 = Medium
+const GLYPH_SHARPNESS = 0.08;  // 0.01 - 0.2, default: 0.08
+
+// Color Settings (RGB 0.0 - 1.0)
+const TINT_R = 0.2;            // Red channel
+const TINT_G = 1.0;            // Green channel
+const TINT_B = 1.0;            // Blue channel
+const HUE = 180;               // 0 - 360, default: 180 (cyan)
+const SATURATION = 1.2;        // 0.0 - 2.0, default: 1.2
+const BRIGHTNESS = 1.5;        // 0.5 - 3.0, default: 1.5
+const CONTRAST = 1.5;          // 0.5 - 3.0, default: 1.5
+const GAMMA = 1.5;             // 0.5 - 2.0, default: 1.5
+
+// Distortion Effects
+const DISTORT_AMP = 1.5;       // 0.0 - 5.0, default: 1.5
+const FREQUENCY = 4;           // 1 - 10, default: 4
+const Z_RATE = 0.15;           // 0.0 - 1.0, default: 0.15
+
+// Vignette Settings
+const VIGNETTE_STRENGTH = 1.0; // 0.0 - 1.0, default: 1.0
+const VIGNETTE_SOFTNESS = 2.0; // 0.1 - 3.0, default: 2.0
+
+// Black Overlay Vignette
+const OVERLAY_OPACITY = 0.3;   // 0.0 - 1.0, default: 0.3 (0 = no overlay, 1 = fully black edges)
+const OVERLAY_BLUR = 200;      // 0 - 500px, default: 200
+
+// Background Color (RGB 0.0 - 1.0)
+const BG_R = 0.0;
+const BG_G = 0.0;
+const BG_B = 0.0;
+// ===== END CONTROLS =====
+
 type Gl = WebGL2RenderingContext;
 
 interface AsciiNoiseEffectProps {
@@ -295,27 +337,28 @@ const quad = (gl: Gl) => {
   return { vao, vbo };
 };
 
-export const AsciiNoiseEffect = ({ noiseStrength = 0.29,
-  noiseScale = 0.0022,
-  speed = 0.01,
-  cell = 26,
+export const AsciiNoiseEffect = ({ 
+  noiseStrength = NOISE_STRENGTH,
+  noiseScale = NOISE_SCALE,
+  speed = ANIMATION_SPEED,
+  cell = CELL_SIZE,
   bw = false,
-  charset = 0,
-  tint = [1, 1, 1],
-  distortAmp = 2,
-  frequency = 3,
-  zRate = 0.1,
-  brightness = 2,
-  contrast = 2,
+  charset = CHARSET,
+  tint = [TINT_R, TINT_G, TINT_B],
+  distortAmp = DISTORT_AMP,
+  frequency = FREQUENCY,
+  zRate = Z_RATE,
+  brightness = BRIGHTNESS,
+  contrast = CONTRAST,
   seed1 = 6.455226246029247,
   seed2 = 1.7883889557042332,
-  hue = 360,
-  sat = 1,
-  gamma = 2,
-  vignette = 1,
-  vignetteSoftness = 0.75,
-  glyphSharpness = 0.065,
-  bg = [0, 0, 0],
+  hue = HUE,
+  sat = SATURATION,
+  gamma = GAMMA,
+  vignette = VIGNETTE_STRENGTH,
+  vignetteSoftness = VIGNETTE_SOFTNESS,
+  glyphSharpness = GLYPH_SHARPNESS,
+  bg = [BG_R, BG_G, BG_B],
   className }: AsciiNoiseEffectProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const resRef = useRef<{
@@ -447,6 +490,16 @@ export const AsciiNoiseEffect = ({ noiseStrength = 0.29,
   return (
     <div className={"relative h-dvh w-full bg-black " + (className ?? "")}>
       <canvas ref={canvasRef} className="w-full h-full block" />
+      {/* Black Overlay Vignette */}
+      {OVERLAY_OPACITY > 0 && (
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, ${OVERLAY_OPACITY}) 100%)`,
+            filter: `blur(${OVERLAY_BLUR}px)`,
+          }}
+        />
+      )}
     </div>
   );
 };

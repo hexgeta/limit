@@ -21,27 +21,7 @@ export default function LimitPage() {
       <DisclaimerDialog />
       {/* ASCII Background Effect */}
       <div className="fixed inset-0 w-full h-full z-0">
-        <AsciiNoiseEffect
-          noiseStrength={0.15}
-          noiseScale={0.003}
-          speed={0.02}
-          cell={18}
-          bw={false}
-          charset={2}
-          tint={[0.2, 1, 1]}
-          distortAmp={1.5}
-          frequency={4}
-          zRate={0.15}
-          brightness={1.5}
-          contrast={1.5}
-          hue={180}
-          sat={1.2}
-          gamma={1.5}
-          vignette={1}
-          vignetteSoftness={2}
-          glyphSharpness={0.08}
-          bg={[0, 0, 0]}
-        />
+        <AsciiNoiseEffect />
       </div>
       <main className="relative flex min-h-screen flex-col items-center z-10">
         {/* Hero Section */}
