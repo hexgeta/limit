@@ -186,6 +186,28 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
               stroke="#00D9FF"
               tick={{ fill: '#00D9FF' }}
               tickFormatter={(value) => `$${value.toFixed(6)}`}
+              domain={(() => {
+                // Calculate min/max from historic data
+                const prices = historicData.map(d => d.price);
+                let min = Math.min(...prices);
+                let max = Math.max(...prices);
+                
+                // Include limit order price in domain if it exists
+                if (limitOrderPrice) {
+                  min = Math.min(min, limitOrderPrice);
+                  max = Math.max(max, limitOrderPrice);
+                }
+                
+                // Include current price
+                if (currentPrice) {
+                  min = Math.min(min, currentPrice);
+                  max = Math.max(max, currentPrice);
+                }
+                
+                // Add 10% padding on top and bottom for better visibility
+                const padding = (max - min) * 0.1;
+                return [Math.max(0, min - padding), max + padding];
+              })()}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
