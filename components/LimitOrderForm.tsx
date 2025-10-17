@@ -234,6 +234,35 @@ export function LimitOrderForm({
     setBuyAmount(value);
   };
 
+  const handleSwapTokens = () => {
+    // Swap the tokens
+    const tempToken = sellToken;
+    setSellToken(buyToken);
+    setBuyToken(tempToken);
+    
+    // Swap the amounts
+    const tempAmount = sellAmount;
+    setSellAmount(buyAmount);
+    setBuyAmount(tempAmount);
+    
+    // Update localStorage
+    if (buyToken) {
+      localStorage.setItem('limitOrderSellToken', buyToken.a);
+    }
+    if (tempToken) {
+      localStorage.setItem('limitOrderBuyToken', tempToken.a);
+    }
+    
+    // Clear limit price and percentage since they're no longer valid
+    setLimitPrice('');
+    setPricePercentage(null);
+    
+    // Notify parent of token change
+    if (onTokenChange) {
+      onTokenChange(buyToken?.a, tempToken?.a);
+    }
+  };
+
   return (
     <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Sell Section */}
@@ -330,7 +359,11 @@ export function LimitOrderForm({
 
       {/* Swap Arrow */}
       <div className="flex justify-center mb-4">
-        <button className="bg-black border-2 border-[#00D9FF] p-2  hover:bg-[#00D9FF]/20 transition-all shadow-[0_0_15px_rgba(0,217,255,0.4)]">
+        <button 
+          onClick={handleSwapTokens}
+          type="button"
+          className="bg-black border-2 border-[#00D9FF] p-2  hover:bg-[#00D9FF]/20 transition-all shadow-[0_0_15px_rgba(0,217,255,0.4)]"
+        >
           <svg className="w-5 h-5 text-[#00D9FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
