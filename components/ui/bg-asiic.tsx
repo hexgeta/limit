@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 // ===== EASY CONTROLS - ADJUST THESE =====
 // Animation Speed (0.001 - 0.1, default: 0.02)
-const ANIMATION_SPEED = 0.02;
+const ANIMATION_SPEED = 0.005;
 
 // Noise Settings
 const NOISE_STRENGTH = 0.15;  // 0.0 - 1.0, default: 0.15
@@ -36,7 +36,7 @@ const VIGNETTE_STRENGTH = 1.0; // 0.0 - 1.0, default: 1.0
 const VIGNETTE_SOFTNESS = 2.0; // 0.1 - 3.0, default: 2.0
 
 // Black Overlay Vignette
-const OVERLAY_OPACITY = 0.3;   // 0.0 - 1.0, default: 0.3 (0 = no overlay, 1 = fully black edges)
+const OVERLAY_OPACITY = 0.7;   // 0.0 - 1.0, default: 0.3 (0 = no overlay, 1 = fully black edges)
 const OVERLAY_BLUR = 200;      // 0 - 500px, default: 200
 
 // Background Color (RGB 0.0 - 1.0)

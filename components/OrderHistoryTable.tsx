@@ -392,7 +392,7 @@ export default function OrderHistoryTable({
   return (
     <div className="w-full min-w-[800px] text-lg">
       {/* Table Header */}
-      <div className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-center gap-4 pb-4 border-b border-white/10">
+      <div className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-center gap-4 pb-4 border-b border-white/10">
         {/* COLUMN 1: You Bought */}
         <button 
           onClick={() => handleSort('sellAmount')}
@@ -433,17 +433,12 @@ export default function OrderHistoryTable({
           OTC vs Market Price {sortField === 'otcVsMarket' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
         </button>
         
-        {/* COLUMN 5: Backing Price */}
-        <div className="text-sm font-medium text-center text-gray-400">
-          OTC vs Backing Price
-        </div>
-        
-        {/* COLUMN 6: Status */}
+        {/* COLUMN 5: Status */}
         <div className="text-sm font-medium text-center text-gray-400">
           Status
         </div>
         
-        {/* COLUMN 7: Date */}
+        {/* COLUMN 6: Date */}
         <button 
           onClick={() => handleSort('date')}
           className={`text-sm font-medium text-center hover:text-white transition-colors ${
@@ -453,7 +448,7 @@ export default function OrderHistoryTable({
           Tx Date {sortField === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
         </button>
         
-        {/* COLUMN 8: Actions */}
+        {/* COLUMN 7: Actions */}
         <div className="text-sm font-medium text-center text-gray-400">
           
         </div>
@@ -587,7 +582,7 @@ export default function OrderHistoryTable({
         return (
           <div
             key={transaction.transactionHash}
-            className={`grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-start gap-4 py-8 ${
+            className={`grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(80px,120px)_minmax(100px,140px)_minmax(80px,120px)_minmax(80px,120px)_minmax(80px,120px)_auto] items-start gap-4 py-8 ${
               displayRows.indexOf(displayRows.find(r => r.transaction.transactionHash === transaction.transactionHash)!) < displayRows.length - 1 ? 'border-b border-white/10' : ''
             }`}
           >
@@ -790,46 +785,7 @@ export default function OrderHistoryTable({
               )}
             </div>
 
-            {/* COLUMN 5: OTC vs Backing Price */}
-            <div className="text-center min-w-0">
-              <div className="text-sm">
-                {backingPriceDiscount !== null ? (
-                  <>
-                    {(PAYWALL_ENABLED && !hasTokenAccess) ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowPaywallModal(true);
-                        }}
-                        className="p-2 inline-flex items-center justify-center hover:opacity-80 transition-opacity"
-                      >
-                        <Lock className="w-5 h-5 -mt-1 text-gray-400 hover:text-white" />
-                      </button>
-                    ) : (
-                      <span className={`font-medium ${
-                        isAboveBackingPrice 
-                          ? 'text-gray-400'    // Neutral - selling above backing price
-                          : 'text-red-400'     // Red discount - selling below backing price (good deal)
-                      }`}>
-                        {isAboveBackingPrice 
-                          ? `+${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
-                          : `-${Math.abs(backingPriceDiscount).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
-                        }
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-gray-500">-</span>
-                )}
-              </div>
-              {backingPriceDiscount !== null && !(PAYWALL_ENABLED && !hasTokenAccess) && (
-                <div className="text-xs text-gray-400 mt-0">
-                  {isAboveBackingPrice ? 'premium' : 'discount'}
-                </div>
-              )}
-            </div>
-
-            {/* COLUMN 6: Status */}
+            {/* COLUMN 5: Status */}
             <div className="text-center min-w-0 mt-1">
               <div className="flex flex-col items-center gap-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium border w-[110px] ${
@@ -853,7 +809,7 @@ export default function OrderHistoryTable({
               </div>
             </div>
 
-            {/* COLUMN 7: Date */}
+            {/* COLUMN 6: Date */}
             <div className="text-center min-w-0 mt-0.5">
               {transaction.timestamp ? (
                 <div className="flex flex-col items-center">
@@ -869,7 +825,7 @@ export default function OrderHistoryTable({
               )}
             </div>
 
-            {/* COLUMN 8: Actions Content */}
+            {/* COLUMN 7: Actions Content */}
             <div className="text-center min-w-0">
               <div className="flex flex-col items-center gap-1">
                 {/* Only show "Buy More" for active orders where user was the buyer */}
