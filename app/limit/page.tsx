@@ -37,8 +37,8 @@ export default function LimitPage() {
           hue={320}
           sat={1.5}
           gamma={1.5}
-          vignette={0.9}
-          vignetteSoftness={0.8}
+          vignette={1}
+          vignetteSoftness={2}
           glyphSharpness={0.08}
           bg={[0, 0, 0]}
         />
@@ -46,14 +46,7 @@ export default function LimitPage() {
       <main className="relative flex min-h-screen flex-col items-center z-10">
         {/* Hero Section */}
         <div className="w-full px-2 md:px-8 mt-24 mb-6">
-          <div className="max-w-[1400px] mx-auto text-center">
-            <h2 className="text-3xl md:text-5xl font-bold neon-text-pink mb-2 tracking-wider">
-              LIMIT ORDERS
-            </h2>
-            <p className="text-md md:text-xl text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.5)]">
-              Set your price and let the market come to you
-            </p>
-          </div>
+
         </div>
 
         {/* Chart and Form Section */}

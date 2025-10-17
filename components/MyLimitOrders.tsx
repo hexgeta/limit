@@ -77,15 +77,15 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
   }
 
   return (
-    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#39FF14] rounded-lg overflow-hidden shadow-[0_0_30px_rgba(57,255,20,0.3)]">
-      <div className="p-6 border-b-2 border-[#39FF14]/30">
-        <h3 className="text-xl font-bold text-[#39FF14] drop-shadow-[0_0_10px_rgba(57,255,20,0.8)]">MY ORDERS</h3>
+    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+      <div className="p-6 border-b-2 border-[#00D9FF]/30">
+        <h3 className="text-xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">MY ORDERS</h3>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b-2 border-[#39FF14]/30">
+            <tr className="border-b-2 border-[#00D9FF]/30">
               <th className="px-6 py-4 text-left text-sm font-medium text-[#00D9FF]">SOLD</th>
               <th className="px-6 py-4 text-left text-sm font-medium text-[#00D9FF]">BOUGHT</th>
               <th className="px-6 py-4 text-left text-sm font-medium text-[#00D9FF]">FILL STATUS %</th>
@@ -100,29 +100,29 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
             {orders.map((order) => (
               <tr
                 key={order.id}
-                className="border-b border-[#39FF14]/20 hover:bg-[#39FF14]/10 transition-all"
+                className="border-b border-[#00D9FF]/20 hover:bg-[#00D9FF]/10 transition-all"
               >
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
-                    <div className="text-[#39FF14] font-medium">${parseFloat(order.sellAmount) * 0.0104}</div>
+                    <div className="text-[#00D9FF] font-medium">${parseFloat(order.sellAmount) * 0.0104}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="w-6 h-6 rounded-full bg-[#FF0080] border border-[#FF0080] shadow-[0_0_10px_rgba(255,0,128,0.5)] flex items-center justify-center text-xs text-black font-bold">
+                      <div className="w-6 h-6 rounded-full bg-[#00D9FF] border border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.5)] flex items-center justify-center text-xs text-black font-bold">
                         M
                       </div>
-                      <span className="text-sm text-[#00D9FF]">{order.sellToken}</span>
-                      <span className="text-sm text-[#39FF14]">{order.sellAmount}</span>
+                      <span className="text-sm text-[#00D9FF]/70">{order.sellToken}</span>
+                      <span className="text-sm text-[#00D9FF]">{order.sellAmount}</span>
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
-                    <div className="text-[#39FF14] font-medium">${parseFloat(order.buyAmount) * 0.006316}</div>
+                    <div className="text-[#00D9FF] font-medium">${parseFloat(order.buyAmount) * 0.006316}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="w-6 h-6 rounded-full bg-[#FF0080] border border-[#FF0080] shadow-[0_0_10px_rgba(255,0,128,0.5)] flex items-center justify-center text-xs text-black font-bold">
+                      <div className="w-6 h-6 rounded-full bg-[#00D9FF] border border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.5)] flex items-center justify-center text-xs text-black font-bold">
                         H
                       </div>
-                      <span className="text-sm text-[#00D9FF]">{order.buyToken}</span>
-                      <span className="text-sm text-[#39FF14]">{order.buyAmount}</span>
+                      <span className="text-sm text-[#00D9FF]/70">{order.buyToken}</span>
+                      <span className="text-sm text-[#00D9FF]">{order.buyAmount}</span>
                     </div>
                   </div>
                 </td>
@@ -139,10 +139,10 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
-                    <span className={`font-medium ${order.otcVsMarket.startsWith('-') ? 'text-[#FF0080]' : 'text-[#39FF14]'}`}>
+                    <span className="font-medium text-[#00D9FF]">
                       {order.otcVsMarket}
                     </span>
-                    <span className="text-xs text-[#00D9FF]/70">discount</span>
+                    <span className="text-xs text-[#00D9FF]/50">discount</span>
                   </div>
                 </td>
                 <td className="px-6 py-4">

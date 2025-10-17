@@ -111,8 +111,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
     if (active && payload && payload.length) {
       return (
         <div className="bg-black border-2 border-[#00D9FF] p-3 rounded-lg shadow-[0_0_20px_rgba(0,217,255,0.5)]">
-          <p className="text-[#00D9FF] text-sm">{payload[0].payload.date}</p>
-          <p className="text-[#39FF14] text-sm font-semibold drop-shadow-[0_0_5px_rgba(57,255,20,0.8)]">
+          <p className="text-[#00D9FF]/70 text-sm">{payload[0].payload.date}</p>
+          <p className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.8)]">
             ${payload[0].value.toFixed(6)}
           </p>
         </div>
@@ -122,17 +122,17 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
   };
 
   return (
-    <div className="w-full bg-black/80 backdrop-blur-sm border-2 border-[#FF0080] rounded-lg p-6 shadow-[0_0_30px_rgba(255,0,128,0.3)]">
+    <div className="w-full bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg p-6 shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Controls */}
       <div className="flex justify-between items-center gap-4 mb-6">
         {/* Token Info */}
         {tokenInfo && (
           <div className="flex items-center gap-4">
-            <h3 className="text-2xl font-bold text-[#FF0080] drop-shadow-[0_0_10px_rgba(255,0,128,0.8)]">{tokenInfo.ticker}</h3>
+            <h3 className="text-2xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">{tokenInfo.ticker}</h3>
             {currentPrice && (
               <div className="flex items-center gap-2">
-                <span className="text-[#00D9FF]">Current Price:</span>
-                <span className="text-[#39FF14] text-xl font-semibold drop-shadow-[0_0_10px_rgba(57,255,20,0.8)]">${currentPrice.toFixed(6)}</span>
+                <span className="text-[#00D9FF]/70">Current Price:</span>
+                <span className="text-[#00D9FF] text-xl font-semibold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">${currentPrice.toFixed(6)}</span>
               </div>
             )}
           </div>
@@ -146,8 +146,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
               onClick={() => setTimeRange(range)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 border-2 ${
                 timeRange === range
-                  ? 'bg-[#FF0080]/20 text-[#FF0080] border-[#FF0080] shadow-[0_0_15px_rgba(255,0,128,0.5)]'
-                  : 'bg-black text-[#00D9FF] border-[#00D9FF]/50 hover:border-[#00D9FF] hover:shadow-[0_0_10px_rgba(0,217,255,0.4)]'
+                  ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF] shadow-[0_0_15px_rgba(0,217,255,0.5)]'
+                  : 'bg-black text-[#00D9FF]/50 border-[#00D9FF]/30 hover:border-[#00D9FF] hover:text-[#00D9FF] hover:shadow-[0_0_10px_rgba(0,217,255,0.4)]'
               }`}
             >
               {range.toUpperCase()}
@@ -171,7 +171,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
             data={historicData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#FF0080" strokeOpacity={0.2} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#00D9FF" strokeOpacity={0.2} />
             <XAxis
               dataKey="date"
               stroke="#00D9FF"
@@ -196,26 +196,26 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
             <Line
               type="monotone"
               dataKey="price"
-              stroke="#39FF14"
+              stroke="#00D9FF"
               strokeWidth={3}
               dot={false}
               name="Market Price"
-              activeDot={{ r: 8, fill: '#39FF14', stroke: '#000', strokeWidth: 2 }}
+              activeDot={{ r: 8, fill: '#00D9FF', stroke: '#000', strokeWidth: 2 }}
             />
             
             {/* Current Price Reference Line */}
             {currentPrice && (
               <ReferenceLine
                 y={currentPrice}
-                stroke="#FF0080"
+                stroke="#00D9FF"
                 strokeWidth={3}
                 strokeDasharray="5 5"
                 label={{
                   value: `Current: $${currentPrice.toFixed(6)}`,
-                  fill: '#FF0080',
+                  fill: '#00D9FF',
                   fontSize: 12,
                   position: 'right',
-                  style: { textShadow: '0 0 10px rgba(255,0,128,0.8)' }
+                  style: { textShadow: '0 0 10px rgba(0,217,255,0.8)' }
                 }}
               />
             )}
@@ -226,12 +226,12 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
       {/* Chart Legend */}
       <div className="mt-4 flex flex-wrap gap-4 justify-center text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-1 bg-[#39FF14] shadow-[0_0_10px_rgba(57,255,20,0.8)]"></div>
-          <span className="text-[#39FF14]">Price Trend</span>
+          <div className="w-8 h-1 bg-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.8)]"></div>
+          <span className="text-[#00D9FF]">Price Trend</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-1 border-t-2 border-dashed border-[#FF0080] shadow-[0_0_10px_rgba(255,0,128,0.8)]"></div>
-          <span className="text-[#FF0080]">Current Price</span>
+          <div className="w-8 h-1 border-t-2 border-dashed border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.8)]"></div>
+          <span className="text-[#00D9FF]">Current Price</span>
         </div>
       </div>
     </div>

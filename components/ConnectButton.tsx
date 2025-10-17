@@ -59,7 +59,7 @@ export const ConnectButton = () => {
     <>
       <button
         onClick={handleConnectClick}
-        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#FF0080] border-2 border-[#FF0080] rounded-full font-semibold hover:bg-[#FF0080] hover:text-black transition-all text-sm md:text-base shadow-[0_0_15px_rgba(255,0,128,0.5)] hover:shadow-[0_0_25px_rgba(255,0,128,0.8)]"
+        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#00D9FF] border-2 border-[#00D9FF] rounded-full font-semibold hover:bg-[#00D9FF] hover:text-black transition-all text-sm md:text-base shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]"
       >
         CONNECT WALLET
       </button>
