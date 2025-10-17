@@ -1344,20 +1344,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             Number(order.orderDetailsWithId.orderDetails.expirationTime) >= Math.floor(Date.now() / 1000)
           );
         break;
-      case 'completed':
+      case 'inactive':
+        // Show all non-active orders: completed, expired, and cancelled
         filteredOrders = orders.filter(order => 
-          order.orderDetailsWithId.status === 2
-        );
-        break;
-        case 'inactive':
-          filteredOrders = orders.filter(order => 
-            order.orderDetailsWithId.status === 0 && 
-            Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000)
-          );
-        break;
-      case 'cancelled':
-        filteredOrders = orders.filter(order => 
-          order.orderDetailsWithId.status === 1
+          order.orderDetailsWithId.status === 2 || // Completed
+          order.orderDetailsWithId.status === 1 || // Cancelled
+          (order.orderDetailsWithId.status === 0 && // Expired (inactive)
+            Number(order.orderDetailsWithId.orderDetails.expirationTime) < Math.floor(Date.now() / 1000))
         );
         break;
       default:
@@ -1863,42 +1856,20 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
         </button>
         <button
           onClick={() => {
-            setStatusFilter('completed');
-            clearExpandedPositions();
-          }}
-          className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
-            statusFilter === 'completed'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Completed ({getLevel3Orders(tokenFilter, ownershipFilter, 'completed').length})
-        </button>
-        <button
-          onClick={() => {
             setStatusFilter('inactive');
             clearExpandedPositions();
           }}
           className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'inactive'
-              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
+              ? 'bg-gray-500/20 text-gray-400 border-gray-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
-          Inactive ({getLevel3Orders(tokenFilter, ownershipFilter, 'inactive').length})
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('cancelled');
-            clearExpandedPositions();
-          }}
-          className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
-            statusFilter === 'cancelled'
-              ? 'bg-red-500/20 text-red-400 border-red-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Cancelled ({getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length})
+          Inactive ({
+            getLevel3Orders(tokenFilter, ownershipFilter, 'completed').length +
+            getLevel3Orders(tokenFilter, ownershipFilter, 'inactive').length +
+            getLevel3Orders(tokenFilter, ownershipFilter, 'cancelled').length
+          })
         </button>
         {ownershipFilter === 'mine' && (
           <button
@@ -2029,7 +2000,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               
               {/* COLUMN 7: Actions / Order ID */}
               <div className="text-sm font-medium text-center text-gray-400">
-                {(statusFilter === 'inactive' || statusFilter === 'completed') ? 'Order ID' : ''}
+                {statusFilter === 'inactive' ? 'Order ID' : ''}
             </div>
             </div>
 
@@ -2396,7 +2367,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   
                   {/* COLUMN 7: Actions / Order ID Content */}
                     <div className="text-center min-w-0">
-                      {(statusFilter === 'inactive' || statusFilter === 'completed' || statusFilter === 'cancelled') ? (
+                      {statusFilter === 'inactive' ? (
                         <div className="text-gray-400 mt-1.5 text-sm">{order.orderDetailsWithId.orderId.toString()}</div>
                       ) : (
                         <>
