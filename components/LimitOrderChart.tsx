@@ -13,6 +13,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
+import { usePulseXHistoricPrices } from '@/hooks/crypto/usePulseXHistoricPrices';
 
 interface ChartData {
   date: string;
@@ -36,11 +37,14 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const sellToken = sellTokenAddress || '0x000000000000000000000000000000000000dead'; // PLS
   const buyToken = buyTokenAddress || '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // HEX
 
+  // Use PulseX subgraph for historic prices
+  const { fetchHistoricPrice } = usePulseXHistoricPrices();
+
   useEffect(() => {
-    fetchDexScreenerData();
+    fetchPriceData();
   }, [sellToken, buyToken, timeRange]);
 
-  const fetchDexScreenerData = async () => {
+  const fetchPriceData = async () => {
     if (!sellToken || !buyToken) return;
     
     setLoading(true);
@@ -55,18 +59,18 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
         return;
       }
 
-      // Get pair addresses
+      // Get pair addresses for DexScreener (current price only)
       const sellPairAddress = Array.isArray(sellTokenConfig.dexs) ? sellTokenConfig.dexs[0] : sellTokenConfig.dexs;
       const buyPairAddress = Array.isArray(buyTokenConfig.dexs) ? buyTokenConfig.dexs[0] : buyTokenConfig.dexs;
       
-      // Fetch both token prices from DexScreener
+      // Fetch current prices from DexScreener (fastest, most accurate for real-time)
       const [sellResponse, buyResponse] = await Promise.all([
         fetch(`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${sellPairAddress}`),
         fetch(`https://api.dexscreener.com/latest/dex/pairs/pulsechain/${buyPairAddress}`)
       ]);
       
       if (!sellResponse.ok || !buyResponse.ok) {
-        throw new Error('Failed to fetch DexScreener data');
+        throw new Error('Failed to fetch current price data');
       }
 
       const [sellData, buyData] = await Promise.all([
@@ -77,48 +81,84 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       const sellPair = sellData.pairs?.[0];
       const buyPair = buyData.pairs?.[0];
       
-      if (sellPair && buyPair && sellPair.priceUsd && buyPair.priceUsd) {
-        const sellPriceUsd = parseFloat(sellPair.priceUsd);
-        const buyPriceUsd = parseFloat(buyPair.priceUsd);
+      if (!sellPair || !buyPair || !sellPair.priceUsd || !buyPair.priceUsd) {
+        throw new Error('Invalid price data from DexScreener');
+      }
+
+      const sellPriceUsd = parseFloat(sellPair.priceUsd);
+      const buyPriceUsd = parseFloat(buyPair.priceUsd);
+      
+      // Calculate current ratio: how many buy tokens per sell token
+      const currentRatio = sellPriceUsd / buyPriceUsd;
+      setCurrentPrice(currentRatio);
+      
+      // Fetch historic prices from PulseX subgraph
+      const now = Date.now();
+      const hourInMs = 60 * 60 * 1000;
+      const points = 20;
+      const timeStep = timeRange === '1h' ? hourInMs / points : timeRange === '6h' ? (6 * hourInMs) / points : (24 * hourInMs) / points;
+      
+      const chartData: ChartData[] = [];
+      
+      // Fetch historic prices for each data point
+      for (let i = 0; i <= points; i++) {
+        const timestamp = now - (points - i) * timeStep;
         
-        // Calculate ratio: how many buy tokens per sell token
-        const currentRatio = sellPriceUsd / buyPriceUsd;
-        setCurrentPrice(currentRatio);
+        // Get historic prices from subgraph
+        const [historicSellPrice, historicBuyPrice] = await Promise.all([
+          fetchHistoricPrice(sellToken, timestamp),
+          fetchHistoricPrice(buyToken, timestamp)
+        ]);
         
-        // Use average price change of both tokens for historical data
+        let ratio: number;
+        
+        if (historicSellPrice && historicBuyPrice && historicSellPrice > 0 && historicBuyPrice > 0) {
+          // Use subgraph data if available
+          ratio = historicSellPrice / historicBuyPrice;
+        } else {
+          // Fallback to DexScreener price change estimation if subgraph data not available
+          const timeKey = timeRange === '1h' ? 'h1' : timeRange === '6h' ? 'h6' : 'h24';
+          const sellPriceChange = sellPair.priceChange?.[timeKey] || 0;
+          const buyPriceChange = buyPair.priceChange?.[timeKey] || 0;
+          
+          const oldSellPrice = sellPriceUsd / (1 + sellPriceChange / 100);
+          const oldBuyPrice = buyPriceUsd / (1 + buyPriceChange / 100);
+          const oldRatio = oldSellPrice / oldBuyPrice;
+          
+          // Interpolate between old and current ratio
+          const progress = i / points;
+          ratio = oldRatio + (currentRatio - oldRatio) * progress;
+        }
+        
+        chartData.push({
+          date: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          price: ratio,
+          timestamp: timestamp,
+        });
+      }
+      
+      setHistoricData(chartData);
+    } catch (error) {
+      console.error('Error fetching price data:', error);
+      
+      // Fallback to simple linear interpolation if all fails
+      if (currentPrice) {
         const now = Date.now();
         const hourInMs = 60 * 60 * 1000;
-        
-        const timeKey = timeRange === '1h' ? 'h1' : timeRange === '6h' ? 'h6' : 'h24';
-        const sellPriceChange = sellPair.priceChange?.[timeKey] || 0;
-        const buyPriceChange = buyPair.priceChange?.[timeKey] || 0;
-        
-        // Calculate historical ratio
-        const oldSellPrice = sellPriceUsd / (1 + sellPriceChange / 100);
-        const oldBuyPrice = buyPriceUsd / (1 + buyPriceChange / 100);
-        const oldRatio = oldSellPrice / oldBuyPrice;
-        
-        // Generate data points
-        const chartData: ChartData[] = [];
         const points = 20;
         const timeStep = timeRange === '1h' ? hourInMs / points : timeRange === '6h' ? (6 * hourInMs) / points : (24 * hourInMs) / points;
         
+        const fallbackData: ChartData[] = [];
         for (let i = 0; i <= points; i++) {
-          const ratio = i / points;
-          const price = oldRatio + (currentRatio - oldRatio) * ratio;
           const timestamp = now - (points - i) * timeStep;
-          
-          chartData.push({
+          fallbackData.push({
             date: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            price: price,
+            price: currentPrice,
             timestamp: timestamp,
           });
         }
-        
-        setHistoricData(chartData);
+        setHistoricData(fallbackData);
       }
-    } catch (error) {
-      console.error('Error fetching DexScreener data:', error);
     } finally {
       setLoading(false);
     }
