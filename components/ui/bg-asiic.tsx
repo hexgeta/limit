@@ -4,8 +4,11 @@
 import { useCallback, useEffect, useRef } from "react";
 
 // ===== EASY CONTROLS - ADJUST THESE =====
+// Enable/Disable Animated Background
+const ENABLE_ANIMATED_BG = true;  // true = ON, false = OFF (shows solid black background)
+
 // Animation Speed (0.001 - 0.1, default: 0.02)
-const ANIMATION_SPEED = 0.001;
+const ANIMATION_SPEED = 0.1;
 
 // Noise Settings
 const NOISE_STRENGTH = 0.15;  // 0.0 - 1.0, default: 0.15
@@ -486,6 +489,13 @@ export const AsciiNoiseEffect = ({
     window.addEventListener("resize", onResize);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); window.removeEventListener("resize", onResize); };
   }, [init, render]);
+
+  // If background is disabled, just show solid black
+  if (!ENABLE_ANIMATED_BG) {
+    return (
+      <div className={"relative h-dvh w-full bg-black " + (className ?? "")} />
+    );
+  }
 
   return (
     <div className={"relative h-dvh w-full bg-black " + (className ?? "")}>
