@@ -307,7 +307,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   }));
   
   // Level 1: Token type filter
-  const [tokenFilter, setTokenFilter] = useState<'maxi' | 'non-maxi'>('maxi');
+  const [tokenFilter, setTokenFilter] = useState<'maxi' | 'non-maxi' | 'all'>('all');
   // Level 2: Ownership filter  
   const [ownershipFilter, setOwnershipFilter] = useState<'mine' | 'non-mine'>('mine');
   // Level 3: Status filter
@@ -1774,38 +1774,8 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
     <div 
       className="w-full max-w-[1200px] mx-auto mb-8 mt-8"
     >
-      {/* Level 1: Token Type Filter */}
-      <div className="flex justify-center mb-4 gap-4">
-        <button
-          onClick={() => {
-            setTokenFilter('maxi');
-            clearExpandedPositions();
-          }}
-          className={`px-6 py-3  transition-all duration-100 border ${
-            tokenFilter === 'maxi'
-              ? 'bg-purple-500/20 text-purple-400 border-purple-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          MAXI ({getLevel1Orders('maxi').length})
-        </button>
-        <button
-          onClick={() => {
-            setTokenFilter('non-maxi');
-            clearExpandedPositions();
-          }}
-          className={`px-6 py-3  transition-all duration-100 border ${
-            tokenFilter === 'non-maxi'
-              ? 'bg-blue-500/20 text-blue-400 border-blue-400'
-              : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
-          }`}
-        >
-          Non-MAXI ({getLevel1Orders('non-maxi').length})
-        </button>
-      </div>
-
       {/* Level 2: Ownership Filter */}
-      <div className="flex justify-center sm:justify-start mb-4 w-full md:w-auto">
+      <div className="flex justify-center sm:justify-start mb-4 w-full md:w-auto hidden">
         <div className={`inline-flex items-center bg-black border  relative w-full md:w-auto ${
           ownershipFilter === 'mine' ? 'border-green-600' : 'border-orange-600'
         }`}>

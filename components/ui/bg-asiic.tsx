@@ -5,7 +5,12 @@ import { useCallback, useEffect, useRef } from "react";
 
 // ===== EASY CONTROLS - ADJUST THESE =====
 // Enable/Disable Animated Background
-const ENABLE_ANIMATED_BG = true;  // true = ON, false = OFF (shows solid black background)
+const ENABLE_ANIMATED_BG = false;  // true = ON, false = OFF (shows solid black background)
+
+// Parallax Settings
+const ENABLE_PARALLAX = true;      // true = ON, false = OFF
+const PARALLAX_STRENGTH = 0.02;    // 0.0 - 0.1, default: 0.02 (how much the bg moves with mouse)
+const PARALLAX_SMOOTHING = 0.1;    // 0.01 - 1.0, default: 0.1 (lower = smoother, higher = faster response)
 
 // Animation Speed (0.001 - 0.1, default: 0.02)
 const ANIMATION_SPEED = 0.1;
@@ -377,6 +382,8 @@ export const AsciiNoiseEffect = ({
   } | null>(null);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
+  const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 }); // Normalized 0-1
+  const parallaxRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 }); // Current parallax offset
 
   const init = useCallback((gl: Gl, w: number, h: number) => {
     const progNoise = makeProgram(gl, vs, fsNoise);
@@ -472,6 +479,47 @@ export const AsciiNoiseEffect = ({
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     rafRef.current = window.requestAnimationFrame(render);
   }, [bg, brightness, bw, cell, charset, contrast, distortAmp, frequency, gamma, glyphSharpness, hue, noiseScale, noiseStrength, sat, seed1, seed2, speed, vignette, vignetteSoftness, zRate]);
+
+  // Parallax effect - track mouse movement
+  useEffect(() => {
+    if (!ENABLE_PARALLAX) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current = {
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight
+      };
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Animate parallax offset smoothly
+  useEffect(() => {
+    if (!ENABLE_PARALLAX) return;
+    
+    const animate = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      // Calculate target offset (centered around 0, ranging from -strength to +strength)
+      const targetX = (mouseRef.current.x - 0.5) * PARALLAX_STRENGTH * 100;
+      const targetY = (mouseRef.current.y - 0.5) * PARALLAX_STRENGTH * 100;
+      
+      // Smoothly interpolate current offset towards target
+      parallaxRef.current.x += (targetX - parallaxRef.current.x) * PARALLAX_SMOOTHING;
+      parallaxRef.current.y += (targetY - parallaxRef.current.y) * PARALLAX_SMOOTHING;
+      
+      // Apply transform to canvas
+      canvas.style.transform = `translate(${parallaxRef.current.x}px, ${parallaxRef.current.y}px)`;
+      
+      requestAnimationFrame(animate);
+    };
+    
+    const animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;

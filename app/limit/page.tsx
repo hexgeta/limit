@@ -15,7 +15,6 @@ export default function LimitPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sellTokenAddress, setSellTokenAddress] = useState<string | undefined>();
   const [buyTokenAddress, setBuyTokenAddress] = useState<string | undefined>();
-  const [showMarketplace, setShowMarketplace] = useState(false);
 
   return (
     <>
@@ -80,39 +79,10 @@ export default function LimitPage() {
           </div>
         </div>
 
-        {/* Toggle and Orders Table */}
+        {/* Orders Table */}
         <div className="w-full px-2 md:px-8 mt-8 mb-8">
           <div className="max-w-[1400px] mx-auto">
-            {/* Toggle Buttons */}
-            <div className="flex justify-center mb-6 gap-4">
-              <button
-                onClick={() => setShowMarketplace(false)}
-                className={`px-6 py-3 transition-all duration-200 border-2 font-medium ${
-                  !showMarketplace
-                    ? 'bg-[#00D9FF] text-black border-[#00D9FF] shadow-[0_0_20px_rgba(0,217,255,0.5)]'
-                    : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF]/10'
-                }`}
-              >
-                MY ORDERS
-              </button>
-              <button
-                onClick={() => setShowMarketplace(true)}
-                className={`px-6 py-3 transition-all duration-200 border-2 font-medium ${
-                  showMarketplace
-                    ? 'bg-[#00D9FF] text-black border-[#00D9FF] shadow-[0_0_20px_rgba(0,217,255,0.5)]'
-                    : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF]/10'
-                }`}
-              >
-                MARKETPLACE
-              </button>
-            </div>
-
-            {/* Conditional Rendering */}
-            {showMarketplace ? (
-              <OpenPositionsTable />
-            ) : (
-              <OpenPositionsTable />
-            )}
+            <OpenPositionsTable />
           </div>
         </div>
       </main>
