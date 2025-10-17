@@ -60,6 +60,7 @@ export function LimitOrderForm({
   const [buyAmount, setBuyAmount] = useState('');
   const [limitPrice, setLimitPrice] = useState('');
   const [pricePercentage, setPricePercentage] = useState<number | null>(null);
+  const [priceDirection, setPriceDirection] = useState<'above' | 'below'>('above'); // Track if buying above or below market
   const [showSellDropdown, setShowSellDropdown] = useState(false);
   const [showBuyDropdown, setShowBuyDropdown] = useState(false);
   
@@ -192,9 +193,12 @@ export function LimitOrderForm({
   const handlePercentageClick = (percentage: number) => {
     if (!marketPrice || !sellAmountNum) return;
     
+    // Apply percentage based on direction (above = positive, below = negative)
+    const adjustedPercentage = priceDirection === 'above' ? percentage : -percentage;
+    
     // Set percentage to null for market price (0%), so it doesn't show
-    setPricePercentage(percentage === 0 ? null : percentage);
-    const newPrice = marketPrice * (1 + percentage / 100);
+    setPricePercentage(percentage === 0 ? null : adjustedPercentage);
+    const newPrice = marketPrice * (1 + adjustedPercentage / 100);
     setLimitPrice(newPrice.toFixed(8));
     
     // Notify parent of limit price change
@@ -256,6 +260,9 @@ export function LimitOrderForm({
     const tempAmount = sellAmount;
     setSellAmount(buyAmount);
     setBuyAmount(tempAmount);
+    
+    // Flip the price direction (above ↔ below)
+    setPriceDirection(prev => prev === 'above' ? 'below' : 'above');
     
     // Update localStorage
     if (buyToken) {
@@ -495,25 +502,25 @@ export function LimitOrderForm({
           onClick={() => handlePercentageClick(1)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          1% ↑
+          1% {priceDirection === 'above' ? '↑' : '↓'}
         </button>
         <button
           onClick={() => handlePercentageClick(2)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          2% ↑
+          2% {priceDirection === 'above' ? '↑' : '↓'}
         </button>
         <button
           onClick={() => handlePercentageClick(5)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          5% ↑
+          5% {priceDirection === 'above' ? '↑' : '↓'}
         </button>
         <button
           onClick={() => handlePercentageClick(10)}
           className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
-          10% ↑
+          10% {priceDirection === 'above' ? '↑' : '↓'}
         </button>
       </div>
 
