@@ -1861,7 +1861,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
           }}
           className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'inactive'
-              ? 'bg-gray-500/20 text-gray-400 border-gray-400'
+              ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
           }`}
         >
@@ -1879,7 +1879,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             }}
             className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
               statusFilter === 'order-history'
-                ? 'bg-purple-500/20 text-purple-400 border-purple-400'
+                ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]'
                 : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
             }`}
           >
