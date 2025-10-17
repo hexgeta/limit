@@ -20,12 +20,14 @@ const nextConfig = {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       'pino-pretty': false,
+      '@react-native-async-storage/async-storage': false,
     };
     
-    // Add alias to handle pino-pretty gracefully
+    // Add alias to handle pino-pretty and React Native modules gracefully
     config.resolve.alias = {
       ...config.resolve.alias,
       'pino-pretty': false,
+      '@react-native-async-storage/async-storage': false,
     };
     
     return config;
