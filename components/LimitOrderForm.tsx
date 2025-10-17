@@ -501,11 +501,19 @@ export function LimitOrderForm({
       </div>
 
       {/* You Receive Section */}
-      <div className="mb-6 pb-6 border-b-2 border-[#00D9FF]/30">
+      <div className="mb-6 pb-6 border-b-2 border-[#00D9FF]/30 space-y-2">
+        {/* Fee Line */}
         <div className="flex justify-between items-center text-sm">
-          <span className="text-[#00D9FF]/70 font-medium">You receive (incl. fee)</span>
+          <span className="text-[#00D9FF]/70 font-medium">Fee (0.2%)</span>
+          <span className="text-[#00D9FF]/70">
+            {buyAmountNum > 0 ? `${formatNumberWithCommas((buyAmountNum * 0.002).toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
+          </span>
+        </div>
+        {/* You Receive Line */}
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-[#00D9FF] font-medium">You receive (after fee)</span>
           <span className="text-[#00D9FF] font-bold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">
-            {buyAmountNum > 0 ? `${formatNumberWithCommas(buyAmountNum.toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
+            {buyAmountNum > 0 ? `${formatNumberWithCommas((buyAmountNum * 0.998).toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
           </span>
         </div>
       </div>
