@@ -37,8 +37,8 @@ export default function LimitPage() {
           hue={320}
           sat={1.5}
           gamma={1.5}
-          vignette={0.6}
-          vignetteSoftness={1}
+          vignette={0.9}
+          vignetteSoftness={0.8}
           glyphSharpness={0.08}
           bg={[0, 0, 0]}
         />
