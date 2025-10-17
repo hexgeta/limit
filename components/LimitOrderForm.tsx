@@ -65,6 +65,7 @@ export function LimitOrderForm({
   const [showBuyDropdown, setShowBuyDropdown] = useState(false);
   const [sellSearchQuery, setSellSearchQuery] = useState('');
   const [buySearchQuery, setBuySearchQuery] = useState('');
+  const [invertPriceDisplay, setInvertPriceDisplay] = useState(false); // Toggle for price display
   
   const sellDropdownRef = useRef<HTMLDivElement>(null);
   const buyDropdownRef = useRef<HTMLDivElement>(null);
@@ -564,21 +565,49 @@ export function LimitOrderForm({
       {/* Limit Price Section */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <label className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">LIMIT PRICE</label>
+          <div className="flex items-center gap-2">
+            <label className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">LIMIT PRICE</label>
+            {sellToken && buyToken && (
+              <button
+                type="button"
+                onClick={() => setInvertPriceDisplay(!invertPriceDisplay)}
+                className="p-1 text-[#00D9FF] hover:text-white transition-colors"
+                title={`Show price in ${invertPriceDisplay ? buyToken.ticker : sellToken.ticker}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+              </button>
+            )}
+          </div>
           {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
             <span className="text-sm font-bold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)] text-[#00D9FF]">
               {pricePercentage > 0 ? '+' : ''}{Math.round(pricePercentage)}%
             </span>
           )}
         </div>
-        <input
-          type="text"
-          value={limitPrice}
-          onChange={(e) => setLimitPrice(e.target.value)}
-          placeholder="0.00000000"
-          className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-lg placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] transition-all cursor-not-allowed opacity-80"
-          disabled
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={(() => {
+              if (!limitPrice || limitPrice === '0') return '';
+              const price = parseFloat(limitPrice);
+              if (invertPriceDisplay && price > 0) {
+                return (1 / price).toFixed(8);
+              }
+              return limitPrice;
+            })()}
+            onChange={(e) => setLimitPrice(e.target.value)}
+            placeholder="0.00000000"
+            className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-lg placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] transition-all cursor-not-allowed opacity-80"
+            disabled
+          />
+          {sellToken && buyToken && limitPrice && parseFloat(limitPrice) > 0 && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#00D9FF]/70 text-sm font-medium pointer-events-none">
+              {invertPriceDisplay ? `${sellToken.ticker}/${buyToken.ticker}` : `${buyToken.ticker}/${sellToken.ticker}`}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Percentage Buttons */}
