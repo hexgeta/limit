@@ -610,7 +610,7 @@ export default function OrderHistoryTable({
                             <TokenLogo 
                               src={buyTokenInfo.logo}
                               alt={formatTokenTicker(buyTokenInfo.ticker)}
-                              className="w-6 h-6 rounded-full"
+                              className="w-6 h-6 "
                             />
                             <div className="flex flex-col">
                               <span className="text-white text-sm font-medium whitespace-nowrap">
@@ -641,7 +641,7 @@ export default function OrderHistoryTable({
                       <TokenLogo 
                         src={sellTokenInfo.logo}
                         alt={formatTokenTicker(sellTokenInfo.ticker)}
-                        className="w-6 h-6 rounded-full"
+                        className="w-6 h-6 "
                       />
                       <div className="flex flex-col">
                         <span className="text-white text-sm font-medium whitespace-nowrap">
@@ -671,7 +671,7 @@ export default function OrderHistoryTable({
                       <TokenLogo 
                         src={sellTokenInfo.logo}
                         alt={formatTokenTicker(sellTokenInfo.ticker)}
-                        className="w-6 h-6 rounded-full"
+                        className="w-6 h-6 "
                       />
                       <div className="flex flex-col">
                         <span className="text-white text-sm font-medium whitespace-nowrap">
@@ -704,7 +704,7 @@ export default function OrderHistoryTable({
                             <TokenLogo 
                               src={buyTokenInfo.logo}
                               alt={formatTokenTicker(buyTokenInfo.ticker)}
-                              className="w-6 h-6 rounded-full"
+                              className="w-6 h-6 "
                             />
                             <div className="flex flex-col">
                               <span className="text-white text-sm font-medium whitespace-nowrap">
@@ -736,10 +736,10 @@ export default function OrderHistoryTable({
                   : formatPercentage(fillPercentage)
                 }
               </span>
-              <div className="w-[60px] h-1 bg-gray-500 rounded-full overflow-hidden relative">
+              <div className="w-[60px] h-1 bg-gray-500  overflow-hidden relative">
                 {/* Total fill percentage (blue) */}
                 <div 
-                  className={`h-full rounded-full transition-all duration-300 ${
+                  className={`h-full  transition-all duration-300 ${
                     fillPercentage === 0 ? 'bg-gray-500' : 'bg-blue-500'
                   }`}
                   style={{ 
@@ -749,7 +749,7 @@ export default function OrderHistoryTable({
                 {/* User's share (green for buy, red for sell overlay) */}
                 {userSharePercentage > 0 && (
                   <div 
-                    className={`absolute top-0 left-0 h-full rounded-full transition-all duration-300 ${
+                    className={`absolute top-0 left-0 h-full  transition-all duration-300 ${
                       isSellTransaction ? 'bg-red-500' : 'bg-green-500'
                     }`}
                     style={{ 
@@ -788,14 +788,14 @@ export default function OrderHistoryTable({
             {/* COLUMN 5: Status */}
             <div className="text-center min-w-0 mt-1">
               <div className="flex flex-col items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium border w-[110px] ${
+                <span className={`px-3 py-1  text-sm font-medium border w-[110px] ${
                   isSellTransaction 
                     ? 'bg-red-500/20 text-red-400 border-red-400' 
                     : 'bg-green-500/20 text-green-400 border-green-400'
                 }`}>
                   {isSellTransaction ? 'Sell' : 'Buy'}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium border w-[110px] ${
+                <span className={`px-3 py-1  text-sm font-medium border w-[110px] ${
                   getStatusText(baseOrder) === 'Inactive'
                     ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
                     : baseOrder.orderDetailsWithId.status === 0 
@@ -832,7 +832,7 @@ export default function OrderHistoryTable({
                 {!isSellTransaction && baseOrder.orderDetailsWithId.status === 0 && getStatusText(baseOrder) === 'Active' && (
                   <button
                     onClick={() => onNavigateToMarketplace(baseOrder)}
-                    className="px-3 py-2 bg-white text-black text-xs rounded-full hover:bg-gray-200 transition-colors font-medium"
+                    className="px-3 py-2 bg-white text-black text-xs  hover:bg-gray-200 transition-colors font-medium"
                     title="View in Marketplace"
                   >
                     Buy More
@@ -841,7 +841,7 @@ export default function OrderHistoryTable({
                 {transaction?.transactionHash && (
                   <button
                     onClick={() => window.open(`https://otter.pulsechain.com/tx/${transaction.transactionHash}`, '_blank')}
-                    className="px-3 py-2 mt-1 font-medium bg-transparent text-white text-xs rounded-full border border-white hover:bg-white/10 hover:text-white transition-colors"
+                    className="px-3 py-2 mt-1 font-medium bg-transparent text-white text-xs  border border-white hover:bg-white/10 hover:text-white transition-colors"
                     title="View Transaction on Otterscan"
                   >
                     View Tx

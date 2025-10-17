@@ -87,7 +87,7 @@ export default function LimitPage() {
             <div className="flex justify-center mb-6 gap-4">
               <button
                 onClick={() => setShowMarketplace(false)}
-                className={`px-6 py-3 rounded-full transition-all duration-200 border-2 font-medium ${
+                className={`px-6 py-3 transition-all duration-200 border-2 font-medium ${
                   !showMarketplace
                     ? 'bg-[#00D9FF] text-black border-[#00D9FF] shadow-[0_0_20px_rgba(0,217,255,0.5)]'
                     : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF]/10'
@@ -97,7 +97,7 @@ export default function LimitPage() {
               </button>
               <button
                 onClick={() => setShowMarketplace(true)}
-                className={`px-6 py-3 rounded-full transition-all duration-200 border-2 font-medium ${
+                className={`px-6 py-3 transition-all duration-200 border-2 font-medium ${
                   showMarketplace
                     ? 'bg-[#00D9FF] text-black border-[#00D9FF] shadow-[0_0_20px_rgba(0,217,255,0.5)]'
                     : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF]/10'

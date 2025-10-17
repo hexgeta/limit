@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 // ===== EASY CONTROLS - ADJUST THESE =====
 // Animation Speed (0.001 - 0.1, default: 0.02)
-const ANIMATION_SPEED = 0.005;
+const ANIMATION_SPEED = 0.001;
 
 // Noise Settings
 const NOISE_STRENGTH = 0.15;  // 0.0 - 1.0, default: 0.15
@@ -22,7 +22,7 @@ const TINT_G = 1.0;            // Green channel
 const TINT_B = 1.0;            // Blue channel
 const HUE = 180;               // 0 - 360, default: 180 (cyan)
 const SATURATION = 1.2;        // 0.0 - 2.0, default: 1.2
-const BRIGHTNESS = 1.5;        // 0.5 - 3.0, default: 1.5
+const BRIGHTNESS = 0.5;        // 0.5 - 3.0, default: 1.5
 const CONTRAST = 1.5;          // 0.5 - 3.0, default: 1.5
 const GAMMA = 1.5;             // 0.5 - 2.0, default: 1.5
 
@@ -33,11 +33,11 @@ const Z_RATE = 0.15;           // 0.0 - 1.0, default: 0.15
 
 // Vignette Settings
 const VIGNETTE_STRENGTH = 1.0; // 0.0 - 1.0, default: 1.0
-const VIGNETTE_SOFTNESS = 2.0; // 0.1 - 3.0, default: 2.0
+const VIGNETTE_SOFTNESS = 1.0; // 0.1 - 3.0, default: 2.0
 
 // Black Overlay Vignette
-const OVERLAY_OPACITY = 0.7;   // 0.0 - 1.0, default: 0.3 (0 = no overlay, 1 = fully black edges)
-const OVERLAY_BLUR = 200;      // 0 - 500px, default: 200
+const OVERLAY_OPACITY = 1;   // 0.0 - 1.0, default: 0.3 (0 = no overlay, 1 = fully black edges)
+const OVERLAY_BLUR = 500;      // 0 - 500px, default: 200
 
 // Background Color (RGB 0.0 - 1.0)
 const BG_R = 0.0;

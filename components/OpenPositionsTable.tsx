@@ -1720,7 +1720,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       <div className="bg-black text-white relative overflow-hidden">
         <div className="max-w-[1000px] mx-auto w-full relative">
           <div 
-            className="bg-black border-0 border-white/10 rounded-full p-6 text-center max-w-[660px] w-full mx-auto"
+            className="bg-black border-0 border-white/10  p-6 text-center max-w-[660px] w-full mx-auto"
           >
             <div className="flex items-center justify-center gap-3 text-gray-400 text-base md:text-lg">
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -1736,7 +1736,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   if (error) {
     return (
       <div className="w-full max-w-6xl mx-auto mb-8 mt-8">
-        <div className="bg-white/5 p-6 rounded-lg border-2 border-white/10">
+        <div className="bg-white/5 p-6  border-2 border-white/10">
           <h2 className="text-xl font-bold mb-4">AgoráX Contract Information</h2>
           <div className="text-red-500">
             <p className="font-semibold mb-2">Unable to connect to the AgoráX OTC contract</p>
@@ -1759,7 +1759,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             </ul>
             <button 
               onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-white text-black rounded hover:bg-white/80"
+              className="px-4 py-2 bg-white text-black hover:bg-white/80"
             >
               Retry
             </button>
@@ -1781,7 +1781,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setTokenFilter('maxi');
             clearExpandedPositions();
           }}
-          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
+          className={`px-6 py-3  transition-all duration-100 border ${
             tokenFilter === 'maxi'
               ? 'bg-purple-500/20 text-purple-400 border-purple-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1794,7 +1794,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setTokenFilter('non-maxi');
             clearExpandedPositions();
           }}
-          className={`px-6 py-3 rounded-full transition-all duration-100 border ${
+          className={`px-6 py-3  transition-all duration-100 border ${
             tokenFilter === 'non-maxi'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1806,7 +1806,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
       {/* Level 2: Ownership Filter */}
       <div className="flex justify-center sm:justify-start mb-4 w-full md:w-auto">
-        <div className={`inline-flex items-center bg-black border rounded-full relative w-full md:w-auto ${
+        <div className={`inline-flex items-center bg-black border  relative w-full md:w-auto ${
           ownershipFilter === 'mine' ? 'border-green-600' : 'border-orange-600'
         }`}>
           <button
@@ -1814,7 +1814,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               setOwnershipFilter('mine');
               clearExpandedPositions();
             }}
-            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
+            className={`flex-1 md:flex-none px-3 md:px-4 py-2  text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
               ownershipFilter === 'mine'
                 ? 'text-white'
                 : 'text-orange-600 hover:text-orange-500'
@@ -1823,7 +1823,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             {ownershipFilter === 'mine' && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute inset-0 rounded-full bg-green-600 shadow-sm"
+                className="absolute inset-0  bg-green-600 shadow-sm"
                 transition={{
                   type: "spring",
                   stiffness: 300,
@@ -1843,7 +1843,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               }
               clearExpandedPositions();
             }}
-            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
+            className={`flex-1 md:flex-none px-3 md:px-4 py-2  text-sm md:text-base font-medium transition-colors duration-200 relative z-10 whitespace-nowrap ${
               ownershipFilter === 'non-mine'
                 ? 'text-white'
                 : 'text-green-600 hover:text-green-500'
@@ -1852,7 +1852,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             {ownershipFilter === 'non-mine' && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute inset-0 rounded-full bg-orange-600 shadow-sm"
+                className="absolute inset-0  bg-orange-600 shadow-sm"
                 transition={{
                   type: "spring",
                   stiffness: 300,
@@ -1873,7 +1873,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('active');
             clearExpandedPositions();
           }}
-          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
+          className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'active'
               ? 'bg-green-500/20 text-green-400 border-green-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1886,7 +1886,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('completed');
             clearExpandedPositions();
           }}
-          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
+          className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'completed'
               ? 'bg-blue-500/20 text-blue-400 border-blue-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1899,7 +1899,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('inactive');
             clearExpandedPositions();
           }}
-          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
+          className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'inactive'
               ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1912,7 +1912,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             setStatusFilter('cancelled');
             clearExpandedPositions();
           }}
-          className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
+          className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
             statusFilter === 'cancelled'
               ? 'bg-red-500/20 text-red-400 border-red-400'
               : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1926,7 +1926,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               setStatusFilter('order-history');
               clearExpandedPositions();
             }}
-            className={`px-3 md:px-4 py-2 rounded-full transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
+            className={`px-3 md:px-4 py-2  transition-all duration-100 border whitespace-nowrap text-sm md:text-base ${
               statusFilter === 'order-history'
                 ? 'bg-purple-500/20 text-purple-400 border-purple-400'
                 : 'bg-gray-800/50 text-gray-300 border-gray-600 hover:bg-gray-700/50'
@@ -1946,13 +1946,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-white/10 rounded-full text-white placeholder-gray-500 focus:outline-none focus:border-white/10 focus:bg-black/10 transition-colors"
+            className="w-full pl-10 pr-4 py-2 bg-black border-2 border-white/10  text-white placeholder-gray-500 focus:outline-none focus:border-white/10 focus:bg-black/10 transition-colors"
           />
         </div>
       </div>
 
       <div 
-        className={`bg-black border-2 border-white/10 rounded-2xl p-6 transition-all duration-500 ease-out ${
+        className={`bg-black border-2 border-white/10  p-6 transition-all duration-500 ease-out ${
           expandedPositions.size > 0 ? 'shadow-2xl shadow-white/10' : ''
         }`}
         style={{ 
@@ -2239,7 +2239,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     <TokenLogo 
                       src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
                               alt={formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
-                      className="w-6 h-6 rounded-full"
+                      className="w-6 h-6 "
                     />
                             <div className="flex flex-col">
                     <span className="text-white text-sm font-medium whitespace-nowrap">
@@ -2315,7 +2315,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           <TokenLogo 
                             src={tokenInfo.logo}
                                   alt={formatTokenTicker(tokenInfo.ticker)}
-                            className="w-6 h-6 rounded-full"
+                            className="w-6 h-6 "
                           />
                                 <div className="flex flex-col">
                           <span className="text-white text-sm font-medium whitespace-nowrap">
@@ -2351,13 +2351,13 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                     </span>
                       );
                     })()}
-                    <div className="w-[60px] h-1 bg-gray-500 rounded-full overflow-hidden relative">
+                    <div className="w-[60px] h-1 bg-gray-500  overflow-hidden relative">
                       {(() => {
                         const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
                         
                         return (
                           <div 
-                            className={`h-full rounded-full transition-all duration-300 ${
+                            className={`h-full  transition-all duration-300 ${
                               fillPercentage === 0 ? 'bg-gray-500' : 'bg-blue-500'
                             }`}
                         style={{ 
@@ -2396,7 +2396,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   
                   {/* COLUMN 5: Status Content */}
                   <div className="text-center min-w-0 mt-1">
-                    <span className={`px-3 py-2 rounded-full text-sm font-medium border ${
+                    <span className={`px-3 py-2  text-sm font-medium border ${
                       getStatusText(order) === 'Inactive'
                         ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
                         : order.orderDetailsWithId.status === 0 
@@ -2424,7 +2424,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           <button
                             onClick={() => handleCancelOrder(order)}
                             disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString())}
-                            className="p-2 -mt-1.5 rounded hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+                            className="p-2 -mt-1.5 hover:bg-gray-700/50 transition-colors disabled:opacity-50"
                           >
                             {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? (
                               <Loader2 className="w-5 h-5 text-red-400 animate-spin mx-auto" />
@@ -2435,7 +2435,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       ) : ownershipFilter === 'non-mine' && order.orderDetailsWithId.status === 0 && statusFilter === 'active' ? (
                           <button
                             onClick={() => togglePositionExpansion(order.orderDetailsWithId.orderId.toString())}
-                          className={`flex items-center gap-1 ml-4 px-4 py-2 text-xs rounded-full transition-colors ${
+                          className={`flex items-center gap-1 ml-4 px-4 py-2 text-xs  transition-colors ${
                             expandedPositions.has(order.orderDetailsWithId.orderId.toString())
                               ? 'bg-transparent border border-white text-white hover:bg-white/10'
                               : 'bg-white text-black hover:bg-gray-200'
@@ -2459,7 +2459,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   {/* Expandable Actions Shelf */}
                     {expandedPositions.has(order.orderDetailsWithId.orderId.toString()) && (
                       <div
-                        className="col-span-full rounded-2xl mt-2 border border-white/10 bg-white/5 w-full"
+                        className="col-span-full  mt-2 border border-white/10 bg-white/5 w-full"
                       >
                         <div className="p-3">
                           <div className="flex flex-col space-y-2">
@@ -2475,12 +2475,12 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                   const currentAmount = offerInputs[orderId]?.[tokenInfo.address] || '';
                                   
                                   return (
-                                    <div key={tokenInfo.address} className="flex items-center space-x-2 bg-gray-400/5 rounded-lg px-3 py-2 min-h-[60px]">
+                                    <div key={tokenInfo.address} className="flex items-center space-x-2 bg-gray-400/5  px-3 py-2 min-h-[60px]">
                                       <div className="flex items-center space-x-2 flex-1">
                                         <TokenLogo 
                                           src={tokenInfo.logo}
                                           alt={formatTokenTicker(tokenInfo.ticker)}
-                                          className="w-6 h-6 rounded-full flex-shrink-0"
+                                          className="w-6 h-6  flex-shrink-0"
                                         />
                                         <span className="text-white text-sm font-medium">
                                           {formatTokenTicker(tokenInfo.ticker)}
@@ -2496,7 +2496,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                             removeCommas(e.target.value),
                                             order
                                           )}
-                                          className="bg-transparent border border-white/20 rounded px-2 py-1 text-white text-sm w-26 md:w-20 focus:border-white/40 focus:outline-none"
+                                          className="bg-transparent border border-white/20 px-2 py-1 text-white text-sm w-26 md:w-20 focus:border-white/40 focus:outline-none"
                                           placeholder="0"
                                         />
           </div>
@@ -2509,25 +2509,25 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                               <div className="mt-4 flex space-x-2">
                                 <button
                                   onClick={() => handlePercentageFill(order, 0.1)}
-                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 hover:bg-blue-500/30 transition-colors"
                                 >
                                   10%
                                 </button>
                                 <button
                                   onClick={() => handlePercentageFill(order, 0.5)}
-                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 hover:bg-blue-500/30 transition-colors"
                                 >
                                   50%
                                 </button>
                                 <button
                                   onClick={() => handlePercentageFill(order, 1.0)}
-                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                                  className="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-400 hover:bg-blue-500/30 transition-colors"
                                 >
                                   100%
                                 </button>
                                 <button
                                   onClick={() => handleClearInputs(order)}
-                                  className="px-3 py-1 text-xs bg-red-500/20 text-red-400 border border-red-400 rounded hover:bg-red-500/30 transition-colors"
+                                  className="px-3 py-1 text-xs bg-red-500/20 text-red-400 border border-red-400 hover:bg-red-500/30 transition-colors"
                                 >
                                   Clear
                                 </button>
@@ -2566,7 +2566,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                   const orderOwnerReceives = totalBuyAmount - platformFee;
                                   
                                   return (
-                                    <div className="mt-4 p-3 bg-white/5 rounded-lg">
+                                    <div className="mt-4 p-3 bg-white/5 ">
                                       <h5 className="text-white font-medium mb-2">Order Breakdown</h5>
                                       <div className="space-y-1 text-sm">
                                         <div className="flex justify-between">
@@ -2578,7 +2578,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                                 <TokenLogo 
                                                   src={primaryTokenInfo.logo}
                                                   alt={formatTokenTicker(primaryTokenInfo.ticker)}
-                                                  className="w-4 h-4 rounded-full"
+                                                  className="w-4 h-4 "
                                                 />
                                                 <span className="text-white">{formatTokenTicker(primaryTokenInfo.ticker)}</span>
                                               </>
@@ -2594,7 +2594,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                                 <TokenLogo 
                                                   src={primaryTokenInfo.logo}
                                                   alt={formatTokenTicker(primaryTokenInfo.ticker)}
-                                                  className="w-4 h-4 rounded-full"
+                                                  className="w-4 h-4 "
                                                 />
                                                 <span className="text-white">{formatTokenTicker(primaryTokenInfo.ticker)}</span>
                                               </>
@@ -2611,7 +2611,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                                   <TokenLogo 
                                                     src={primaryTokenInfo.logo}
                                                     alt={formatTokenTicker(primaryTokenInfo.ticker)}
-                                                    className="w-4 h-4 rounded-full"
+                                                    className="w-4 h-4 "
                                                   />
                                                   <span className="text-white font-bold">{formatTokenTicker(primaryTokenInfo.ticker)}</span>
                                                 </>
@@ -2644,7 +2644,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                                  <TokenLogo 
                                                    src={sellTokenInfo.logo}
                                                    alt={formatTokenTicker(sellTokenInfo.ticker)}
-                                                   className="w-4 h-4 rounded-full"
+                                                   className="w-4 h-4 "
                                                  />
                                                  <span className="text-white font-bold">{formatTokenTicker(sellTokenInfo.ticker)}</span>
                                                </div>
@@ -2660,7 +2660,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
 
                               {/* Error Display */}
                               {executeErrors[order.orderDetailsWithId.orderId.toString()] && (
-                                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 ">
                                   <p className="text-red-400 text-sm">{executeErrors[order.orderDetailsWithId.orderId.toString()]}</p>
                                 </div>
                               )}
@@ -2681,7 +2681,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 <button 
                                   onClick={() => handleExecuteOrder(order)}
                                       disabled={executingOrders.has(orderId) || approvingOrders.has(orderId) || !isWalletConnected}
-                                  className="px-6 py-2 bg-white text-black border border-white rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="px-6 py-2 bg-white text-black border border-white  hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                        {approvingOrders.has(orderId) ? 'Approving...' : executingOrders.has(orderId) ? 'Executing...' : (hasNativeTokenInput ? 'Confirm Trade' : 'Approve & Confirm Trade')}
                                 </button>
@@ -2707,7 +2707,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                     onClick={() => handleCancelOrder(order)}
                                     disabled={cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) || 
                                              order.orderDetailsWithId.status !== 0}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-4 py-2 bg-red-600 text-white  hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     {cancelingOrders.has(order.orderDetailsWithId.orderId.toString()) ? 'Canceling...' : 'Cancel Order'}
                                   </button>
@@ -2716,7 +2716,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                   <button
                                     onClick={() => handleEditOrder(order)}
                                     disabled={order.orderDetailsWithId.status !== 0}
-                                    className="hidden px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="hidden px-4 py-2 bg-blue-600 text-white  hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     Edit Order
                                   </button>
@@ -2724,14 +2724,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                                 
                                 {/* Cancel Error Display */}
                                 {cancelErrors[order.orderDetailsWithId.orderId.toString()] && (
-                                  <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                  <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 ">
                                     <p className="text-red-400 text-xs">{cancelErrors[order.orderDetailsWithId.orderId.toString()]}</p>
                                   </div>
                                 )}
                                 
                                 {/* Update Error Display */}
                                 {updateErrors[order.orderDetailsWithId.orderId.toString()] && (
-                                  <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                  <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 ">
                                     <p className="text-red-400 text-xs">{updateErrors[order.orderDetailsWithId.orderId.toString()]}</p>
                                   </div>
                                 )}
@@ -2754,7 +2754,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
       {/* Edit Order Modal */}
       {editingOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md">
+          <div className="bg-gray-900 border border-gray-700  p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-white mb-4">Edit Order</h3>
             
             <div className="space-y-4">
@@ -2767,7 +2767,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   type="text"
                   value={editFormData.sellAmount}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, sellAmount: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600  text-white focus:outline-none focus:border-blue-500"
                   placeholder="Enter sell amount"
                 />
               </div>
@@ -2792,7 +2792,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                           ...prev,
                           buyAmounts: { ...prev.buyAmounts, [tokenIndex]: e.target.value }
                         }))}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600  text-white focus:outline-none focus:border-blue-500"
                         placeholder={`Enter ${tokenInfo.ticker} amount`}
                       />
                     </div>
@@ -2809,7 +2809,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   type="datetime-local"
                   value={editFormData.expirationTime}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, expirationTime: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600  text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -2821,7 +2821,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   setEditingOrder(null);
                   setEditFormData({ sellAmount: '', buyAmounts: {}, expirationTime: '' });
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-700 text-white  hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
@@ -2831,7 +2831,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   if (order) handleSaveOrder(order);
                 }}
                 disabled={updatingOrders.has(editingOrder)}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white  hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {updatingOrders.has(editingOrder) ? 'Saving...' : 'Save Changes'}
               </button>

@@ -235,7 +235,7 @@ export function LimitOrderForm({
   };
 
   return (
-    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Sell Section */}
       <div className="mb-4">
         <label className="text-[#00D9FF] text-sm mb-2 block font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">SELL</label>
@@ -244,7 +244,7 @@ export function LimitOrderForm({
         <div className="relative mb-3" ref={sellDropdownRef}>
           <button
             onClick={() => setShowSellDropdown(!showSellDropdown)}
-            className="w-full bg-black border-2 border-[#00D9FF] rounded-lg p-3 flex items-center justify-between hover:bg-[#00D9FF]/10 transition-all shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+            className="w-full bg-black border-2 border-[#00D9FF]  p-3 flex items-center justify-between hover:bg-[#00D9FF]/10 transition-all shadow-[0_0_10px_rgba(0,217,255,0.3)]"
           >
             <div className="flex items-center space-x-3">
               {sellToken ? (
@@ -252,7 +252,7 @@ export function LimitOrderForm({
                   <img
                     src={getTokenLogo(sellToken.ticker)}
                     alt={sellToken.ticker}
-                    className="w-6 h-6 rounded-full"
+                    className="w-6 h-6 "
                     onError={(e) => {
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
@@ -270,7 +270,7 @@ export function LimitOrderForm({
 
           {/* Dropdown */}
           {showSellDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF] rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF]  max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
               {whitelistedTokens.map((token) => (
                 <button
                   key={token.a}
@@ -284,7 +284,7 @@ export function LimitOrderForm({
                   <img
                     src={getTokenLogo(token.ticker)}
                     alt={token.ticker}
-                    className="w-6 h-6 rounded-full"
+                    className="w-6 h-6 "
                     onError={(e) => {
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
@@ -305,7 +305,7 @@ export function LimitOrderForm({
           value={sellAmount}
           onChange={handleSellAmountChange}
           placeholder="0.00"
-          className="w-full bg-black border-2 border-[#00D9FF] rounded-lg p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
+          className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
         />
         <div className="flex justify-between items-center mt-2">
           <div className="text-[#00D9FF] text-sm font-semibold">
@@ -330,7 +330,7 @@ export function LimitOrderForm({
 
       {/* Swap Arrow */}
       <div className="flex justify-center mb-4">
-        <button className="bg-black border-2 border-[#00D9FF] p-2 rounded-full hover:bg-[#00D9FF]/20 transition-all shadow-[0_0_15px_rgba(0,217,255,0.4)]">
+        <button className="bg-black border-2 border-[#00D9FF] p-2  hover:bg-[#00D9FF]/20 transition-all shadow-[0_0_15px_rgba(0,217,255,0.4)]">
           <svg className="w-5 h-5 text-[#00D9FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
@@ -345,7 +345,7 @@ export function LimitOrderForm({
         <div className="relative mb-3" ref={buyDropdownRef}>
           <button
             onClick={() => setShowBuyDropdown(!showBuyDropdown)}
-            className="w-full bg-black border-2 border-[#00D9FF] rounded-lg p-3 flex items-center justify-between hover:bg-[#00D9FF]/10 transition-all shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+            className="w-full bg-black border-2 border-[#00D9FF]  p-3 flex items-center justify-between hover:bg-[#00D9FF]/10 transition-all shadow-[0_0_10px_rgba(0,217,255,0.3)]"
           >
             <div className="flex items-center space-x-3">
               {buyToken ? (
@@ -353,7 +353,7 @@ export function LimitOrderForm({
                   <img
                     src={getTokenLogo(buyToken.ticker)}
                     alt={buyToken.ticker}
-                    className="w-6 h-6 rounded-full"
+                    className="w-6 h-6 "
                     onError={(e) => {
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
@@ -371,7 +371,7 @@ export function LimitOrderForm({
 
           {/* Dropdown */}
           {showBuyDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF] rounded-lg max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-black border-2 border-[#00D9FF]  max-h-60 overflow-y-auto scrollbar-hide z-10 shadow-[0_0_20px_rgba(0,217,255,0.4)]">
               {whitelistedTokens.map((token) => (
                 <button
                   key={token.a}
@@ -385,7 +385,7 @@ export function LimitOrderForm({
                   <img
                     src={getTokenLogo(token.ticker)}
                     alt={token.ticker}
-                    className="w-6 h-6 rounded-full"
+                    className="w-6 h-6 "
                     onError={(e) => {
                       e.currentTarget.src = '/coin-logos/default.svg';
                     }}
@@ -406,7 +406,7 @@ export function LimitOrderForm({
           value={buyAmount}
           onChange={handleBuyAmountChange}
           placeholder="0.00"
-          className="w-full bg-black border-2 border-[#00D9FF] rounded-lg p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
+          className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
         />
         <div className="text-[#00D9FF] text-sm mt-2 font-semibold">
           {buyUsdValue > 0 ? `$${formatNumberWithCommas(buyUsdValue.toFixed(2))}` : '$0.00'}
@@ -428,7 +428,7 @@ export function LimitOrderForm({
           value={limitPrice}
           onChange={(e) => setLimitPrice(e.target.value)}
           placeholder="0.00000000"
-          className="w-full bg-black border-2 border-[#00D9FF] rounded-lg p-3 text-[#00D9FF] text-lg placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] transition-all cursor-not-allowed opacity-80"
+          className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-lg placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] transition-all cursor-not-allowed opacity-80"
           disabled
         />
       </div>
@@ -437,31 +437,31 @@ export function LimitOrderForm({
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => handlePercentageClick(0)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           Market
         </button>
         <button
           onClick={() => handlePercentageClick(1)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           1% ↑
         </button>
         <button
           onClick={() => handlePercentageClick(2)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           2% ↑
         </button>
         <button
           onClick={() => handlePercentageClick(5)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           5% ↑
         </button>
         <button
           onClick={() => handlePercentageClick(10)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF] rounded-lg text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
         >
           10% ↑
         </button>
@@ -479,13 +479,13 @@ export function LimitOrderForm({
 
       {/* Connect/Submit Button */}
       {!isConnected ? (
-        <button className="w-full py-4 bg-black text-[#00D9FF] border-2 border-[#00D9FF] rounded-full font-bold hover:bg-[#00D9FF] hover:text-black transition-all shadow-[0_0_20px_rgba(0,217,255,0.5)] hover:shadow-[0_0_30px_rgba(0,217,255,0.8)] text-lg tracking-wider">
+        <button className="w-full py-4 bg-black text-[#00D9FF] border-2 border-[#00D9FF]  font-bold hover:bg-[#00D9FF] hover:text-black transition-all shadow-[0_0_20px_rgba(0,217,255,0.5)] hover:shadow-[0_0_30px_rgba(0,217,255,0.8)] text-lg tracking-wider">
           CONNECT EVM WALLET
         </button>
       ) : (
         <button
           onClick={handleCreateOrder}
-          className="w-full py-4 bg-[#00D9FF] text-black border-2 border-[#00D9FF] rounded-full font-bold hover:bg-black hover:text-[#00D9FF] transition-all shadow-[0_0_20px_rgba(0,217,255,0.5)] hover:shadow-[0_0_30px_rgba(0,217,255,0.8)] text-lg tracking-wider"
+          className="w-full py-4 bg-[#00D9FF] text-black border-2 border-[#00D9FF]  font-bold hover:bg-black hover:text-[#00D9FF] transition-all shadow-[0_0_20px_rgba(0,217,255,0.5)] hover:shadow-[0_0_30px_rgba(0,217,255,0.8)] text-lg tracking-wider"
         >
           CREATE LIMIT ORDER
         </button>

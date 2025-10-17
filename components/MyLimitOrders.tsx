@@ -62,7 +62,7 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
 
   if (!isConnected) {
     return (
-      <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg p-12 text-center shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+      <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  p-12 text-center shadow-[0_0_30px_rgba(0,217,255,0.3)]">
         <p className="text-[#00D9FF]">Connect your wallet to view your orders</p>
       </div>
     );
@@ -70,14 +70,14 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg p-12 text-center shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+      <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  p-12 text-center shadow-[0_0_30px_rgba(0,217,255,0.3)]">
         <p className="text-[#00D9FF]">No orders yet. Create your first limit order above!</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+    <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  overflow-hidden shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       <div className="p-6 border-b-2 border-[#00D9FF]/30">
         <h3 className="text-xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">MY ORDERS</h3>
       </div>
@@ -106,7 +106,7 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
                   <div className="flex flex-col">
                     <div className="text-[#00D9FF] font-medium">${parseFloat(order.sellAmount) * 0.0104}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="w-6 h-6 rounded-full bg-[#00D9FF] border border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.5)] flex items-center justify-center text-xs text-black font-bold">
+                      <div className="w-6 h-6  bg-[#00D9FF] border border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.5)] flex items-center justify-center text-xs text-black font-bold">
                         M
                       </div>
                       <span className="text-sm text-[#00D9FF]/70">{order.sellToken}</span>
@@ -118,7 +118,7 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
                   <div className="flex flex-col">
                     <div className="text-[#00D9FF] font-medium">${parseFloat(order.buyAmount) * 0.006316}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="w-6 h-6 rounded-full bg-[#00D9FF] border border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.5)] flex items-center justify-center text-xs text-black font-bold">
+                      <div className="w-6 h-6  bg-[#00D9FF] border border-[#00D9FF] shadow-[0_0_10px_rgba(0,217,255,0.5)] flex items-center justify-center text-xs text-black font-bold">
                         H
                       </div>
                       <span className="text-sm text-[#00D9FF]/70">{order.buyToken}</span>
@@ -129,9 +129,9 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
                     <span className="text-[#00D9FF] font-semibold">{order.fillStatus}%</span>
-                    <div className="w-full bg-black border border-[#00D9FF]/30 rounded-full h-2">
+                    <div className="w-full bg-black border border-[#00D9FF]/30  h-2">
                       <div
-                        className="bg-[#00D9FF] h-2 rounded-full shadow-[0_0_10px_rgba(0,217,255,0.6)]"
+                        className="bg-[#00D9FF] h-2  shadow-[0_0_10px_rgba(0,217,255,0.6)]"
                         style={{ width: `${order.fillStatus}%` }}
                       ></div>
                     </div>
@@ -153,7 +153,7 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="px-3 py-1 rounded-full text-sm border-2 border-[#00D9FF] text-[#00D9FF] bg-[#00D9FF]/10 font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]">
+                  <span className="px-3 py-1  text-sm border-2 border-[#00D9FF] text-[#00D9FF] bg-[#00D9FF]/10 font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]">
                     {order.status}
                   </span>
                 </td>

@@ -37,7 +37,7 @@ export const ConnectButton = () => {
       <button
         onClick={() => open()}
         disabled={isTransactionPending}
-        className={`px-4 md:px-8 py-2 md:py-3 rounded-full font-semibold transition-all text-sm md:text-base border-2 ${
+        className={`px-4 md:px-8 py-2 md:py-3 font-semibold transition-all text-sm md:text-base border-2 ${
           isTransactionPending 
             ? 'bg-gray-900 text-gray-600 border-gray-700 cursor-not-allowed' 
             : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF] hover:text-black shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]'
@@ -45,7 +45,7 @@ export const ConnectButton = () => {
       >
         {isTransactionPending ? (
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent animate-spin"></div>
             <span>Pending...</span>
           </div>
         ) : (
@@ -59,7 +59,7 @@ export const ConnectButton = () => {
     <>
       <button
         onClick={handleConnectClick}
-        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#00D9FF] border-2 border-[#00D9FF] rounded-full font-semibold hover:bg-[#00D9FF] hover:text-black transition-all text-sm md:text-base shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]"
+        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#00D9FF] border-2 border-[#00D9FF] font-semibold hover:bg-[#00D9FF] hover:text-black transition-all text-sm md:text-base shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]"
       >
         CONNECT WALLET
       </button>

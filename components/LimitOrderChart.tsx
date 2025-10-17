@@ -110,7 +110,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-black border-2 border-[#00D9FF] p-3 rounded-lg shadow-[0_0_20px_rgba(0,217,255,0.5)]">
+        <div className="bg-black border-2 border-[#00D9FF] p-3 shadow-[0_0_20px_rgba(0,217,255,0.5)]">
           <p className="text-[#00D9FF]/70 text-sm">{payload[0].payload.date}</p>
           <p className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.8)]">
             ${payload[0].value.toFixed(6)}
@@ -122,7 +122,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
   };
 
   return (
-    <div className="w-full bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] rounded-lg p-6 shadow-[0_0_30px_rgba(0,217,255,0.3)]">
+    <div className="w-full bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] p-6 shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Controls */}
       <div className="flex justify-between items-center gap-4 mb-6">
         {/* Token Info */}
@@ -144,7 +144,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress }: LimitOrde
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 border-2 ${
+              className={`px-4 py-2 text-sm font-medium transition-all duration-300 border-2 ${
                 timeRange === range
                   ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF] shadow-[0_0_15px_rgba(0,217,255,0.5)]'
                   : 'bg-black text-[#00D9FF]/50 border-[#00D9FF]/30 hover:border-[#00D9FF] hover:text-[#00D9FF] hover:shadow-[0_0_10px_rgba(0,217,255,0.4)]'
