@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useBalance } from 'wagmi';
 import { WHITELISTED_TOKENS } from '@/constants/crypto';
+import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
+import { formatEther, parseEther } from 'viem';
 
 interface LimitOrderFormProps {
   onTransactionStart: () => void;
@@ -18,13 +20,36 @@ interface TokenOption {
   decimals: number;
 }
 
+// Helper to format large numbers with commas
+const formatNumberWithCommas = (value: string): string => {
+  if (!value) return '';
+  const parts = value.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
+// Helper to remove commas for calculations
+const removeCommas = (value: string): string => {
+  return value.replace(/,/g, '');
+};
+
+// Helper to format balance display
+const formatBalanceDisplay = (balance: string): string => {
+  const num = parseFloat(balance);
+  if (num === 0) return '0';
+  if (num < 0.000001) return num.toExponential(2);
+  if (num < 1) return num.toFixed(6);
+  if (num < 1000) return num.toFixed(4);
+  return formatNumberWithCommas(num.toFixed(2));
+};
+
 export function LimitOrderForm({
   onTransactionStart,
   onTransactionEnd,
   onTransactionSuccess,
   onTransactionError,
 }: LimitOrderFormProps) {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const [sellToken, setSellToken] = useState<TokenOption | null>(null);
   const [buyToken, setBuyToken] = useState<TokenOption | null>(null);
   const [sellAmount, setSellAmount] = useState('');
@@ -39,12 +64,52 @@ export function LimitOrderForm({
 
   const whitelistedTokens = WHITELISTED_TOKENS;
 
-  // Set default tokens
+  // Get all token addresses for price fetching
+  const tokenAddresses = whitelistedTokens.map(t => t.a).filter(Boolean) as string[];
+  
+  // Fetch token prices
+  const { prices, isLoading: pricesLoading } = useTokenPrices(tokenAddresses);
+
+  // Fetch sell token balance
+  const { data: sellTokenBalance, isLoading: sellBalanceLoading } = useBalance({
+    address: address,
+    token: sellToken?.a as `0x${string}` | undefined,
+    enabled: !!address && !!sellToken && sellToken.a !== '0x000000000000000000000000000000000000dead',
+  });
+
+  // Fetch PLS balance if sell token is PLS
+  const { data: plsBalance } = useBalance({
+    address: address,
+    enabled: !!address && sellToken?.a === '0x000000000000000000000000000000000000dead',
+  });
+
+  // Set default tokens - check localStorage first, then use defaults
   useEffect(() => {
-    const defaultSell = whitelistedTokens.find(t => t.a?.toLowerCase() === '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b'); // MAXI
-    const defaultBuy = whitelistedTokens.find(t => t.a?.toLowerCase() === '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'); // HEX
-    if (defaultSell) setSellToken(defaultSell);
-    if (defaultBuy) setBuyToken(defaultBuy);
+    // Try to load from localStorage
+    const savedSellToken = localStorage.getItem('limitOrderSellToken');
+    const savedBuyToken = localStorage.getItem('limitOrderBuyToken');
+    
+    if (savedSellToken) {
+      const token = whitelistedTokens.find(t => t.a?.toLowerCase() === savedSellToken.toLowerCase());
+      if (token) {
+        setSellToken(token);
+      }
+    } else {
+      // Default to USDL
+      const defaultSell = whitelistedTokens.find(t => t.a?.toLowerCase() === '0x0deed1486bc52aa0d3e6f8849cec5add6598a162'); // USDL
+      if (defaultSell) setSellToken(defaultSell);
+    }
+    
+    if (savedBuyToken) {
+      const token = whitelistedTokens.find(t => t.a?.toLowerCase() === savedBuyToken.toLowerCase());
+      if (token) {
+        setBuyToken(token);
+      }
+    } else {
+      // Default to HEX
+      const defaultBuy = whitelistedTokens.find(t => t.a?.toLowerCase() === '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'); // HEX
+      if (defaultBuy) setBuyToken(defaultBuy);
+    }
   }, []);
 
   // Close dropdowns when clicking outside
@@ -66,6 +131,36 @@ export function LimitOrderForm({
     return `/coin-logos/${ticker}.svg`;
   };
 
+  // Get actual balance (PLS or token)
+  const actualBalance = sellToken?.a === '0x000000000000000000000000000000000000dead' 
+    ? plsBalance 
+    : sellTokenBalance;
+
+  // Calculate USD values
+  const sellTokenPrice = sellToken ? prices[sellToken.a]?.price || 0 : 0;
+  const buyTokenPrice = buyToken ? prices[buyToken.a]?.price || 0 : 0;
+  
+  const sellAmountNum = sellAmount ? parseFloat(removeCommas(sellAmount)) : 0;
+  const buyAmountNum = buyAmount ? parseFloat(removeCommas(buyAmount)) : 0;
+  
+  const sellUsdValue = sellAmountNum * sellTokenPrice;
+  const buyUsdValue = buyAmountNum * buyTokenPrice;
+
+  // Calculate market price (ratio)
+  const marketPrice = sellTokenPrice && buyTokenPrice ? sellTokenPrice / buyTokenPrice : 0;
+
+  // Calculate limit price and percentage
+  useEffect(() => {
+    if (sellAmountNum > 0 && buyAmountNum > 0 && marketPrice > 0) {
+      const currentLimitPrice = buyAmountNum / sellAmountNum;
+      setLimitPrice(currentLimitPrice.toFixed(8));
+      
+      // Calculate percentage above market
+      const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
+      setPricePercentage(percentageAboveMarket);
+    }
+  }, [sellAmountNum, buyAmountNum, marketPrice]);
+
   const handleCreateOrder = () => {
     // This would integrate with your existing CreatePositionModal logic
     console.log('Creating order:', {
@@ -74,16 +169,59 @@ export function LimitOrderForm({
       sellAmount,
       buyAmount,
       limitPrice,
+      pricePercentage,
     });
   };
 
   const handlePercentageClick = (percentage: number) => {
+    if (!marketPrice || !sellAmountNum) return;
+    
     setPricePercentage(percentage);
-    // Calculate new limit price based on current market price
-    // This is a placeholder - you'd fetch actual market price
-    const currentPrice = 0.0104; // Example
-    const newPrice = currentPrice * (1 + percentage / 100);
+    const newPrice = marketPrice * (1 + percentage / 100);
     setLimitPrice(newPrice.toFixed(8));
+    
+    // Calculate new buy amount based on limit price
+    const newBuyAmount = sellAmountNum * newPrice;
+    setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+  };
+
+  const handleMaxSellAmount = () => {
+    if (!actualBalance) return;
+    
+    let maxAmount = actualBalance.formatted;
+    
+    // For PLS, reserve some for gas
+    if (sellToken?.a === '0x000000000000000000000000000000000000dead') {
+      const balanceNum = parseFloat(maxAmount);
+      const reservedGas = 0.1; // Reserve 0.1 PLS for gas
+      maxAmount = Math.max(0, balanceNum - reservedGas).toString();
+    }
+    
+    setSellAmount(formatNumberWithCommas(maxAmount));
+  };
+
+  const handleSellAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    value = value.replace(/[^0-9.]/g, '');
+    
+    const parts = value.split('.');
+    if (parts.length > 2) {
+      value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    setSellAmount(value);
+  };
+
+  const handleBuyAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    value = value.replace(/[^0-9.]/g, '');
+    
+    const parts = value.split('.');
+    if (parts.length > 2) {
+      value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    setBuyAmount(value);
   };
 
   return (
@@ -128,6 +266,7 @@ export function LimitOrderForm({
                   key={token.a}
                   onClick={() => {
                     setSellToken(token);
+                    localStorage.setItem('limitOrderSellToken', token.a);
                     setShowSellDropdown(false);
                   }}
                   className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
@@ -154,11 +293,29 @@ export function LimitOrderForm({
         <input
           type="text"
           value={sellAmount}
-          onChange={(e) => setSellAmount(e.target.value)}
+          onChange={handleSellAmountChange}
           placeholder="0.00"
           className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white text-2xl placeholder-gray-400 focus:outline-none focus:border-gray-500"
         />
-        <div className="text-gray-500 text-sm mt-2">$999.90</div>
+        <div className="flex justify-between items-center mt-2">
+          <div className="text-gray-500 text-sm">
+            {sellUsdValue > 0 ? `$${formatNumberWithCommas(sellUsdValue.toFixed(2))}` : '$0.00'}
+          </div>
+          {sellToken && actualBalance && (
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-xs">
+                Balance: {formatBalanceDisplay(actualBalance.formatted)}
+              </span>
+              <button
+                type="button"
+                onClick={handleMaxSellAmount}
+                className="text-blue-400 hover:text-white text-xs font-medium transition-colors"
+              >
+                MAX
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Swap Arrow */}
@@ -210,6 +367,7 @@ export function LimitOrderForm({
                   key={token.a}
                   onClick={() => {
                     setBuyToken(token);
+                    localStorage.setItem('limitOrderBuyToken', token.a);
                     setShowBuyDropdown(false);
                   }}
                   className="w-full p-3 flex items-center space-x-3 hover:bg-white/5 transition-colors text-left"
@@ -236,18 +394,24 @@ export function LimitOrderForm({
         <input
           type="text"
           value={buyAmount}
-          onChange={(e) => setBuyAmount(e.target.value)}
+          onChange={handleBuyAmountChange}
           placeholder="0.00"
           className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white text-2xl placeholder-gray-400 focus:outline-none focus:border-gray-500"
         />
-        <div className="text-gray-500 text-sm mt-2">$1,097.43</div>
+        <div className="text-gray-500 text-sm mt-2">
+          {buyUsdValue > 0 ? `$${formatNumberWithCommas(buyUsdValue.toFixed(2))}` : '$0.00'}
+        </div>
       </div>
 
       {/* Limit Price Section */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
           <label className="text-gray-400 text-sm">Limit price</label>
-          <span className="text-green-500 text-sm">+9.8%</span>
+          {pricePercentage !== null && pricePercentage !== 0 && (
+            <span className={`text-sm ${pricePercentage > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {pricePercentage > 0 ? '+' : ''}{pricePercentage.toFixed(2)}%
+            </span>
+          )}
         </div>
         <input
           type="text"
@@ -255,6 +419,7 @@ export function LimitOrderForm({
           onChange={(e) => setLimitPrice(e.target.value)}
           placeholder="0.00000000"
           className="w-full bg-black border border-gray-600 rounded-lg p-3 text-white text-lg placeholder-gray-400 focus:outline-none focus:border-gray-500"
+          disabled
         />
       </div>
 
