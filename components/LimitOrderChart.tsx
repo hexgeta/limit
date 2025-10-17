@@ -32,6 +32,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d' | '1m' | '3m' | '1y' | 'all'>('24h');
+  const [dataSource, setDataSource] = useState<string>(''); // Track data source for debugging
 
   // Default to PLS -> HEX if no tokens provided
   const sellToken = sellTokenAddress || '0x000000000000000000000000000000000000dead'; // PLS
@@ -142,6 +143,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       const timeStep = timeSpan / points;
       
       const chartData: ChartData[] = [];
+      let subgraphDataPoints = 0;
+      let fallbackDataPoints = 0;
       
       // Fetch historic prices for each data point
       for (let i = 0; i <= points; i++) {
@@ -158,7 +161,9 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
         if (historicSellPrice && historicBuyPrice && historicSellPrice > 0 && historicBuyPrice > 0) {
           // Use subgraph data if available
           ratio = historicSellPrice / historicBuyPrice;
+          subgraphDataPoints++;
         } else {
+          fallbackDataPoints++;
           // Fallback to DexScreener price change estimation if subgraph data not available
           // DexScreener only provides h1, h6, h24 - use closest match
           let timeKey: 'h1' | 'h6' | 'h24' = 'h24';
@@ -197,9 +202,22 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
         });
       }
       
+      // Log data source information
+      const dataSourceInfo = `Subgraph: ${subgraphDataPoints}/${points + 1} | Fallback: ${fallbackDataPoints}/${points + 1}`;
+      console.log(`[Chart Data Source] ${dataSourceInfo}`, {
+        timeRange,
+        sellToken: sellTokenInfo?.ticker,
+        buyToken: buyTokenInfo?.ticker,
+        subgraphDataPoints,
+        fallbackDataPoints,
+        totalPoints: points + 1
+      });
+      setDataSource(subgraphDataPoints > 0 ? `${subgraphDataPoints} real data points` : 'Estimated data (no subgraph data)');
+      
       setHistoricData(chartData);
     } catch (error) {
       console.error('Error fetching price data:', error);
+      setDataSource('Error fetching data');
       
       // Fallback to simple linear interpolation if all fails
       if (currentPrice) {
@@ -248,16 +266,23 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       <div className="flex justify-between items-center gap-4 mb-6">
         {/* Token Pair Info */}
         {sellTokenInfo && buyTokenInfo && (
-          <div className="flex items-center gap-4">
-            <h3 className="text-2xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
-              {buyTokenInfo.ticker}/{sellTokenInfo.ticker}
-            </h3>
-            {currentPrice && (
-              <div className="flex items-center gap-2">
-                <span className="text-[#00D9FF]/70">Rate:</span>
-                <span className="text-[#00D9FF] text-xl font-semibold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
-                  {currentPrice.toFixed(6)}
-                </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-4">
+              <h3 className="text-2xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
+                {buyTokenInfo.ticker}/{sellTokenInfo.ticker}
+              </h3>
+              {currentPrice && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[#00D9FF]/70">Rate:</span>
+                  <span className="text-[#00D9FF] text-xl font-semibold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">
+                    {currentPrice.toFixed(6)}
+                  </span>
+                </div>
+              )}
+            </div>
+            {dataSource && (
+              <div className="text-xs text-[#00D9FF]/50">
+                {dataSource}
               </div>
             )}
           </div>
