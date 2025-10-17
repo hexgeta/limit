@@ -678,7 +678,7 @@ export function LimitOrderForm({
       {/* Connect/Submit Button */}
       {!isConnected ? (
         <button className="w-full py-4 bg-black text-[#00D9FF] border-2 border-[#00D9FF]  font-bold hover:bg-[#00D9FF] hover:text-black transition-all shadow-[0_0_20px_rgba(0,217,255,0.5)] hover:shadow-[0_0_30px_rgba(0,217,255,0.8)] text-lg tracking-wider">
-          CONNECT EVM WALLET
+          CONNECT WALLET
         </button>
       ) : (
         <button
