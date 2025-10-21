@@ -121,17 +121,23 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   }, [limitOrderPrice, onLimitPriceChange]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!containerRef.current || !onLimitPriceChange) return;
+    if (!isDragging || !containerRef.current || !onLimitPriceChange || !currentPrice) return;
     
     const rect = containerRef.current.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const percentage = Math.max(0, Math.min(100, ((rect.height - y) / rect.height) * 100));
-    const newPrice = minPrice + (percentage / 100) * priceRange;
+    
+    // Calculate price range dynamically
+    const minPriceCalc = currentPrice * 0.7;
+    const maxPriceCalc = currentPrice * 1.3;
+    const priceRangeCalc = maxPriceCalc - minPriceCalc;
+    
+    const newPrice = minPriceCalc + (percentage / 100) * priceRangeCalc;
     
     if (newPrice > 0) {
       onLimitPriceChange(newPrice);
     }
-  }, [minPrice, priceRange, onLimitPriceChange]);
+  }, [isDragging, currentPrice, onLimitPriceChange]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -183,7 +189,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
             ref={containerRef}
             className="relative min-h-[500px] bg-black/40 border border-[#00D9FF]/20 rounded select-none"
           >
-            {/* Y-axis tick marks */}
+            {/* Y-axis tick arks */}
             {[-30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30].map((percentDiff) => {
               // Calculate the actual price at this percentage difference from current price
               const priceAtPercent = currentPrice * (1 + percentDiff / 100);
@@ -247,10 +253,10 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
             {/* Limit Order Price Line - Draggable */}
             {limitOrderPrice && limitPricePosition !== null && onLimitPriceChange && (
               <div 
-                className={`absolute w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} transition-all duration-200`}
+                className={`absolute w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${isDragging ? '' : 'transition-all duration-200'}`}
                 style={{ 
                   bottom: `${limitPricePosition}%`,
-                  height: '24px',
+                  height: '40px',
                   zIndex: limitPricePosition < currentPricePosition ? 20 : 10,
                   transform: 'translateY(50%)'
                 }}
@@ -258,7 +264,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
               >
                 {/* Visible line */}
                 <div 
-                  className={`absolute top-1/2 -translate-y-1/2 w-full border-t-2 border-dashed border-[#FF0080] shadow-[0_0_15px_rgba(255,0,128,0.8)] ${isDragging ? '' : 'hover:shadow-[0_0_25px_rgba(255,0,128,1)]'} transition-all duration-200 pointer-events-none`}
+                  className={`absolute top-1/2 -translate-y-1/2 w-full border-t-2 border-dashed border-[#FF0080] shadow-[0_0_15px_rgba(255,0,128,0.8)] ${isDragging ? 'shadow-[0_0_35px_rgba(255,0,128,1)] border-t-[3px]' : 'hover:shadow-[0_0_25px_rgba(255,0,128,1)]'} ${isDragging ? '' : 'transition-all duration-200'} pointer-events-none`}
                 />
                 <div className="absolute -top-5 right-4 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#FF0080] pointer-events-none">
                   <span className="text-xs text-[#FF0080]/70">Limit Price:</span>
