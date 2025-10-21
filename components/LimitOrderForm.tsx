@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import NumberFlow from '@number-flow/react';
 import { useAccount, useBalance } from 'wagmi';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
@@ -71,11 +72,13 @@ export function LimitOrderForm({
   const [sellSearchQuery, setSellSearchQuery] = useState('');
   const [buySearchQuery, setBuySearchQuery] = useState('');
   const [invertPriceDisplay, setInvertPriceDisplay] = useState(false); // Toggle for price display
+  const [isBuyInputFocused, setIsBuyInputFocused] = useState(false); // Track buy input focus
   
   const sellDropdownRef = useRef<HTMLDivElement>(null);
   const buyDropdownRef = useRef<HTMLDivElement>(null);
   const sellSearchRef = useRef<HTMLInputElement>(null);
   const buySearchRef = useRef<HTMLInputElement>(null);
+  const buyInputRef = useRef<HTMLInputElement>(null);
 
   // Use all tokens from TOKEN_CONSTANTS
   const availableTokens = TOKEN_CONSTANTS.filter(t => t.a && t.dexs); // Only tokens with addresses and dex pairs
@@ -146,13 +149,6 @@ export function LimitOrderForm({
     }
   }, [sellToken, buyToken, onTokenChange]);
 
-  // Sync external limit price changes (from chart drag)
-  useEffect(() => {
-    if (externalLimitPrice !== undefined) {
-      setLimitPrice(externalLimitPrice.toString());
-    }
-  }, [externalLimitPrice]);
-
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -205,6 +201,25 @@ export function LimitOrderForm({
   // Calculate market price (ratio) - use external price from chart if available
   const internalMarketPrice = sellTokenPrice && buyTokenPrice ? sellTokenPrice / buyTokenPrice : 0;
   const marketPrice = externalMarketPrice || internalMarketPrice;
+
+  // Sync external limit price changes (from chart drag)
+  useEffect(() => {
+    if (externalLimitPrice !== undefined && sellAmountNum > 0) {
+      setLimitPrice(externalLimitPrice.toString());
+      
+      // Update buy amount based on new limit price
+      const newBuyAmount = sellAmountNum * externalLimitPrice;
+      setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+      
+      // Calculate and update percentage
+      if (marketPrice > 0) {
+        const percentageAboveMarket = ((externalLimitPrice - marketPrice) / marketPrice) * 100;
+        setPricePercentage(percentageAboveMarket);
+      }
+    } else if (externalLimitPrice !== undefined) {
+      setLimitPrice(externalLimitPrice.toString());
+    }
+  }, [externalLimitPrice, sellAmountNum, marketPrice]);
 
   // Calculate limit price and percentage
   useEffect(() => {
@@ -453,7 +468,17 @@ export function LimitOrderForm({
         />
         <div className="flex justify-between items-center mt-2">
           <div className="text-[#00D9FF] text-sm font-semibold">
-            {sellUsdValue > 0 ? `$${formatNumberWithCommas(sellUsdValue.toFixed(2))}` : '$0.00'}
+            {sellUsdValue > 0 ? (
+              <NumberFlow 
+                value={sellUsdValue} 
+                format={{ 
+                  style: 'currency', 
+                  currency: 'USD',
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                }}
+              />
+            ) : '$0.00'}
           </div>
           {sellToken && actualBalance && (
             <div className="flex items-center gap-2">
@@ -578,16 +603,49 @@ export function LimitOrderForm({
           )}
         </div>
 
-        {/* Amount Input */}
-        <input
-          type="text"
-          value={buyAmount}
-          onChange={handleBuyAmountChange}
-          placeholder="0.00"
-          className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
-        />
+        {/* Amount Input with NumberFlow Display */}
+        <div className="relative">
+          {!isBuyInputFocused && buyAmountNum > 0 ? (
+            <div 
+              onClick={() => {
+                setIsBuyInputFocused(true);
+                setTimeout(() => buyInputRef.current?.focus(), 0);
+              }}
+              className="w-full bg-black border-2 border-[#00D9FF] p-3 text-[#00D9FF] text-2xl min-h-[58px] flex items-center cursor-text"
+            >
+              <NumberFlow 
+                value={buyAmountNum}
+                format={{
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 8
+                }}
+              />
+            </div>
+          ) : (
+            <input
+              ref={buyInputRef}
+              type="text"
+              value={buyAmount}
+              onChange={handleBuyAmountChange}
+              onFocus={() => setIsBuyInputFocused(true)}
+              onBlur={() => setIsBuyInputFocused(false)}
+              placeholder="0.00"
+              className="w-full bg-black border-2 border-[#00D9FF] p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
+            />
+          )}
+        </div>
         <div className="text-[#00D9FF] text-sm mt-2 font-semibold">
-          {buyUsdValue > 0 ? `$${formatNumberWithCommas(buyUsdValue.toFixed(2))}` : '$0.00'}
+          {buyUsdValue > 0 ? (
+            <NumberFlow 
+              value={buyUsdValue} 
+              format={{ 
+                style: 'currency', 
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              }}
+            />
+          ) : '$0.00'}
         </div>
       </div>
 
@@ -611,26 +669,36 @@ export function LimitOrderForm({
           </div>
           {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
             <span className="text-sm font-bold text-[#FF0080]">
-              {pricePercentage > 0 ? '+' : ''}{Math.round(pricePercentage)}%
+              <NumberFlow 
+                value={Math.round(pricePercentage)}
+                format={{
+                  signDisplay: 'always'
+                }}
+                suffix="%"
+              />
             </span>
           )}
         </div>
         <div className="relative">
-          <input
-            type="text"
-            value={(() => {
-              if (!limitPrice || limitPrice === '0') return '';
-              const price = parseFloat(limitPrice);
-              if (invertPriceDisplay && price > 0) {
-                return (1 / price).toFixed(8);
-              }
-              return limitPrice;
-            })()}
-            onChange={(e) => setLimitPrice(e.target.value)}
-            placeholder="0.00000000"
-            className="w-full bg-black border-2 border-[#FF0080]  p-3 text-[#FF0080] text-lg placeholder-[#FF0080]/30 focus:outline-none focus:border-[#FF0080] transition-all cursor-not-allowed opacity-80"
-            disabled
-          />
+          <div className="w-full bg-black border-2 border-[#FF0080] p-3 text-[#FF0080] text-lg min-h-[52px] flex items-center">
+            {limitPrice && parseFloat(limitPrice) > 0 ? (
+              <NumberFlow 
+                value={(() => {
+                  const price = parseFloat(limitPrice);
+                  if (invertPriceDisplay && price > 0) {
+                    return 1 / price;
+                  }
+                  return price;
+                })()}
+                format={{
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 8
+                }}
+              />
+            ) : (
+              <span className="text-[#FF0080]/30">0.00000000</span>
+            )}
+          </div>
           {sellToken && buyToken && limitPrice && parseFloat(limitPrice) > 0 && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF0080]/70 text-sm font-medium pointer-events-none">
               {invertPriceDisplay ? formatTokenTicker(sellToken.ticker) : formatTokenTicker(buyToken.ticker)}
@@ -691,14 +759,36 @@ export function LimitOrderForm({
         <div className="flex justify-between items-center text-sm">
           <span className="text-[#00D9FF]/70 font-medium">Fee (0.2%)</span>
           <span className="text-[#00D9FF]/70">
-            {buyAmountNum > 0 ? `${formatNumberWithCommas((buyAmountNum * 0.002).toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
+            {buyAmountNum > 0 ? (
+              <>
+                <NumberFlow 
+                  value={buyAmountNum * 0.002}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 8
+                  }}
+                />
+                {' '}{buyToken?.ticker || ''}
+              </>
+            ) : '0.00'}
           </span>
         </div>
         {/* You Receive Line */}
         <div className="flex justify-between items-center text-sm">
           <span className="text-[#00D9FF] font-medium">You receive (after fee)</span>
           <span className="text-[#00D9FF] font-bold">
-            {buyAmountNum > 0 ? `${formatNumberWithCommas((buyAmountNum * 0.998).toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
+            {buyAmountNum > 0 ? (
+              <>
+                <NumberFlow 
+                  value={buyAmountNum * 0.998}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 8
+                  }}
+                />
+                {' '}{buyToken?.ticker || ''}
+              </>
+            ) : '0.00'}
           </span>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import NumberFlow from '@number-flow/react';
 import { TOKEN_CONSTANTS } from '@/constants/crypto';
 import { formatTokenTicker } from '@/utils/tokenUtils';
 import { CoinLogo } from '@/components/ui/CoinLogo';
@@ -17,7 +18,10 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedPrice, setDraggedPrice] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const justReleasedRef = useRef<boolean>(false);
 
   // Format number to 4 significant figures
   const formatSignificantFigures = (num: number, sigFigs: number = 4): string => {
@@ -109,8 +113,13 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const currentPricePosition = currentPrice 
     ? ((currentPrice - minPrice) / priceRange) * 100 
     : 50;
-  const limitPricePosition = limitOrderPrice 
-    ? ((limitOrderPrice - minPrice) / priceRange) * 100 
+  
+  // Use draggedPrice during drag and briefly after for smooth rendering
+  const priceToDisplay = (isDragging || justReleasedRef.current) && draggedPrice 
+    ? draggedPrice 
+    : limitOrderPrice;
+  const limitPricePosition = priceToDisplay 
+    ? ((priceToDisplay - minPrice) / priceRange) * 100 
     : null;
 
   // Drag handlers for limit price line
@@ -118,29 +127,55 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
     if (!limitOrderPrice || !onLimitPriceChange) return;
     e.preventDefault();
     setIsDragging(true);
+    setDraggedPrice(limitOrderPrice); // Initialize with current price
   }, [limitOrderPrice, onLimitPriceChange]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !containerRef.current || !onLimitPriceChange || !currentPrice) return;
     
-    const rect = containerRef.current.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const percentage = Math.max(0, Math.min(100, ((rect.height - y) / rect.height) * 100));
-    
-    // Calculate price range dynamically
-    const minPriceCalc = currentPrice * 0.7;
-    const maxPriceCalc = currentPrice * 1.3;
-    const priceRangeCalc = maxPriceCalc - minPriceCalc;
-    
-    const newPrice = minPriceCalc + (percentage / 100) * priceRangeCalc;
-    
-    if (newPrice > 0) {
-      onLimitPriceChange(newPrice);
+    // Cancel any pending animation frame
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
     }
+    
+    // Use requestAnimationFrame for smooth updates
+    rafRef.current = requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const percentage = Math.max(0, Math.min(100, ((rect.height - y) / rect.height) * 100));
+      
+      // Calculate price range dynamically
+      const minPriceCalc = currentPrice * 0.7;
+      const maxPriceCalc = currentPrice * 1.3;
+      const priceRangeCalc = maxPriceCalc - minPriceCalc;
+      
+      const newPrice = minPriceCalc + (percentage / 100) * priceRangeCalc;
+      
+      if (newPrice > 0) {
+        setDraggedPrice(newPrice); // Update local state for smooth rendering
+        onLimitPriceChange(newPrice); // Update form
+      }
+    });
   }, [isDragging, currentPrice, onLimitPriceChange]);
 
   const handleMouseUp = useCallback(() => {
+    // Cancel any pending animation frame
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     setIsDragging(false);
+    
+    // Set a flag to ignore prop updates briefly after release
+    justReleasedRef.current = true;
+    
+    // After 100ms, allow prop updates and clear draggedPrice
+    setTimeout(() => {
+      justReleasedRef.current = false;
+      setDraggedPrice(null);
+    }, 100);
   }, []);
 
   useEffect(() => {
@@ -150,6 +185,11 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        // Cleanup animation frame
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
       };
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
@@ -229,7 +269,13 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
               <div className="absolute -top-7.5 left-16 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#00D9FF]">
                 <span className="text-xs text-[#00D9FF]/70">Current Price:</span>
                 <span className="text-sm font-bold text-[#00D9FF]">
-                  {formatSignificantFigures(currentPrice)}
+                  <NumberFlow 
+                    value={currentPrice} 
+                    format={{ 
+                      minimumSignificantDigits: 1,
+                      maximumSignificantDigits: 4 
+                    }}
+                  />
                 </span>
                 {buyTokenInfo && (
                   <>
@@ -251,25 +297,35 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
             </div>
 
             {/* Limit Order Price Line - Draggable */}
-            {limitOrderPrice && limitPricePosition !== null && onLimitPriceChange && (
+            {priceToDisplay && limitPricePosition !== null && onLimitPriceChange && (
               <div 
-                className={`absolute w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${isDragging ? '' : 'transition-all duration-200'}`}
+                className={`absolute w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                 style={{ 
                   bottom: `${limitPricePosition}%`,
                   height: '40px',
                   zIndex: limitPricePosition < currentPricePosition ? 20 : 10,
-                  transform: 'translateY(50%)'
+                  transform: 'translateY(50%)',
+                  transition: isDragging ? 'none' : 'bottom 200ms'
                 }}
                 onMouseDown={handleMouseDown}
               >
                 {/* Visible line */}
                 <div 
-                  className={`absolute top-1/2 -translate-y-1/2 w-full border-t-2 border-dashed border-[#FF0080] shadow-[0_0_15px_rgba(255,0,128,0.8)] ${isDragging ? 'shadow-[0_0_35px_rgba(255,0,128,1)] border-t-[3px]' : 'hover:shadow-[0_0_25px_rgba(255,0,128,1)]'} ${isDragging ? '' : 'transition-all duration-200'} pointer-events-none`}
+                  className={`absolute top-1/2 -translate-y-1/2 w-full border-t-2 border-dashed border-[#FF0080] ${isDragging ? 'shadow-[0_0_35px_rgba(255,0,128,1)] border-t-[3px]' : 'shadow-[0_0_15px_rgba(255,0,128,0.8)] hover:shadow-[0_0_25px_rgba(255,0,128,1)]'} pointer-events-none`}
+                  style={{
+                    transition: isDragging ? 'none' : 'all 200ms'
+                  }}
                 />
                 <div className="absolute -top-5 right-4 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#FF0080] pointer-events-none">
                   <span className="text-xs text-[#FF0080]/70">Limit Price:</span>
                   <span className="text-sm font-bold text-[#FF0080]">
-                    {formatSignificantFigures(limitOrderPrice)}
+                    <NumberFlow 
+                      value={priceToDisplay} 
+                      format={{ 
+                        minimumSignificantDigits: 1,
+                        maximumSignificantDigits: 4 
+                      }}
+                    />
                   </span>
                   {buyTokenInfo && (
                     <>
