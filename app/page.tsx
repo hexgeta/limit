@@ -17,6 +17,7 @@ export default function LimitPage() {
   const [buyTokenAddress, setBuyTokenAddress] = useState<string | undefined>();
   const [limitOrderPrice, setLimitOrderPrice] = useState<number | undefined>();
   const [currentMarketPrice, setCurrentMarketPrice] = useState<number | undefined>();
+  const [isDragging, setIsDragging] = useState(false);
 
   return (
     <>
@@ -47,6 +48,9 @@ export default function LimitPage() {
                   onCurrentPriceChange={(price) => {
                     setCurrentMarketPrice(price);
                   }}
+                  onDragStateChange={(dragging) => {
+                    setIsDragging(dragging);
+                  }}
                 />
               </div>
               
@@ -55,6 +59,7 @@ export default function LimitPage() {
                 <LimitOrderForm
                   externalLimitPrice={limitOrderPrice}
                   externalMarketPrice={currentMarketPrice}
+                  isDragging={isDragging}
                   onTokenChange={(sell, buy) => {
                     setSellTokenAddress(sell);
                     setBuyTokenAddress(buy);

@@ -13,6 +13,7 @@ interface LimitOrderFormProps {
   onLimitPriceChange?: (price: number | undefined) => void;
   externalLimitPrice?: number; // Allow external control of limit price
   externalMarketPrice?: number; // Allow external control of market price (from chart)
+  isDragging?: boolean; // Disable animations during drag for performance
   onTransactionStart: () => void;
   onTransactionEnd: () => void;
   onTransactionSuccess: (message: string, txHash: string) => void;
@@ -54,6 +55,7 @@ export function LimitOrderForm({
   onLimitPriceChange,
   externalLimitPrice,
   externalMarketPrice,
+  isDragging = false,
   onTransactionStart,
   onTransactionEnd,
   onTransactionSuccess,
@@ -204,39 +206,46 @@ export function LimitOrderForm({
 
   // Sync external limit price changes (from chart drag)
   useEffect(() => {
-    if (externalLimitPrice !== undefined && sellAmountNum > 0) {
+    if (externalLimitPrice !== undefined) {
+      // Just update local state - don't send back to parent (prevents feedback loop)
       setLimitPrice(externalLimitPrice.toString());
       
-      // Update buy amount based on new limit price
-      const newBuyAmount = sellAmountNum * externalLimitPrice;
-      setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+      // Update buy amount based on new limit price if we have a sell amount
+      if (sellAmountNum > 0) {
+        const newBuyAmount = sellAmountNum * externalLimitPrice;
+        setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+      }
       
       // Calculate and update percentage
       if (marketPrice > 0) {
         const percentageAboveMarket = ((externalLimitPrice - marketPrice) / marketPrice) * 100;
         setPricePercentage(percentageAboveMarket);
       }
-    } else if (externalLimitPrice !== undefined) {
-      setLimitPrice(externalLimitPrice.toString());
     }
   }, [externalLimitPrice, sellAmountNum, marketPrice]);
 
-  // Calculate limit price and percentage
+  // Calculate limit price and percentage when user manually changes amounts
   useEffect(() => {
     if (sellAmountNum > 0 && buyAmountNum > 0 && marketPrice > 0) {
       const currentLimitPrice = buyAmountNum / sellAmountNum;
-      setLimitPrice(currentLimitPrice.toFixed(8));
+      const limitPriceNum = parseFloat(limitPrice);
       
-      // Notify parent of limit price change
-      if (onLimitPriceChange) {
-        onLimitPriceChange(currentLimitPrice);
+      // Only update if it's actually different (user typed in buy/sell amount)
+      // This prevents updating when the change came from external drag
+      if (Math.abs(currentLimitPrice - limitPriceNum) > 0.00000001) {
+        setLimitPrice(currentLimitPrice.toFixed(8));
+        
+        // Notify parent of limit price change ONLY when user types
+        if (onLimitPriceChange) {
+          onLimitPriceChange(currentLimitPrice);
+        }
+        
+        // Calculate percentage above market
+        const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
+        setPricePercentage(percentageAboveMarket);
       }
-      
-      // Calculate percentage above market
-      const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
-      setPricePercentage(percentageAboveMarket);
     }
-  }, [sellAmountNum, buyAmountNum, marketPrice, onLimitPriceChange]);
+  }, [sellAmountNum, buyAmountNum, marketPrice, limitPrice, onLimitPriceChange]);
 
   // When tokens change, recalculate limit price based on the same percentage
   useEffect(() => {
@@ -477,6 +486,7 @@ export function LimitOrderForm({
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2
                 }}
+                animated={!isDragging}
               />
             ) : '$0.00'}
           </div>
@@ -619,6 +629,7 @@ export function LimitOrderForm({
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 8
                 }}
+                animated={!isDragging}
               />
             </div>
           ) : (
@@ -644,6 +655,7 @@ export function LimitOrderForm({
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
               }}
+              animated={!isDragging}
             />
           ) : '$0.00'}
         </div>
@@ -675,6 +687,7 @@ export function LimitOrderForm({
                   signDisplay: 'always'
                 }}
                 suffix="%"
+                animated={!isDragging}
               />
             </span>
           )}
@@ -682,19 +695,20 @@ export function LimitOrderForm({
         <div className="relative">
           <div className="w-full bg-black border-2 border-[#FF0080] p-3 text-[#FF0080] text-lg min-h-[52px] flex items-center">
             {limitPrice && parseFloat(limitPrice) > 0 ? (
-              <NumberFlow 
-                value={(() => {
-                  const price = parseFloat(limitPrice);
-                  if (invertPriceDisplay && price > 0) {
-                    return 1 / price;
-                  }
-                  return price;
-                })()}
-                format={{
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 8
-                }}
-              />
+            <NumberFlow 
+              value={(() => {
+                const price = parseFloat(limitPrice);
+                if (invertPriceDisplay && price > 0) {
+                  return 1 / price;
+                }
+                return price;
+              })()}
+              format={{
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 8
+              }}
+              animated={!isDragging}
+            />
             ) : (
               <span className="text-[#FF0080]/30">0.00000000</span>
             )}
@@ -767,6 +781,7 @@ export function LimitOrderForm({
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 8
                   }}
+                  animated={!isDragging}
                 />
                 {' '}{buyToken?.ticker || ''}
               </>
@@ -785,6 +800,7 @@ export function LimitOrderForm({
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 8
                   }}
+                  animated={!isDragging}
                 />
                 {' '}{buyToken?.ticker || ''}
               </>

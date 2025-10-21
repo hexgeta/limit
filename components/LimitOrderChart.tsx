@@ -12,9 +12,10 @@ interface LimitOrderChartProps {
   limitOrderPrice?: number;
   onLimitPriceChange?: (newPrice: number) => void;
   onCurrentPriceChange?: (price: number) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice, onLimitPriceChange, onCurrentPriceChange }: LimitOrderChartProps) {
+export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice, onLimitPriceChange, onCurrentPriceChange, onDragStateChange }: LimitOrderChartProps) {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -22,6 +23,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const justReleasedRef = useRef<boolean>(false);
+  const lastUpdateRef = useRef<number>(0);
+  const cooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Format number to 4 significant figures
   const formatSignificantFigures = (num: number, sigFigs: number = 4): string => {
@@ -126,9 +129,18 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!limitOrderPrice || !onLimitPriceChange) return;
     e.preventDefault();
+    
+    // Clear any pending cooldown from previous drag
+    if (cooldownTimeoutRef.current) {
+      clearTimeout(cooldownTimeoutRef.current);
+      cooldownTimeoutRef.current = null;
+    }
+    
+    justReleasedRef.current = false;
     setIsDragging(true);
     setDraggedPrice(limitOrderPrice); // Initialize with current price
-  }, [limitOrderPrice, onLimitPriceChange]);
+    if (onDragStateChange) onDragStateChange(true);
+  }, [limitOrderPrice, onLimitPriceChange, onDragStateChange]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !containerRef.current || !onLimitPriceChange || !currentPrice) return;
@@ -142,6 +154,8 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
     rafRef.current = requestAnimationFrame(() => {
       if (!containerRef.current) return;
       
+      const now = Date.now();
+      
       const rect = containerRef.current.getBoundingClientRect();
       const y = e.clientY - rect.top;
       const percentage = Math.max(0, Math.min(100, ((rect.height - y) / rect.height) * 100));
@@ -154,8 +168,13 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       const newPrice = minPriceCalc + (percentage / 100) * priceRangeCalc;
       
       if (newPrice > 0) {
-        setDraggedPrice(newPrice); // Update local state for smooth rendering
-        onLimitPriceChange(newPrice); // Update form
+        setDraggedPrice(newPrice); // Always update local state for smooth visual
+        
+        // Throttle form updates to every 50ms to reduce re-renders
+        if (now - lastUpdateRef.current > 50) {
+          onLimitPriceChange(newPrice);
+          lastUpdateRef.current = now;
+        }
       }
     });
   }, [isDragging, currentPrice, onLimitPriceChange]);
@@ -166,17 +185,24 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    
+    // Send final update immediately on release
+    if (draggedPrice && onLimitPriceChange) {
+      onLimitPriceChange(draggedPrice);
+    }
+    
     setIsDragging(false);
+    justReleasedRef.current = true; // Keep using dragged price during cooldown
+    if (onDragStateChange) onDragStateChange(false);
     
-    // Set a flag to ignore prop updates briefly after release
-    justReleasedRef.current = true;
-    
-    // After 100ms, allow prop updates and clear draggedPrice
-    setTimeout(() => {
+    // Keep using draggedPrice for a short time to prevent glitches
+    // This gives the form time to process and stabilize
+    cooldownTimeoutRef.current = setTimeout(() => {
       justReleasedRef.current = false;
       setDraggedPrice(null);
-    }, 100);
-  }, []);
+      cooldownTimeoutRef.current = null;
+    }, 300);
+  }, [draggedPrice, onLimitPriceChange, onDragStateChange]);
 
   useEffect(() => {
     if (isDragging) {
@@ -193,6 +219,15 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       };
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimeoutRef.current) {
+        clearTimeout(cooldownTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="w-full min-h-[600px] bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] p-6 shadow-[0_0_30px_rgba(0,217,255,0.3)]">
