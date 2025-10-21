@@ -277,7 +277,7 @@ export function LimitOrderForm({
     
     let maxAmount = actualBalance.formatted;
     
-    // For PLS, reserve some for gas
+    // For PLS, reserve ome for gas
     if (sellToken?.a === '0x000000000000000000000000000000000000dead') {
       const balanceNum = parseFloat(maxAmount);
       const reservedGas = 0.1; // Reserve 0.1 PLS for gas
