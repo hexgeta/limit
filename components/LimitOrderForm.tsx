@@ -81,6 +81,11 @@ export function LimitOrderForm({
   const sellSearchRef = useRef<HTMLInputElement>(null);
   const buySearchRef = useRef<HTMLInputElement>(null);
   const buyInputRef = useRef<HTMLInputElement>(null);
+  const sellInputRef = useRef<HTMLInputElement>(null);
+  const isInitialLoadRef = useRef<boolean>(true); // Track if this is the initial load
+  const limitPriceSetByUserRef = useRef<boolean>(false); // Track if user has set limit price
+  const lastEditedInputRef = useRef<'sell' | 'buy' | null>(null); // Track which input was last edited
+  const isUpdatingFromOtherInputRef = useRef<boolean>(false); // Prevent circular updates
 
   // Use all tokens from TOKEN_CONSTANTS
   const availableTokens = TOKEN_CONSTANTS.filter(t => t.a && t.dexs); // Only tokens with addresses and dex pairs
@@ -207,13 +212,17 @@ export function LimitOrderForm({
   // Sync external limit price changes (from chart drag)
   useEffect(() => {
     if (externalLimitPrice !== undefined) {
+      // Mark that limit price has been set (by drag)
+      limitPriceSetByUserRef.current = true;
+      isInitialLoadRef.current = false;
+      
       // Just update local state - don't send back to parent (prevents feedback loop)
       setLimitPrice(externalLimitPrice.toString());
       
       // Update buy amount based on new limit price if we have a sell amount
       if (sellAmountNum > 0) {
         const newBuyAmount = sellAmountNum * externalLimitPrice;
-        setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+        setBuyAmount(newBuyAmount.toString()); // Keep as plain string
       }
       
       // Calculate and update percentage
@@ -224,31 +233,43 @@ export function LimitOrderForm({
     }
   }, [externalLimitPrice, sellAmountNum, marketPrice]);
 
-  // Calculate limit price and percentage when user manually changes amounts
+  // Calculate limit price and percentage ONLY during initial load
   useEffect(() => {
+    // Only calculate limit price automatically during initial page load
+    // After that, user must explicitly set it via drag or direct input
+    if (!isInitialLoadRef.current || limitPriceSetByUserRef.current) {
+      return;
+    }
+    
     if (sellAmountNum > 0 && buyAmountNum > 0 && marketPrice > 0) {
       const currentLimitPrice = buyAmountNum / sellAmountNum;
       const limitPriceNum = parseFloat(limitPrice);
       
-      // Only update if it's actually different (user typed in buy/sell amount)
-      // This prevents updating when the change came from external drag
+      // Only update if it's actually different
       if (Math.abs(currentLimitPrice - limitPriceNum) > 0.00000001) {
-        setLimitPrice(currentLimitPrice.toFixed(8));
+      setLimitPrice(currentLimitPrice.toFixed(8));
+      
+      // Notify parent of limit price change
+      if (onLimitPriceChange) {
+        onLimitPriceChange(currentLimitPrice);
+      }
+      
+      // Calculate percentage above market
+      const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
+      setPricePercentage(percentageAboveMarket);
         
-        // Notify parent of limit price change ONLY when user types
-        if (onLimitPriceChange) {
-          onLimitPriceChange(currentLimitPrice);
-        }
-        
-        // Calculate percentage above market
-        const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
-        setPricePercentage(percentageAboveMarket);
+        // Mark initial load as complete after first calculation
+        isInitialLoadRef.current = false;
       }
     }
   }, [sellAmountNum, buyAmountNum, marketPrice, limitPrice, onLimitPriceChange]);
 
-  // When tokens change, recalculate limit price based on the same percentage
+  // When tokens change, reset flags and recalculate limit price based on the same percentage
   useEffect(() => {
+    // Reset flags when tokens change so it can recalculate
+    isInitialLoadRef.current = true;
+    limitPriceSetByUserRef.current = false;
+    
     if (sellToken && buyToken && pricePercentage !== null && sellAmountNum > 0 && marketPrice > 0) {
       // Calculate new limit price with the same percentage
       const newLimitPrice = marketPrice * (1 + pricePercentage / 100);
@@ -260,7 +281,7 @@ export function LimitOrderForm({
         
         // Calculate new buy amount
         const newBuyAmount = sellAmountNum * newLimitPrice;
-        setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+        setBuyAmount(newBuyAmount.toString()); // Keep as plain string
         
         // Notify parent of limit price change
         if (onLimitPriceChange) {
@@ -270,6 +291,58 @@ export function LimitOrderForm({
     }
   }, [sellToken?.a, buyToken?.a, marketPrice]);
 
+  // When sell amount changes, update buy amount based on limit price
+  useEffect(() => {
+    // Only update if:
+    // 1. We have a valid limit price (user has set it)
+    // 2. The last edited input was the sell input (not the buy input)
+    // 3. We're not in initial load phase
+    // 4. We're not currently updating from the other input (prevent circular updates)
+    if (limitPriceSetByUserRef.current && 
+        lastEditedInputRef.current === 'sell' && 
+        !isInitialLoadRef.current &&
+        !isUpdatingFromOtherInputRef.current &&
+        sellAmountNum > 0) {
+      
+      const limitPriceNum = parseFloat(limitPrice);
+      if (limitPriceNum > 0) {
+        isUpdatingFromOtherInputRef.current = true;
+        const newBuyAmount = sellAmountNum * limitPriceNum;
+        setBuyAmount(newBuyAmount.toString()); // Keep as plain string, no formatting
+        isUpdatingFromOtherInputRef.current = false;
+      }
+      
+      // Clear the last edited flag after processing
+      lastEditedInputRef.current = null;
+    }
+  }, [sellAmountNum, limitPrice]);
+
+  // When buy amount changes, update sell amount based on limit price
+  useEffect(() => {
+    // Only update if:
+    // 1. We have a valid limit price (user has set it)
+    // 2. The last edited input was the buy input (not the sell input)
+    // 3. We're not in initial load phase
+    // 4. We're not currently updating from the other input (prevent circular updates)
+    if (limitPriceSetByUserRef.current && 
+        lastEditedInputRef.current === 'buy' && 
+        !isInitialLoadRef.current &&
+        !isUpdatingFromOtherInputRef.current &&
+        buyAmountNum > 0) {
+      
+      const limitPriceNum = parseFloat(limitPrice);
+      if (limitPriceNum > 0) {
+        isUpdatingFromOtherInputRef.current = true;
+        const newSellAmount = buyAmountNum / limitPriceNum;
+        setSellAmount(newSellAmount.toString()); // Keep as plain string, no formatting
+        isUpdatingFromOtherInputRef.current = false;
+      }
+      
+      // Clear the last edited flag after processing
+      lastEditedInputRef.current = null;
+    }
+  }, [buyAmountNum, limitPrice]);
+
   const handleCreateOrder = () => {
     // This would integrate with your existing CreatePositionModal logic
     // Order creation logic
@@ -277,6 +350,10 @@ export function LimitOrderForm({
 
   const handlePercentageClick = (percentage: number) => {
     if (!marketPrice || !sellAmountNum) return;
+    
+    // Mark that user has set the limit price
+    limitPriceSetByUserRef.current = true;
+    isInitialLoadRef.current = false;
     
     // Apply percentage based on direction (above = positive, below = negative)
     const adjustedPercentage = priceDirection === 'above' ? percentage : -percentage;
@@ -293,7 +370,7 @@ export function LimitOrderForm({
     
     // Calculate new buy amount based on limit price
     const newBuyAmount = sellAmountNum * newPrice;
-    setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+    setBuyAmount(newBuyAmount.toString()); // Keep as plain string
   };
 
   const handleMaxSellAmount = () => {
@@ -301,14 +378,15 @@ export function LimitOrderForm({
     
     let maxAmount = actualBalance.formatted;
     
-    // For PLS, reserve ome for gas
+    // For PLS, reserve some for gas
     if (sellToken?.a === '0x000000000000000000000000000000000000dead') {
       const balanceNum = parseFloat(maxAmount);
       const reservedGas = 0.1; // Reserve 0.1 PLS for gas
       maxAmount = Math.max(0, balanceNum - reservedGas).toString();
     }
     
-    setSellAmount(formatNumberWithCommas(maxAmount));
+    // Set without formatting to avoid cursor issues
+    setSellAmount(maxAmount);
   };
 
   const handleSellAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,6 +398,8 @@ export function LimitOrderForm({
       value = parts[0] + '.' + parts.slice(1).join('');
     }
     
+    // Mark that sell input was edited
+    lastEditedInputRef.current = 'sell';
     setSellAmount(value);
   };
 
@@ -332,6 +412,8 @@ export function LimitOrderForm({
       value = parts[0] + '.' + parts.slice(1).join('');
     }
     
+    // Mark that buy input was edited
+    lastEditedInputRef.current = 'buy';
     setBuyAmount(value);
   };
 
@@ -633,16 +715,16 @@ export function LimitOrderForm({
               />
             </div>
           ) : (
-            <input
+        <input
               ref={buyInputRef}
-              type="text"
-              value={buyAmount}
-              onChange={handleBuyAmountChange}
+          type="text"
+          value={buyAmount}
+          onChange={handleBuyAmountChange}
               onFocus={() => setIsBuyInputFocused(true)}
               onBlur={() => setIsBuyInputFocused(false)}
-              placeholder="0.00"
+          placeholder="0.00"
               className="w-full bg-black border-2 border-[#00D9FF] p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
-            />
+        />
           )}
         </div>
         <div className="text-[#00D9FF] text-sm mt-2 font-semibold">
@@ -682,9 +764,11 @@ export function LimitOrderForm({
           {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
             <span className="text-sm font-bold text-[#FF0080]">
               <NumberFlow 
-                value={Math.round(pricePercentage)}
+                value={pricePercentage}
                 format={{
-                  signDisplay: 'always'
+                  signDisplay: 'always',
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: Math.abs(pricePercentage) >= 10 ? 1 : 2
                 }}
                 suffix="%"
                 animated={!isDragging}
@@ -696,13 +780,13 @@ export function LimitOrderForm({
           <div className="w-full bg-black border-2 border-[#FF0080] p-3 text-[#FF0080] text-lg min-h-[52px] flex items-center">
             {limitPrice && parseFloat(limitPrice) > 0 ? (
             <NumberFlow 
-              value={(() => {
-                const price = parseFloat(limitPrice);
-                if (invertPriceDisplay && price > 0) {
+            value={(() => {
+              const price = parseFloat(limitPrice);
+              if (invertPriceDisplay && price > 0) {
                   return 1 / price;
-                }
+              }
                 return price;
-              })()}
+            })()}
               format={{
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 8

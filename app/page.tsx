@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAccount } from 'wagmi';
 import { DisclaimerDialog } from '@/components/DisclaimerDialog';
 import useToast from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -10,6 +11,7 @@ import OpenPositionsTable from '@/components/OpenPositionsTable';
 import { AsciiNoiseEffect } from '@/components/ui/bg-asiic';
 
 export default function LimitPage() {
+  const { isConnected } = useAccount();
   const [isTransactionLoading, setIsTransactionLoading] = useState(false);
   const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -26,7 +28,7 @@ export default function LimitPage() {
       <div className="fixed inset-0 w-full h-full z-0">
         <AsciiNoiseEffect />
       </div>
-      <main className="relative flex min-h-screen flex-col items-center z-10">
+      <main className="relative flex min-h-screen flex-col items-center z-10 pb-24">
         {/* Hero Section */}
         <div className="w-full px-2 md:px-8 mt-24 mb-6">
 
@@ -98,12 +100,14 @@ export default function LimitPage() {
           </div>
         </div>
 
-        {/* Orders Table */}
-        <div className="w-full px-2 md:px-8 mt-8 mb-8">
-          <div className="max-w-[1400px] mx-auto">
-            <OpenPositionsTable />
+        {/* Orders Table - Only show when wallet is connected */}
+        {isConnected && (
+          <div className="w-full px-2 md:px-8 mt-8 mb-8">
+            <div className="max-w-[1400px] mx-auto">
+              <OpenPositionsTable />
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </>
   );

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ConnectButton } from './ConnectButton';
+import { NotificationBell } from './NotificationBell';
 
 const NavBar = () => {
   return (
@@ -10,7 +11,10 @@ const NavBar = () => {
         <Link href="/" className="text-[#00D9FF] font-bold text-xl md:text-3xl">
           AgoráX
         </Link>
-        <ConnectButton />
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <ConnectButton />
+        </div>
       </div>
     </nav>
   );

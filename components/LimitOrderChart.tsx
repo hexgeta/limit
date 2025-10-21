@@ -301,9 +301,9 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                 transform: 'translateY(50%)'
               }}
             >
-              <div className="absolute -top-7.5 left-16 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#00D9FF]">
-                <span className="text-xs text-[#00D9FF]/70">Current Price:</span>
-                <span className="text-sm font-bold text-[#00D9FF]">
+              <div className="absolute -top-7.5 left-16 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#00D9FF] min-w-[220px]">
+                <span className="text-xs text-[#00D9FF]/70 whitespace-nowrap">Current Price:</span>
+                <span className="text-sm font-bold text-[#00D9FF] min-w-[60px] text-right">
                   <NumberFlow 
                     value={currentPrice} 
                     format={{ 
@@ -351,9 +351,9 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                     transition: isDragging ? 'none' : 'all 200ms'
                   }}
                 />
-                <div className="absolute -top-5 right-4 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#FF0080] pointer-events-none">
-                  <span className="text-xs text-[#FF0080]/70">Limit Price:</span>
-                  <span className="text-sm font-bold text-[#FF0080]">
+                <div className="absolute -top-5 right-4 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#FF0080] pointer-events-none min-w-[200px]">
+                  <span className="text-xs text-[#FF0080]/70 whitespace-nowrap">Limit Price:</span>
+                  <span className="text-sm font-bold text-[#FF0080] min-w-[60px] text-right">
                     <NumberFlow 
                       value={priceToDisplay} 
                       format={{ 
