@@ -592,10 +592,10 @@ export default function OrderHistoryTable({
                 {isSellTransaction ? (
                   // For SELL: Show what you received (buy tokens from ORIGINAL order)
                   <>
-                    <span className={`text-lg font-medium ${originalMinBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
+                    <span className={`text-lg font-medium ${originalMinBuyAmountUSD > 0 ? 'text-[#00D9FF]' : 'text-gray-500'}`}>
                       {originalMinBuyAmountUSD > 0 ? formatUSD(originalMinBuyAmountUSD) : '--'}
                     </span>
-                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="w-1/2 h-px bg-[#00D9FF]/10 my-2"></div>
                     <div className="flex flex-col gap-1">
                       {originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                         const buyTokenInfo = getTokenInfoByIndex(Number(tokenIndex));
@@ -613,10 +613,10 @@ export default function OrderHistoryTable({
                               className="w-6 h-6 "
                             />
                             <div className="flex flex-col">
-                              <span className="text-white text-sm font-medium whitespace-nowrap">
+                              <span className="text-[#00D9FF] text-sm font-medium whitespace-nowrap">
                                 {formatTokenTicker(buyTokenInfo.ticker)}
                               </span>
-                              <span className="text-gray-400 text-xs whitespace-nowrap">
+                              <span className="text-[#00D9FF]/60 text-xs whitespace-nowrap">
                                 {formatTokenAmountDisplay(originalAmount)}
                               </span>
                               {originalBuyTokensIndex.length > 1 && buyPrice > 0 && (
@@ -633,10 +633,10 @@ export default function OrderHistoryTable({
                 ) : (
                   // For BUY: Show what you bought (sell token)
                   <>
-                    <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
+                    <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-[#00D9FF]' : 'text-gray-500'}`}>
                       {sellPrice > 0 ? formatUSD(sellUSD) : '--'}
                     </span>
-                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="w-1/2 h-px bg-[#00D9FF]/10 my-2"></div>
                     <div className="flex items-center space-x-2">
                       <TokenLogo 
                         src={sellTokenInfo.logo}
@@ -644,10 +644,10 @@ export default function OrderHistoryTable({
                         className="w-6 h-6 "
                       />
                       <div className="flex flex-col">
-                        <span className="text-white text-sm font-medium whitespace-nowrap">
+                        <span className="text-[#00D9FF] text-sm font-medium whitespace-nowrap">
                           {formatTokenTicker(sellTokenInfo.ticker)}
                         </span>
-                        <span className="text-gray-400 text-xs whitespace-nowrap">
+                        <span className="text-[#00D9FF]/60 text-xs whitespace-nowrap">
                           {formatTokenAmountDisplay(transaction.sellAmount)}
                         </span>
                       </div>
@@ -663,10 +663,10 @@ export default function OrderHistoryTable({
                 {isSellTransaction ? (
                   // For SELL: Show what you gave (sell token - use ORIGINAL amount)
                   <>
-                    <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-white' : 'text-gray-500'}`}>
+                    <span className={`text-lg font-medium ${sellPrice > 0 ? 'text-[#00D9FF]' : 'text-gray-500'}`}>
                       {sellPrice > 0 ? formatUSD(originalSellAmountUSD) : '--'}
                     </span>
-                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="w-1/2 h-px bg-[#00D9FF]/10 my-2"></div>
                     <div className="flex items-center space-x-2">
                       <TokenLogo 
                         src={sellTokenInfo.logo}
@@ -674,10 +674,10 @@ export default function OrderHistoryTable({
                         className="w-6 h-6 "
                       />
                       <div className="flex flex-col">
-                        <span className="text-white text-sm font-medium whitespace-nowrap">
+                        <span className="text-[#00D9FF] text-sm font-medium whitespace-nowrap">
                           {formatTokenTicker(sellTokenInfo.ticker)}
                         </span>
-                        <span className="text-gray-400 text-xs whitespace-nowrap">
+                        <span className="text-[#00D9FF]/60 text-xs whitespace-nowrap">
                           {formatTokenAmountDisplay(originalSellAmountNum)}
                         </span>
                       </div>
@@ -686,10 +686,10 @@ export default function OrderHistoryTable({
                 ) : (
                   // For BUY: Show what you paid (buy tokens from ORIGINAL order)
                   <>
-                    <span className={`text-lg font-medium ${originalMinBuyAmountUSD > 0 ? 'text-white' : 'text-gray-500'}`}>
+                    <span className={`text-lg font-medium ${originalMinBuyAmountUSD > 0 ? 'text-[#00D9FF]' : 'text-gray-500'}`}>
                       {originalMinBuyAmountUSD > 0 ? formatUSD(originalMinBuyAmountUSD) : '--'}
                     </span>
-                    <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                    <div className="w-1/2 h-px bg-[#00D9FF]/10 my-2"></div>
                     <div className="flex flex-col gap-1">
                       {originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
                         const buyTokenInfo = getTokenInfoByIndex(Number(tokenIndex));
@@ -707,10 +707,10 @@ export default function OrderHistoryTable({
                               className="w-6 h-6 "
                             />
                             <div className="flex flex-col">
-                              <span className="text-white text-sm font-medium whitespace-nowrap">
+                              <span className="text-[#00D9FF] text-sm font-medium whitespace-nowrap">
                                 {formatTokenTicker(buyTokenInfo.ticker)}
                               </span>
-                              <span className="text-gray-400 text-xs whitespace-nowrap">
+                              <span className="text-[#00D9FF]/60 text-xs whitespace-nowrap">
                                 {formatTokenAmountDisplay(originalAmount)}
                               </span>
                               {originalBuyTokensIndex.length > 1 && buyPrice > 0 && (
@@ -730,7 +730,7 @@ export default function OrderHistoryTable({
 
             {/* COLUMN 3: Fill Status % Content */}
             <div className="flex flex-col items-center space-y-2 mt-0.5 min-w-0">
-              <span className={`text-xs ${fillPercentage === 0 ? 'text-gray-500' : 'text-white'}`}>
+              <span className={`text-xs ${fillPercentage === 0 ? 'text-gray-500' : 'text-[#00D9FF]'}`}>
                 {userSharePercentage > 0 
                   ? `${formatPercentage(userSharePercentage)} / ${formatPercentage(fillPercentage)}`
                   : formatPercentage(fillPercentage)
@@ -740,7 +740,7 @@ export default function OrderHistoryTable({
                 {/* Total fill percentage (blue) */}
                 <div 
                   className={`h-full  transition-all duration-300 ${
-                    fillPercentage === 0 ? 'bg-gray-500' : 'bg-blue-500'
+                    fillPercentage === 0 ? 'bg-gray-500' : 'bg-[#00D9FF]'
                   }`}
                   style={{ 
                     width: `${fillPercentage}%` 
@@ -813,10 +813,10 @@ export default function OrderHistoryTable({
             <div className="text-center min-w-0 mt-0.5">
               {transaction.timestamp ? (
                 <div className="flex flex-col items-center">
-                  <span className="text-white text-sm font-medium">
+                  <span className="text-[#00D9FF] text-sm font-medium">
                     {formatTimestamp(transaction.timestamp).date}
                   </span>
-                  <span className="text-gray-400 text-xs">
+                  <span className="text-[#00D9FF]/60 text-xs">
                     {formatTimestamp(transaction.timestamp).time}
                   </span>
                 </div>
@@ -847,7 +847,7 @@ export default function OrderHistoryTable({
                     View Tx
                   </button>
                 )}
-                <span className="text-gray-600 text-xs mt-1">
+                <span className="text-[#00D9FF]/40 text-xs mt-1">
                   Order ID: {transaction.orderId}
                 </span>
               </div>

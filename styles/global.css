@@ -6,7 +6,7 @@
 
 :root {
   --background-color: #000000;
-  --text-color: #ffffff;
+  --text-color: #00D9FF;
   --neon-pink: #FF0080;
   --neon-cyan: #00D9FF;
   --neon-green: #39FF14;
@@ -676,17 +676,14 @@ w3m-modal [style*="background"],
 /* Neon Cyberpunk Theme Utilities */
 .neon-text-pink {
   color: var(--neon-pink);
-  text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink), 0 0 30px var(--neon-pink);
 }
 
 .neon-text-cyan {
   color: var(--neon-cyan);
-  text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan), 0 0 30px var(--neon-cyan);
 }
 
 .neon-text-green {
   color: var(--neon-green);
-  text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green), 0 0 30px var(--neon-green);
 }
 
 .neon-border-pink {

@@ -16,6 +16,7 @@ export default function LimitPage() {
   const [sellTokenAddress, setSellTokenAddress] = useState<string | undefined>();
   const [buyTokenAddress, setBuyTokenAddress] = useState<string | undefined>();
   const [limitOrderPrice, setLimitOrderPrice] = useState<number | undefined>();
+  const [currentMarketPrice, setCurrentMarketPrice] = useState<number | undefined>();
 
   return (
     <>
@@ -32,20 +33,28 @@ export default function LimitPage() {
 
         {/* Chart and Form Section */}
         <div className="w-full px-2 md:px-8">
-          <div className="max-w-[1400px] mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Chart - Takes up 2 columns */}
-              <div className="lg:col-span-2">
+          <div className="max-w-[1200px] mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Chart - Takes up 3 columns */}
+              <div className="lg:col-span-3">
                 <LimitOrderChart 
                   sellTokenAddress={sellTokenAddress}
                   buyTokenAddress={buyTokenAddress}
                   limitOrderPrice={limitOrderPrice}
+                  onLimitPriceChange={(newPrice) => {
+                    setLimitOrderPrice(newPrice);
+                  }}
+                  onCurrentPriceChange={(price) => {
+                    setCurrentMarketPrice(price);
+                  }}
                 />
               </div>
               
-              {/* Order Form - Takes up 1 column */}
-              <div className="lg:col-span-1">
+              {/* Order Form - Takes up 2 columns */}
+              <div className="lg:col-span-2">
                 <LimitOrderForm
+                  externalLimitPrice={limitOrderPrice}
+                  externalMarketPrice={currentMarketPrice}
                   onTokenChange={(sell, buy) => {
                     setSellTokenAddress(sell);
                     setBuyTokenAddress(buy);

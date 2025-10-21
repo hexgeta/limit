@@ -10,6 +10,8 @@ import { formatTokenTicker } from '@/utils/tokenUtils';
 interface LimitOrderFormProps {
   onTokenChange?: (sellToken: string | undefined, buyToken: string | undefined) => void;
   onLimitPriceChange?: (price: number | undefined) => void;
+  externalLimitPrice?: number; // Allow external control of limit price
+  externalMarketPrice?: number; // Allow external control of market price (from chart)
   onTransactionStart: () => void;
   onTransactionEnd: () => void;
   onTransactionSuccess: (message: string, txHash: string) => void;
@@ -49,6 +51,8 @@ const formatBalanceDisplay = (balance: string): string => {
 export function LimitOrderForm({
   onTokenChange,
   onLimitPriceChange,
+  externalLimitPrice,
+  externalMarketPrice,
   onTransactionStart,
   onTransactionEnd,
   onTransactionSuccess,
@@ -142,6 +146,13 @@ export function LimitOrderForm({
     }
   }, [sellToken, buyToken, onTokenChange]);
 
+  // Sync external limit price changes (from chart drag)
+  useEffect(() => {
+    if (externalLimitPrice !== undefined) {
+      setLimitPrice(externalLimitPrice.toString());
+    }
+  }, [externalLimitPrice]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -191,8 +202,9 @@ export function LimitOrderForm({
   const sellUsdValue = sellAmountNum * sellTokenPrice;
   const buyUsdValue = buyAmountNum * buyTokenPrice;
 
-  // Calculate market price (ratio)
-  const marketPrice = sellTokenPrice && buyTokenPrice ? sellTokenPrice / buyTokenPrice : 0;
+  // Calculate market price (ratio) - use external price from chart if available
+  const internalMarketPrice = sellTokenPrice && buyTokenPrice ? sellTokenPrice / buyTokenPrice : 0;
+  const marketPrice = externalMarketPrice || internalMarketPrice;
 
   // Calculate limit price and percentage
   useEffect(() => {
@@ -211,16 +223,32 @@ export function LimitOrderForm({
     }
   }, [sellAmountNum, buyAmountNum, marketPrice, onLimitPriceChange]);
 
+  // When tokens change, recalculate limit price based on the same percentage
+  useEffect(() => {
+    if (sellToken && buyToken && pricePercentage !== null && sellAmountNum > 0 && marketPrice > 0) {
+      // Calculate new limit price with the same percentage
+      const newLimitPrice = marketPrice * (1 + pricePercentage / 100);
+      
+      // Only update if it's different from current (avoid loops)
+      const currentLimitPriceNum = parseFloat(limitPrice);
+      if (Math.abs(newLimitPrice - currentLimitPriceNum) > 0.00000001) {
+        setLimitPrice(newLimitPrice.toFixed(8));
+        
+        // Calculate new buy amount
+        const newBuyAmount = sellAmountNum * newLimitPrice;
+        setBuyAmount(formatNumberWithCommas(newBuyAmount.toFixed(8)));
+        
+        // Notify parent of limit price change
+        if (onLimitPriceChange) {
+          onLimitPriceChange(newLimitPrice);
+        }
+      }
+    }
+  }, [sellToken?.a, buyToken?.a, marketPrice]);
+
   const handleCreateOrder = () => {
     // This would integrate with your existing CreatePositionModal logic
-    console.log('Creating order:', {
-      sellToken,
-      buyToken,
-      sellAmount,
-      buyAmount,
-      limitPrice,
-      pricePercentage,
-    });
+    // Order creation logic
   };
 
   const handlePercentageClick = (percentage: number) => {
@@ -324,7 +352,7 @@ export function LimitOrderForm({
     <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  p-6 h-full shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       {/* Sell Section */}
       <div className="mb-4">
-        <label className="text-[#00D9FF] text-sm mb-2 block font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">SELL</label>
+        <label className="text-[#00D9FF] text-sm mb-2 block font-semibold">SELL</label>
         
         {/* Token Selector */}
         <div className="relative mb-3" ref={sellDropdownRef}>
@@ -435,7 +463,7 @@ export function LimitOrderForm({
               <button
                 type="button"
                 onClick={handleMaxSellAmount}
-                className="text-[#00D9FF] hover:text-white text-xs font-bold transition-colors drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]"
+                className="text-[#00D9FF] hover:text-white text-xs font-bold transition-colors"
               >
                 MAX
               </button>
@@ -459,7 +487,7 @@ export function LimitOrderForm({
 
       {/* Buy Section */}
       <div className="mb-4">
-        <label className="text-[#00D9FF] text-sm mb-2 block font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">BUY</label>
+        <label className="text-[#00D9FF] text-sm mb-2 block font-semibold">BUY</label>
         
         {/* Token Selector */}
         <div className="relative mb-3" ref={buyDropdownRef}>
@@ -567,12 +595,12 @@ export function LimitOrderForm({
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center gap-2">
-            <label className="text-[#00D9FF] text-sm font-semibold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">LIMIT PRICE</label>
+            <label className="text-[#FF0080] text-sm font-semibold">LIMIT PRICE</label>
             {sellToken && buyToken && (
               <button
                 type="button"
                 onClick={() => setInvertPriceDisplay(!invertPriceDisplay)}
-                className="p-1 text-[#00D9FF] hover:text-white transition-colors"
+                className="p-1 text-[#FF0080] hover:text-white transition-colors"
                 title={`Show price in ${invertPriceDisplay ? formatTokenTicker(buyToken.ticker) : formatTokenTicker(sellToken.ticker)}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -582,7 +610,7 @@ export function LimitOrderForm({
             )}
           </div>
           {pricePercentage !== null && Math.abs(pricePercentage) > 0.01 && (
-            <span className="text-sm font-bold drop-shadow-[0_0_10px_rgba(0,217,255,0.8)] text-[#00D9FF]">
+            <span className="text-sm font-bold text-[#FF0080]">
               {pricePercentage > 0 ? '+' : ''}{Math.round(pricePercentage)}%
             </span>
           )}
@@ -600,12 +628,12 @@ export function LimitOrderForm({
             })()}
             onChange={(e) => setLimitPrice(e.target.value)}
             placeholder="0.00000000"
-            className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-lg placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] transition-all cursor-not-allowed opacity-80"
+            className="w-full bg-black border-2 border-[#FF0080]  p-3 text-[#FF0080] text-lg placeholder-[#FF0080]/30 focus:outline-none focus:border-[#FF0080] transition-all cursor-not-allowed opacity-80"
             disabled
           />
           {sellToken && buyToken && limitPrice && parseFloat(limitPrice) > 0 && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#00D9FF]/70 text-sm font-medium pointer-events-none">
-              {invertPriceDisplay ? `${formatTokenTicker(sellToken.ticker)}/${formatTokenTicker(buyToken.ticker)}` : `${formatTokenTicker(buyToken.ticker)}/${formatTokenTicker(sellToken.ticker)}`}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF0080]/70 text-sm font-medium pointer-events-none">
+              {invertPriceDisplay ? formatTokenTicker(sellToken.ticker) : formatTokenTicker(buyToken.ticker)}
             </div>
           )}
         </div>
@@ -615,13 +643,13 @@ export function LimitOrderForm({
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => handlePercentageClick(0)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           Market
         </button>
         <button
           onClick={() => handlePercentageClick(1)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           1% {(() => {
             const showUp = priceDirection === 'above';
@@ -630,7 +658,7 @@ export function LimitOrderForm({
         </button>
         <button
           onClick={() => handlePercentageClick(2)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           2% {(() => {
             const showUp = priceDirection === 'above';
@@ -639,7 +667,7 @@ export function LimitOrderForm({
         </button>
         <button
           onClick={() => handlePercentageClick(5)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           5% {(() => {
             const showUp = priceDirection === 'above';
@@ -648,7 +676,7 @@ export function LimitOrderForm({
         </button>
         <button
           onClick={() => handlePercentageClick(10)}
-          className="flex-1 py-2 bg-black border-2 border-[#00D9FF]  text-sm text-[#00D9FF] hover:bg-[#00D9FF] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(0,217,255,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           10% {(() => {
             const showUp = priceDirection === 'above';
@@ -669,7 +697,7 @@ export function LimitOrderForm({
         {/* You Receive Line */}
         <div className="flex justify-between items-center text-sm">
           <span className="text-[#00D9FF] font-medium">You receive (after fee)</span>
-          <span className="text-[#00D9FF] font-bold drop-shadow-[0_0_5px_rgba(0,217,255,0.5)]">
+          <span className="text-[#00D9FF] font-bold">
             {buyAmountNum > 0 ? `${formatNumberWithCommas((buyAmountNum * 0.998).toFixed(8))} ${buyToken?.ticker || ''}` : '0.00'}
           </span>
         </div>
@@ -683,7 +711,7 @@ export function LimitOrderForm({
       ) : (
         <button
           onClick={handleCreateOrder}
-          className="w-full py-4 bg-[#00D9FF] text-black border-2 border-[#00D9FF]  font-bold hover:bg-black hover:text-[#00D9FF] transition-all shadow-[0_0_20px_rgba(0,217,255,0.5)] hover:shadow-[0_0_30px_rgba(0,217,255,0.8)] text-lg tracking-wider"
+          className="w-full py-4 bg-[#00D9FF] text-black border-2 border-[#00D9FF]  font-bold hover:bg-black hover:text-[#00D9FF] text-lg tracking-wider"
         >
           CREATE LIMIT ORDER
         </button>

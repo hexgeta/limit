@@ -79,7 +79,7 @@ export function MyLimitOrders({ refreshTrigger }: MyLimitOrdersProps) {
   return (
     <div className="bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF]  overflow-hidden shadow-[0_0_30px_rgba(0,217,255,0.3)]">
       <div className="p-6 border-b-2 border-[#00D9FF]/30">
-        <h3 className="text-xl font-bold text-[#00D9FF] drop-shadow-[0_0_10px_rgba(0,217,255,0.8)]">MY ORDERS</h3>
+        <h3 className="text-xl font-bold text-[#00D9FF]">MY ORDERS</h3>
       </div>
       
       <div className="overflow-x-auto">

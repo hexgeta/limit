@@ -142,15 +142,12 @@ export function usePulseXHistoricPrices(): UsePulseXHistoricPricesResult {
           const priceUSD = parseFloat(priceData.priceUSD)
           
           if (priceUSD > 0) {
-            console.log(`[PulseX V1] ✓ ${tokenAddress.slice(0, 8)}... @ ${new Date(dayTimestamp * 1000).toLocaleDateString()}: $${priceUSD}`)
             setIsLoading(false)
             return priceUSD
           }
-        } else {
-          console.log(`[PulseX V1] ✗ No data for ${tokenAddress.slice(0, 8)}... @ ${new Date(dayTimestamp * 1000).toLocaleDateString()}`)
         }
       } catch (v1Error) {
-        console.error('[PulseX V1] Query error:', v1Error)
+        // PulseX V1 query error
       }
 
       // Try PulseX v2 as fallback
@@ -165,15 +162,12 @@ export function usePulseXHistoricPrices(): UsePulseXHistoricPricesResult {
           const priceUSD = parseFloat(priceData.priceUSD)
           
           if (priceUSD > 0) {
-            console.log(`[PulseX V2] ✓ ${tokenAddress.slice(0, 8)}... @ ${new Date(dayTimestamp * 1000).toLocaleDateString()}: $${priceUSD}`)
             setIsLoading(false)
             return priceUSD
           }
-        } else {
-          console.log(`[PulseX V2] ✗ No data for ${tokenAddress.slice(0, 8)}... @ ${new Date(dayTimestamp * 1000).toLocaleDateString()}`)
         }
       } catch (v2Error) {
-        console.error('[PulseX V2] Query error:', v2Error)
+        // PulseX V2 query error
       }
 
       // If no direct price found, try to get it from pair data
@@ -184,7 +178,7 @@ export function usePulseXHistoricPrices(): UsePulseXHistoricPricesResult {
       return null
 
     } catch (error) {
-      console.error('Error fetching historic price:', error)
+      // Error fetching historic price
       setError(error)
       setIsLoading(false)
       return null

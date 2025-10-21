@@ -2182,10 +2182,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       
                       return (
                         <div className="inline-block">
-                          <span className={`text-lg font-medium ${tokenPrice > 0 ? 'text-white' : 'text-gray-500'} ${tokenPrice === 0 ? 'py-1' : ''}`}>
+                          <span className={`text-lg font-medium ${tokenPrice > 0 ? 'text-[#00D9FF]' : 'text-gray-500'} ${tokenPrice === 0 ? 'py-1' : ''}`}>
                             {tokenPrice > 0 ? formatUSD(usdValue) : '--'}
                           </span>
-                          <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                          <div className="w-1/2 h-px bg-[#00D9FF]/10 my-2"></div>
                   <div className="flex items-center space-x-2">
                     <TokenLogo 
                       src={getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).logo}
@@ -2193,10 +2193,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       className="w-6 h-6 "
                     />
                             <div className="flex flex-col">
-                    <span className="text-white text-sm font-medium whitespace-nowrap">
+                    <span className="text-[#00D9FF] text-sm font-medium whitespace-nowrap">
                                 {formatTokenTicker(getTokenInfo(order.orderDetailsWithId.orderDetails.sellToken).ticker)}
                     </span>
-                              <span className="text-gray-400 text-xs whitespace-nowrap">
+                              <span className="text-[#00D9FF]/60 text-xs whitespace-nowrap">
                                 {formatTokenAmountDisplay(tokenAmount)}
                               </span>
                               {/* Hide individual USD price for single token (redundant with total) */}
@@ -2231,10 +2231,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       
                       return (
                         <div className="inline-block">
-                          <span className={`text-lg font-medium ${totalUsdValue > 0 ? 'text-white' : 'text-gray-500'} ${totalUsdValue === 0 ? 'py-1' : ''}`}>
+                          <span className={`text-lg font-medium ${totalUsdValue > 0 ? 'text-[#00D9FF]' : 'text-gray-500'} ${totalUsdValue === 0 ? 'py-1' : ''}`}>
                             {totalUsdValue > 0 ? formatUSD(totalUsdValue) : '--'}
                           </span>
-                          <div className="w-1/2 h-px bg-white/10 my-2"></div>
+                          <div className="w-1/2 h-px bg-[#00D9FF]/10 my-2"></div>
                           {(() => {
                             // For completed and active orders
                             const hasMultipleTokens = buyTokensIndex.length > 1;
@@ -2269,10 +2269,10 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                             className="w-6 h-6 "
                           />
                                 <div className="flex flex-col">
-                          <span className="text-white text-sm font-medium whitespace-nowrap">
+                          <span className="text-[#00D9FF] text-sm font-medium whitespace-nowrap">
                                     {formatTokenTicker(tokenInfo.ticker)}
                           </span>
-                                  <span className="text-gray-400 text-xs whitespace-nowrap">
+                                  <span className="text-[#00D9FF]/60 text-xs whitespace-nowrap">
                             {formatTokenAmountDisplay(tokenAmount)}
                           </span>
                                   {/* Only show individual USD price if there are multiple tokens */}
@@ -2297,7 +2297,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                       const fillPercentage = 100 - ((Number(order.orderDetailsWithId.remainingExecutionPercentage) / 1e18) * 100);
                       
                       return (
-                        <span className={`text-xs ${fillPercentage === 0 ? 'text-gray-500' : 'text-white'}`}>
+                        <span className={`text-xs ${fillPercentage === 0 ? 'text-gray-500' : 'text-[#00D9FF]'}`}>
                           {formatPercentage(fillPercentage)}
                     </span>
                       );
@@ -2309,7 +2309,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                         return (
                           <div 
                             className={`h-full  transition-all duration-300 ${
-                              fillPercentage === 0 ? 'bg-gray-500' : 'bg-blue-500'
+                              fillPercentage === 0 ? 'bg-gray-500' : 'bg-[#00D9FF]'
                             }`}
                         style={{ 
                               width: `${fillPercentage}%` 
@@ -2361,14 +2361,14 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
                   </div>
                   
                   {/* COLUMN 6: Expires Content */}
-                  <div className="text-gray-400 text-sm text-center min-w-0 mt-1.5">
+                  <div className="text-[#00D9FF]/60 text-sm text-center min-w-0 mt-1.5">
                     {formatTimestamp(Number(order.orderDetailsWithId.orderDetails.expirationTime))}
                   </div>
                   
                   {/* COLUMN 7: Actions / Order ID Content */}
                     <div className="text-center min-w-0">
                       {statusFilter === 'inactive' ? (
-                        <div className="text-gray-400 mt-1.5 text-sm">{order.orderDetailsWithId.orderId.toString()}</div>
+                        <div className="text-[#00D9FF]/60 mt-1.5 text-sm">{order.orderDetailsWithId.orderId.toString()}</div>
                       ) : (
                         <>
                       {ownershipFilter === 'mine' && order.orderDetailsWithId.status === 0 ? (

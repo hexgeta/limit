@@ -40,7 +40,7 @@ export const ConnectButton = () => {
         className={`px-4 md:px-8 py-2 md:py-3 font-semibold transition-all text-sm md:text-base border-2 ${
           isTransactionPending 
             ? 'bg-gray-900 text-gray-600 border-gray-700 cursor-not-allowed' 
-            : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF] hover:text-black shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]'
+            : 'bg-black text-[#00D9FF] border-[#00D9FF] hover:bg-[#00D9FF]'
         }`}
       >
         {isTransactionPending ? (
@@ -59,7 +59,7 @@ export const ConnectButton = () => {
     <>
       <button
         onClick={handleConnectClick}
-        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#00D9FF] border-2 border-[#00D9FF] font-semibold hover:bg-[#00D9FF] hover:text-black transition-all text-sm md:text-base shadow-[0_0_15px_rgba(0,217,255,0.5)] hover:shadow-[0_0_25px_rgba(0,217,255,0.8)]"
+        className="px-4 md:px-8 py-2 md:py-3 bg-black text-[#00D9FF] border-2 border-[#00D9FF] font-semibold hover:bg-[#00D9FF] hover:text-black transition-all text-sm md:text-base"
       >
         CONNECT WALLET
       </button>
