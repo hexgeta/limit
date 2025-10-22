@@ -10,12 +10,13 @@ interface LimitOrderChartProps {
   sellTokenAddress?: string;
   buyTokenAddress?: string;
   limitOrderPrice?: number;
+  invertPriceDisplay?: boolean;
   onLimitPriceChange?: (newPrice: number) => void;
   onCurrentPriceChange?: (price: number) => void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice, onLimitPriceChange, onCurrentPriceChange, onDragStateChange }: LimitOrderChartProps) {
+export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice, invertPriceDisplay = false, onLimitPriceChange, onCurrentPriceChange, onDragStateChange }: LimitOrderChartProps) {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -92,7 +93,7 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       const currentRatio = sellPriceUsd / buyPriceUsd;
       setCurrentPrice(currentRatio);
       
-      // Notify parent of current price change
+      // Notify parent of current price change (always in base direction)
       if (onCurrentPriceChange) {
         onCurrentPriceChange(currentRatio);
       }
@@ -107,20 +108,39 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   const sellTokenInfo = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === sellToken.toLowerCase());
   const buyTokenInfo = TOKEN_CONSTANTS.find(t => t.a?.toLowerCase() === buyToken.toLowerCase());
 
+  // When inverted, swap the display token info
+  const displayBaseTokenInfo = invertPriceDisplay ? buyTokenInfo : sellTokenInfo;
+  const displayQuoteTokenInfo = invertPriceDisplay ? sellTokenInfo : buyTokenInfo;
+
+  // Calculate display prices (invert if needed)
+  const displayCurrentPrice = currentPrice && invertPriceDisplay && currentPrice > 0
+    ? 1 / currentPrice
+    : currentPrice;
+  
+  const displayLimitPrice = limitOrderPrice && invertPriceDisplay && limitOrderPrice > 0
+    ? 1 / limitOrderPrice
+    : limitOrderPrice;
+
   // Calculate visual scale for the price display
   // Use a symmetric percentage range around current price for accurate % representation
-  const minPrice = (currentPrice || 0) * 0.7; // 30% below current price
-  const maxPrice = (currentPrice || 0) * 1.3; // 30% above current price
+  const minPrice = (displayCurrentPrice || 0) * 0.7; // 30% below current price
+  const maxPrice = (displayCurrentPrice || 0) * 1.3; // 30% above current price
   const priceRange = maxPrice - minPrice || 1;
 
-  const currentPricePosition = currentPrice 
-    ? ((currentPrice - minPrice) / priceRange) * 100 
+  const currentPricePosition = displayCurrentPrice 
+    ? ((displayCurrentPrice - minPrice) / priceRange) * 100 
     : 50;
   
   // Use draggedPrice during drag and briefly after for smooth rendering
-  const priceToDisplay = (isDragging || justReleasedRef.current) && draggedPrice 
+  const basePriceToDisplay = (isDragging || justReleasedRef.current) && draggedPrice 
     ? draggedPrice 
     : limitOrderPrice;
+    
+  // Apply inversion to the price to display if needed
+  const priceToDisplay = basePriceToDisplay && invertPriceDisplay && basePriceToDisplay > 0
+    ? 1 / basePriceToDisplay
+    : basePriceToDisplay;
+    
   const limitPricePosition = priceToDisplay 
     ? ((priceToDisplay - minPrice) / priceRange) * 100 
     : null;
@@ -160,24 +180,30 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
       const y = e.clientY - rect.top;
       const percentage = Math.max(0, Math.min(100, ((rect.height - y) / rect.height) * 100));
       
-      // Calculate price range dynamically
-      const minPriceCalc = currentPrice * 0.7;
-      const maxPriceCalc = currentPrice * 1.3;
+      // Use display price for calculations
+      const displayPrice = invertPriceDisplay && currentPrice > 0 ? 1 / currentPrice : currentPrice;
+      
+      // Calculate price range dynamically based on display price
+      const minPriceCalc = displayPrice * 0.7;
+      const maxPriceCalc = displayPrice * 1.3;
       const priceRangeCalc = maxPriceCalc - minPriceCalc;
       
-      const newPrice = minPriceCalc + (percentage / 100) * priceRangeCalc;
+      const newDisplayPrice = minPriceCalc + (percentage / 100) * priceRangeCalc;
       
-      if (newPrice > 0) {
-        setDraggedPrice(newPrice); // Always update local state for smooth visual
+      if (newDisplayPrice > 0) {
+        // Convert back to base price before storing/sending
+        const newBasePrice = invertPriceDisplay ? 1 / newDisplayPrice : newDisplayPrice;
+        
+        setDraggedPrice(newBasePrice); // Store in base direction
         
         // Throttle form updates to every 50ms to reduce re-renders
         if (now - lastUpdateRef.current > 50) {
-          onLimitPriceChange(newPrice);
+          onLimitPriceChange(newBasePrice); // Send base price to parent
           lastUpdateRef.current = now;
         }
       }
     });
-  }, [isDragging, currentPrice, onLimitPriceChange]);
+  }, [isDragging, currentPrice, invertPriceDisplay, onLimitPriceChange]);
 
   const handleMouseUp = useCallback(() => {
     // Cancel any pending animation frame
@@ -232,17 +258,17 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
   return (
     <div className="w-full min-h-[600px] bg-black/80 backdrop-blur-sm border-2 border-[#00D9FF] p-6 shadow-[0_0_30px_rgba(0,217,255,0.3)]">
         {/* Token Pair Info */}
-        {sellTokenInfo && buyTokenInfo && (
+        {displayBaseTokenInfo && displayQuoteTokenInfo && (
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold text-[#00D9FF]">
                 <span className="flex items-center gap-2">
                   <img 
-                    src={`/coin-logos/${sellTokenInfo.ticker}.svg`} 
-                    alt={`${sellTokenInfo.ticker} logo`} 
+                    src={`/coin-logos/${displayBaseTokenInfo.ticker}.svg`} 
+                    alt={`${displayBaseTokenInfo.ticker} logo`} 
                     className="w-6 h-6 inline-block"
                   />
-                  {formatTokenTicker(sellTokenInfo.ticker)} Price
+                  {formatTokenTicker(displayBaseTokenInfo.ticker)} Price
                 </span>
               </h3>
             {loading && (
@@ -264,10 +290,10 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
             ref={containerRef}
             className="relative min-h-[500px] bg-black/40 border border-[#00D9FF]/20 rounded select-none"
           >
-            {/* Y-axis tick arks */}
+            {/* Y-axis tick marks */}
             {[-30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30].map((percentDiff) => {
-              // Calculate the actual price at this percentage difference from current price
-              const priceAtPercent = currentPrice * (1 + percentDiff / 100);
+              // Calculate the actual price at this percentage difference from display current price
+              const priceAtPercent = displayCurrentPrice ? displayCurrentPrice * (1 + percentDiff / 100) : 0;
               
               // Calculate where this price would be positioned in the chart range
               const position = ((priceAtPercent - minPrice) / priceRange) * 100;
@@ -305,21 +331,21 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                 <span className="text-xs text-[#00D9FF]/70 whitespace-nowrap">Current Price:</span>
                 <span className="text-sm font-bold text-[#00D9FF] min-w-[60px] text-right">
                   <NumberFlow 
-                    value={currentPrice} 
+                    value={displayCurrentPrice || 0} 
                     format={{ 
                       minimumSignificantDigits: 1,
                       maximumSignificantDigits: 4 
                     }}
                   />
                 </span>
-                {buyTokenInfo && (
+                {displayQuoteTokenInfo && (
                   <>
                     <span className="text-xs text-[#00D9FF]">
-                      {formatTokenTicker(buyTokenInfo.ticker)}
+                      {formatTokenTicker(displayQuoteTokenInfo.ticker)}
                     </span>
                     <img
-                      src={`/coin-logos/${buyTokenInfo.ticker}.svg`}
-                      alt={`${buyTokenInfo.ticker} logo`}
+                      src={`/coin-logos/${displayQuoteTokenInfo.ticker}.svg`}
+                      alt={`${displayQuoteTokenInfo.ticker} logo`}
                       className="w-[16px] h-[16px] object-contain"
                       style={{ filter: 'brightness(0) saturate(100%) invert(68%) sepia(96%) saturate(2367%) hue-rotate(167deg) brightness(103%) contrast(101%)' }}
                       onError={(e) => {
@@ -355,21 +381,21 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                   <span className="text-xs text-[#FF0080]/70 whitespace-nowrap">Limit Price:</span>
                   <span className="text-sm font-bold text-[#FF0080] min-w-[60px] text-right">
                     <NumberFlow 
-                      value={priceToDisplay} 
+                      value={priceToDisplay || 0} 
                       format={{ 
                         minimumSignificantDigits: 1,
                         maximumSignificantDigits: 4 
                       }}
                     />
                   </span>
-                  {buyTokenInfo && (
+                  {displayQuoteTokenInfo && (
                     <>
                       <span className="text-xs text-[#FF0080]">
-                        {formatTokenTicker(buyTokenInfo.ticker)}
+                        {formatTokenTicker(displayQuoteTokenInfo.ticker)}
                       </span>
                       <img
-                        src={`/coin-logos/${buyTokenInfo.ticker}.svg`}
-                        alt={`${buyTokenInfo.ticker} logo`}
+                        src={`/coin-logos/${displayQuoteTokenInfo.ticker}.svg`}
+                        alt={`${displayQuoteTokenInfo.ticker} logo`}
                         className="w-[16px] h-[16px] object-contain"
                         style={{ filter: 'brightness(0) saturate(100%) invert(47%) sepia(99%) saturate(6544%) hue-rotate(312deg) brightness(103%) contrast(103%)' }}
                         onError={(e) => {

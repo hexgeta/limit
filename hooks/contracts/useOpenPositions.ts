@@ -3,7 +3,7 @@ import { createPublicClient, http } from 'viem';
 import { Address } from 'viem';
 
 // Contract address - PulseChain OTC contract
-const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as Address;
+const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT as Address;
 
 // Use the working RPC endpoint
 const PULSECHAIN_RPC = 'https://rpc.pulsechain.com';

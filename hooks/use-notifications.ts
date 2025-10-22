@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { parseAbiItem } from 'viem';
 
-const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as const;
+const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT as const;
 const LAST_SEEN_KEY = 'notifications_last_seen';
 const READ_NOTIFICATIONS_KEY = 'notifications_read';
 
 export interface OrderNotification {
   orderId: string;
-  type: 'buy' | 'sell';
+  type: 'filled' | 'updated';
   timestamp: number;
   blockNumber: bigint;
   txHash: string;
@@ -20,7 +20,6 @@ export function useNotifications() {
   const publicClient = usePublicClient();
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // Get last seen timestamp from localStorage
   const getLastSeenTimestamp = useCallback(() => {
@@ -44,53 +43,46 @@ export function useNotifications() {
 
   // Mark a single notification as read
   const markAsRead = useCallback((notificationId: string) => {
-    const readIds = getReadNotifications();
-    readIds.add(notificationId);
-    saveReadNotifications(readIds);
-    
-    // Update state
-    setNotifications(prev => prev.map(notif => {
-      if (`${notif.txHash}-${notif.orderId}` === notificationId) {
-        return { ...notif, isNew: false };
-      }
-      return notif;
-    }));
-    
-    // Recalculate unread count
+    // Update state and localStorage in a single operation
     setNotifications(prev => {
-      const newCount = prev.filter(n => n.isNew).length;
-      setUnreadCount(newCount);
-      return prev;
+      const readIds = getReadNotifications();
+      readIds.add(notificationId);
+      saveReadNotifications(readIds);
+      
+      return prev.map(notif => {
+        if (notif.txHash === notificationId) {
+          return { ...notif, isNew: false };
+        }
+        return notif;
+      });
     });
-  }, [address, getReadNotifications, saveReadNotifications]);
+  }, [getReadNotifications, saveReadNotifications]);
 
   // Toggle read/unread status of a notification
   const toggleReadStatus = useCallback((notificationId: string) => {
-    const readIds = getReadNotifications();
-    const isCurrentlyRead = readIds.has(notificationId);
-    
-    if (isCurrentlyRead) {
-      readIds.delete(notificationId);
-    } else {
-      readIds.add(notificationId);
-    }
-    saveReadNotifications(readIds);
-    
-    // Update state
-    setNotifications(prev => prev.map(notif => {
-      if (`${notif.txHash}-${notif.orderId}` === notificationId) {
-        return { ...notif, isNew: !isCurrentlyRead };
-      }
-      return notif;
-    }));
-    
-    // Recalculate unread count
+    // Update state and localStorage in a single operation
     setNotifications(prev => {
-      const newCount = prev.filter(n => n.isNew).length;
-      setUnreadCount(newCount);
-      return prev;
+      const notification = prev.find(notif => notif.txHash === notificationId);
+      if (!notification) return prev;
+      
+      const isCurrentlyRead = !notification.isNew;
+      const readIds = getReadNotifications();
+      
+      if (isCurrentlyRead) {
+        readIds.delete(notificationId);
+      } else {
+        readIds.add(notificationId);
+      }
+      saveReadNotifications(readIds);
+      
+      return prev.map(notif => {
+        if (notif.txHash === notificationId) {
+          return { ...notif, isNew: !isCurrentlyRead };
+        }
+        return notif;
+      });
     });
-  }, [address, getReadNotifications, saveReadNotifications]);
+  }, [getReadNotifications, saveReadNotifications]);
 
   // Mark all current notifications as seen (when opening dropdown)
   const markAsSeen = useCallback(() => {
@@ -99,11 +91,10 @@ export function useNotifications() {
     localStorage.setItem(`${LAST_SEEN_KEY}_${address}`, now.toString());
   }, [address]);
 
-  // Fetch all filled orders (order history - both buyer and seller)
+  // Fetch all order-related events
   const fetchNotifications = useCallback(async () => {
     if (!address || !publicClient) {
       setNotifications([]);
-      setUnreadCount(0);
       setIsLoading(false);
       return;
     }
@@ -113,7 +104,19 @@ export function useNotifications() {
       const lastSeen = getLastSeenTimestamp();
       const readIds = getReadNotifications();
 
-      // PART 1: Query OrderExecuted events where the user is the buyer
+      // Fetch all user-created orders first to identify sells
+      const orderPlacedLogs = await publicClient.getLogs({
+        address: OTC_CONTRACT_ADDRESS,
+        event: parseAbiItem('event OrderPlaced(address indexed user, uint256 orderId)'),
+        args: {
+          user: address
+        },
+        fromBlock: 'earliest'
+      });
+      
+      const userCreatedOrderIds = orderPlacedLogs.map(log => log.args.orderId?.toString()).filter(Boolean);
+
+      // PART 1: OrderExecuted events where the user is the buyer
       const buyerLogs = await publicClient.getLogs({
         address: OTC_CONTRACT_ADDRESS,
         event: parseAbiItem('event OrderExecuted(address indexed user, uint256 orderId)'),
@@ -123,20 +126,7 @@ export function useNotifications() {
         fromBlock: 'earliest'
       });
 
-      // PART 2: Query OrderExecuted events where the user is the seller
-      // First, get all orders created by the user
-      const orderCreatedLogs = await publicClient.getLogs({
-        address: OTC_CONTRACT_ADDRESS,
-        event: parseAbiItem('event OrderCreated(address indexed user, uint256 orderId)'),
-        args: {
-          user: address
-        },
-        fromBlock: 'earliest'
-      });
-      
-      const userCreatedOrderIds = orderCreatedLogs.map(log => log.args.orderId?.toString()).filter(Boolean);
-      
-      // Now get all executed events and filter for user's created orders
+      // PART 2: OrderExecuted events where someone else bought the user's order (sells)
       let sellerLogs: any[] = [];
       if (userCreatedOrderIds.length > 0) {
         const allExecutedLogs = await publicClient.getLogs({
@@ -145,7 +135,6 @@ export function useNotifications() {
           fromBlock: 'earliest'
         });
         
-        // Filter to only include events for user's created orders and exclude their own purchases
         sellerLogs = allExecutedLogs.filter(log => {
           const orderId = log.args.orderId?.toString();
           const buyer = log.args.user?.toLowerCase();
@@ -155,8 +144,24 @@ export function useNotifications() {
         });
       }
 
-      // Combine buyer and seller logs
-      const allLogs = [...buyerLogs, ...sellerLogs];
+      // PART 3: OrderUpdated events
+      const updatedLogs = await publicClient.getLogs({
+        address: OTC_CONTRACT_ADDRESS,
+        event: parseAbiItem('event OrderUpdated(uint256 orderId)'),
+        fromBlock: 'earliest'
+      });
+      
+      // Filter updated logs to only include user's orders
+      const userUpdatedLogs = updatedLogs.filter(log => {
+        const orderId = log.args.orderId?.toString();
+        return orderId && userCreatedOrderIds.includes(orderId);
+      });
+
+      // Combine all logs with their event types (excluding cancelled, placed, redeemed, and user's own buys)
+      const allLogs = [
+        ...sellerLogs.map(log => ({ ...log, eventType: 'filled' as const })), // Orders filled by others
+        ...userUpdatedLogs.map(log => ({ ...log, eventType: 'updated' as const }))
+      ];
       
       // Get block details to extract timestamps and mark as new/read
       const logsWithTimestamps = await Promise.all(
@@ -164,19 +169,14 @@ export function useNotifications() {
           const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
           const timestamp = Number(block.timestamp);
           const orderId = log.args.orderId?.toString() || '';
-          const buyer = log.args.user?.toLowerCase();
-          const notificationId = `${log.transactionHash}-${orderId}`;
+          const notificationId = `${log.transactionHash}`;
           
-          // Determine if this is a buy or sell transaction
-          const isBuyer = buyer === address.toLowerCase();
-          const type = isBuyer ? 'buy' as const : 'sell' as const;
-          
-          // Mark as new if: timestamp > lastSeen AND not in read list
-          const isNew = timestamp > lastSeen && !readIds.has(notificationId);
+          // Mark as new if NOT in read list (ignore lastSeen)
+          const isNew = !readIds.has(notificationId);
           
           return {
             orderId,
-            type,
+            type: log.eventType,
             timestamp,
             blockNumber: log.blockNumber,
             txHash: log.transactionHash,
@@ -188,15 +188,10 @@ export function useNotifications() {
       // Sort by timestamp (newest first)
       logsWithTimestamps.sort((a, b) => b.timestamp - a.timestamp);
 
-      // Count only new notifications
-      const newCount = logsWithTimestamps.filter(n => n.isNew).length;
-
       setNotifications(logsWithTimestamps);
-      setUnreadCount(newCount);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);
-      setUnreadCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +215,6 @@ export function useNotifications() {
 
   return {
     notifications,
-    unreadCount,
     isLoading,
     markAsSeen,
     markAsRead,

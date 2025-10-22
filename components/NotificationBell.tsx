@@ -5,7 +5,7 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { useAccount } from 'wagmi';
 import { useOpenPositions } from '@/hooks/contracts/useOpenPositions';
 import { useTokenPrices } from '@/hooks/crypto/useTokenPrices';
-import { getTokenInfo, formatTokenTicker, formatTokenAmount } from '@/utils/tokenUtils';
+import { getTokenInfo, getTokenInfoByIndex, formatTokenTicker, formatTokenAmount } from '@/utils/tokenUtils';
 import { CircleDollarSign } from 'lucide-react';
 
 // Simplified TokenLogo component
@@ -43,10 +43,40 @@ function TokenLogo({ src, alt, className }: { src: string; alt: string; classNam
 
 export function NotificationBell() {
   const { isConnected, address } = useAccount();
-  const { notifications, unreadCount, isLoading, markAsSeen, markAsRead, toggleReadStatus } = useNotifications();
+  const { notifications, isLoading, markAsRead, toggleReadStatus } = useNotifications();
   const { allOrders } = useOpenPositions();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Filter out inactive orders and orders we can't display
+  const activeNotifications = useMemo(() => {
+    if (!allOrders) return [];
+    
+    const currentTime = Math.floor(Date.now() / 1000);
+    return notifications.filter(notif => {
+      const baseOrder = allOrders.find((order: any) => 
+        order.orderDetailsWithId.orderId.toString() === notif.orderId
+      );
+      
+      // If order not found, filter it out
+      if (!baseOrder) return false;
+      
+      // Check if token info exists
+      const sellTokenInfo = getTokenInfo(baseOrder.orderDetailsWithId.orderDetails.sellToken);
+      if (!sellTokenInfo) return false;
+      
+      const status = baseOrder.orderDetailsWithId.status;
+      const expirationTime = Number(baseOrder.orderDetailsWithId.orderDetails.expirationTime);
+      const isInactive = status === 0 && expirationTime < currentTime;
+      
+      return !isInactive;
+    });
+  }, [notifications, allOrders]);
+
+  // Calculate unread count from active notifications only
+  const unreadCount = useMemo(() => {
+    return activeNotifications.filter(notif => notif.isNew).length;
+  }, [activeNotifications]);
   
   // Collect all unique token addresses from notifications
   const allTokenAddresses = useMemo(() => {
@@ -79,17 +109,8 @@ export function NotificationBell() {
     }
   }, [isOpen]);
 
-  // Don't show if wallet not connected
-  if (!isConnected) return null;
-
   const handleToggle = () => {
-    const wasOpen = isOpen;
     setIsOpen(!isOpen);
-    
-    if (!wasOpen) {
-      // Opening - mark all current notifications as seen
-      markAsSeen();
-    }
   };
 
   // Helper functions
@@ -149,6 +170,19 @@ export function NotificationBell() {
     };
   };
 
+  const getTimeAgo = (timestamp: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+    const days = Math.floor(diff / 86400);
+    const hours = Math.floor(diff / 3600);
+    const minutes = Math.floor(diff / 60);
+    
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
+  };
+
   const getStatusText = (order: any) => {
     const status = order.orderDetailsWithId.status;
     const expirationTime = Number(order.orderDetailsWithId.orderDetails.expirationTime);
@@ -165,6 +199,9 @@ export function NotificationBell() {
       default: return 'Unknown';
     }
   };
+
+  // Don't show if wallet not connected
+  if (!isConnected) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -200,16 +237,16 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[900px] max-w-[90vw] bg-black border-2 border-[#00D9FF] shadow-[0_0_30px_rgba(0,217,255,0.3)] rounded z-50 flex flex-col">
+        <div className="absolute right-0 mt-2 w-[700px] max-w-[90vw] bg-black border-2 border-[#00D9FF] shadow-[0_0_30px_rgba(0,217,255,0.3)] rounded z-[9999] flex flex-col max-h-[calc(100vh-100px)]">
           {/* Header */}
           <div className="px-4 py-3 border-b border-[#00D9FF]/30 flex-shrink-0">
             <h3 className="text-[#00D9FF] font-bold">
-              Order History {notifications.length > 0 && `(${notifications.length})`}
+              Order History {activeNotifications.length > 0 && `(${activeNotifications.length})`}
             </h3>
           </div>
 
           {/* Notifications List - Scrollable */}
-          <div className="overflow-y-auto max-h-[600px] notifications-scroll"
+          <div className="overflow-y-auto flex-1 notifications-scroll"
                style={{ 
                  scrollbarWidth: 'thin',
                  scrollbarColor: 'rgba(0, 217, 255, 0.5) transparent'
@@ -219,14 +256,14 @@ export function NotificationBell() {
               <div className="px-4 py-8 text-center text-[#00D9FF]/50">
                 Loading...
               </div>
-            ) : notifications.length === 0 ? (
+            ) : activeNotifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-[#00D9FF]/50">
                 No order history yet
               </div>
             ) : (
               <div className="px-4 py-4">
-                {notifications.map((notif, index) => {
-                  const notificationId = `${notif.txHash}-${notif.orderId}`;
+                {activeNotifications.map((notif, index) => {
+                  const notificationId = notif.txHash;
                   const baseOrder = allOrders?.find((order: any) => 
                     order.orderDetailsWithId.orderId.toString() === notif.orderId
                   );
@@ -236,225 +273,114 @@ export function NotificationBell() {
                   const sellTokenInfo = getTokenInfo(baseOrder.orderDetailsWithId.orderDetails.sellToken);
                   if (!sellTokenInfo) return null;
 
-                  const isSellTransaction = notif.type === 'sell';
-                  const sellPrice = getTokenPrice(baseOrder.orderDetailsWithId.orderDetails.sellToken);
+                  // For filled transactions, show ALL BUY tokens received
+                  // For other transactions, show the SELL token
+                  const displayTokens: Array<{ info: any; amount: number }> = [];
                   
-                  // Get original order amounts
-                  const originalSellAmountNum = parseFloat(formatTokenAmount(
-                    baseOrder.orderDetailsWithId.orderDetails.sellAmount, 
-                    sellTokenInfo.decimals
-                  ));
-                  const originalSellAmountUSD = originalSellAmountNum * sellPrice;
-
-                  const originalBuyAmounts = baseOrder.orderDetailsWithId.orderDetails.buyAmounts;
-                  const originalBuyTokensIndex = baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex;
+                  if (notif.type === 'filled' && baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex.length > 0) {
+                    // Get all buy tokens
+                    for (let i = 0; i < baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex.length; i++) {
+                      const tokenInfo = getTokenInfoByIndex(Number(baseOrder.orderDetailsWithId.orderDetails.buyTokensIndex[i]));
+                      if (tokenInfo && baseOrder.orderDetailsWithId.orderDetails.buyAmounts[i]) {
+                        const amount = parseFloat(formatTokenAmount(
+                          baseOrder.orderDetailsWithId.orderDetails.buyAmounts[i], 
+                          tokenInfo.decimals
+                        ));
+                        displayTokens.push({ info: tokenInfo, amount });
+                      }
+                    }
+                  } else {
+                    // For non-filled notifications, show sell token
+                    const amount = parseFloat(formatTokenAmount(
+                      baseOrder.orderDetailsWithId.orderDetails.sellAmount, 
+                      sellTokenInfo.decimals
+                    ));
+                    displayTokens.push({ info: sellTokenInfo, amount });
+                  }
                   
-                  // Calculate original buy amounts in USD
-                  const originalBuyAmountsUSD = originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
-                    const tokenInfo = getTokenInfo(tokenIndex.toString());
-                    if (!tokenInfo) return 0;
-                    const amount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], tokenInfo.decimals));
-                    const price = getTokenPrice(tokenInfo.address);
-                    return amount * price;
-                  });
-                  const originalMinBuyAmountUSD = originalBuyAmountsUSD.length > 0 ? Math.min(...originalBuyAmountsUSD) : 0;
-
-                  // Calculate OTC vs Market Price
-                  const otcPercentage = originalSellAmountUSD > 0 && originalMinBuyAmountUSD > 0
-                    ? ((originalMinBuyAmountUSD - originalSellAmountUSD) / originalSellAmountUSD) * 100
-                    : null;
+                  if (displayTokens.length === 0) return null;
 
                   return (
                     <div
-                      key={`${notif.orderId}-${index}`}
-                      className={`border border-[#00D9FF]/20 rounded p-4 mb-3 hover:border-[#00D9FF]/40 transition-colors ${
+                      key={notif.txHash}
+                      onClick={() => toggleReadStatus(notificationId)}
+                      className={`border border-[#00D9FF]/20 rounded p-3 mb-2 hover:border-[#00D9FF]/40 transition-colors cursor-pointer ${
                         notif.isNew ? 'bg-[#FF0080]/5' : ''
                       }`}
                     >
-                      {/* Header Row */}
-                      <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center justify-between">
+                        {/* Left: Event Badge + Asset Info */}
+                        <div className="flex items-center gap-3 flex-1">
+                          {/* Event Type Badge */}
+                          <span className={`px-2 py-1 text-xs font-medium border rounded w-[125px] text-center ${
+                            notif.type === 'filled'
+                              ? 'bg-green-500/20 text-green-400 border-green-400'
+                              : 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
+                          }`}>
+                            {notif.type === 'filled' ? 'Filled' : 'Updated'}
+                          </span>
+
+                          {/* Asset and Amount */}
+                          <div className="flex items-center gap-3">
+                            {displayTokens.map((token, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <TokenLogo 
+                                  src={token.info.logo}
+                                  alt={formatTokenTicker(token.info.ticker)}
+                                  className="w-5 h-5"
+                                />
+                                <span className="text-sm text-[#00D9FF] font-medium">
+                                  {formatTokenAmountDisplay(token.amount)} {formatTokenTicker(token.info.ticker)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Right: Time and Actions */}
                         <div className="flex items-center gap-3">
-                          {/* Buy/Sell Badge */}
-                          <span className={`px-3 py-1 text-xs font-medium border ${
-                            isSellTransaction 
-                              ? 'bg-red-500/20 text-red-400 border-red-400' 
-                              : 'bg-green-500/20 text-green-400 border-green-400'
-                          }`}>
-                            {isSellTransaction ? 'Sell' : 'Buy'}
-                          </span>
-                          
-                          {/* Status Badge */}
-                          <span className={`px-3 py-1 text-xs font-medium border ${
-                            getStatusText(baseOrder) === 'Inactive'
-                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
-                              : baseOrder.orderDetailsWithId.status === 0 
-                              ? 'bg-green-500/20 text-green-400 border-green-400' 
-                              : baseOrder.orderDetailsWithId.status === 1
-                              ? 'bg-red-500/20 text-red-400 border-red-400'
-                              : 'bg-blue-500/20 text-blue-400 border-blue-400'
-                          }`}>
-                            {getStatusText(baseOrder)}
-                          </span>
+                          {/* Time ago */}
+                          <div className="text-xs text-[#00D9FF]/60 whitespace-nowrap">
+                            {getTimeAgo(notif.timestamp)}
+                          </div>
 
-                          {/* New indicator */}
-                          {notif.isNew && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-[#FF0080] rounded-full" />
-                              <span className="text-xs text-[#FF0080] font-medium">NEW</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Read/Unread Toggle */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleReadStatus(notificationId);
-                          }}
-                          className="p-1 hover:bg-[#00D9FF]/10 rounded transition-colors"
-                          title={notif.isNew ? "Mark as read" : "Mark as unread"}
-                        >
-                          {notif.isNew ? (
-                            <svg className="w-5 h-5 text-[#FF0080]" fill="currentColor" viewBox="0 0 20 20">
-                              <circle cx="10" cy="10" r="5" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5 text-[#00D9FF]/30" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 20 20">
-                              <circle cx="10" cy="10" r="5" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-
-                      {/* Main Content Grid */}
-                      <div className="grid grid-cols-2 gap-4 mb-3">
-                        {/* You Bought/Received */}
-                        <div>
-                          <div className="text-xs text-[#00D9FF]/60 mb-1">
-                            {isSellTransaction ? 'You Received' : 'You Bought'}
-                          </div>
-                          <div className="text-lg font-medium text-[#00D9FF]">
-                            {isSellTransaction ? formatUSD(originalMinBuyAmountUSD) : formatUSD(originalSellAmountUSD)}
-                          </div>
-                          <div className="mt-2">
-                            {isSellTransaction ? (
-                              // Show buy tokens
-                              originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
-                                const tokenInfo = getTokenInfo(tokenIndex.toString());
-                                if (!tokenInfo) return null;
-                                const amount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], tokenInfo.decimals));
-                                return (
-                                  <div key={tokenInfo.address} className="flex items-center gap-2 mb-1">
-                                    <TokenLogo 
-                                      src={tokenInfo.logo}
-                                      alt={formatTokenTicker(tokenInfo.ticker)}
-                                      className="w-4 h-4"
-                                    />
-                                    <span className="text-sm text-[#00D9FF]">
-                                      {formatTokenAmountDisplay(amount)} {formatTokenTicker(tokenInfo.ticker)}
-                                    </span>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              // Show sell token
-                              <div className="flex items-center gap-2">
-                                <TokenLogo 
-                                  src={sellTokenInfo.logo}
-                                  alt={formatTokenTicker(sellTokenInfo.ticker)}
-                                  className="w-4 h-4"
-                                />
-                                <span className="text-sm text-[#00D9FF]">
-                                  {formatTokenAmountDisplay(originalSellAmountNum)} {formatTokenTicker(sellTokenInfo.ticker)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* You Paid/Gave */}
-                        <div>
-                          <div className="text-xs text-[#00D9FF]/60 mb-1">
-                            {isSellTransaction ? 'You Gave' : 'You Paid'}
-                          </div>
-                          <div className="text-lg font-medium text-[#00D9FF]">
-                            {isSellTransaction ? formatUSD(originalSellAmountUSD) : formatUSD(originalMinBuyAmountUSD)}
-                          </div>
-                          <div className="mt-2">
-                            {isSellTransaction ? (
-                              // Show sell token
-                              <div className="flex items-center gap-2">
-                                <TokenLogo 
-                                  src={sellTokenInfo.logo}
-                                  alt={formatTokenTicker(sellTokenInfo.ticker)}
-                                  className="w-4 h-4"
-                                />
-                                <span className="text-sm text-[#00D9FF]">
-                                  {formatTokenAmountDisplay(originalSellAmountNum)} {formatTokenTicker(sellTokenInfo.ticker)}
-                                </span>
-                              </div>
-                            ) : (
-                              // Show buy tokens
-                              originalBuyTokensIndex.map((tokenIndex: bigint, idx: number) => {
-                                const tokenInfo = getTokenInfo(tokenIndex.toString());
-                                if (!tokenInfo) return null;
-                                const amount = parseFloat(formatTokenAmount(originalBuyAmounts[idx], tokenInfo.decimals));
-                                return (
-                                  <div key={tokenInfo.address} className="flex items-center gap-2 mb-1">
-                                    <TokenLogo 
-                                      src={tokenInfo.logo}
-                                      alt={formatTokenTicker(tokenInfo.ticker)}
-                                      className="w-4 h-4"
-                                    />
-                                    <span className="text-sm text-[#00D9FF]">
-                                      {formatTokenAmountDisplay(amount)} {formatTokenTicker(tokenInfo.ticker)}
-                                    </span>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bottom Info Row */}
-                      <div className="flex items-center justify-between text-xs border-t border-[#00D9FF]/10 pt-3">
-                        <div className="flex items-center gap-4">
-                          {/* OTC vs Market */}
-                          {otcPercentage !== null && (
-                            <div>
-                              <span className="text-[#00D9FF]/60">OTC vs Market: </span>
-                              <span className={`font-medium ${
-                                otcPercentage < 0 ? 'text-red-400' : 'text-green-400'
-                              }`}>
-                                {otcPercentage < 0 ? '-' : '+'}{Math.abs(otcPercentage).toFixed(0)}%
-                              </span>
-                            </div>
-                          )}
-                          
                           {/* Date */}
-                          <div>
-                            <span className="text-[#00D9FF]/60">
-                              {formatTimestamp(notif.timestamp).date} {formatTimestamp(notif.timestamp).time}
-                            </span>
+                          <div className="text-xs text-[#00D9FF]/40 whitespace-nowrap">
+                            {formatTimestamp(notif.timestamp).date}
                           </div>
 
-                          {/* Order ID */}
-                          <div>
-                            <span className="text-[#00D9FF]/40">Order #{notif.orderId}</span>
-                          </div>
+                          {/* View Tx Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAsRead(notificationId);
+                              window.open(`https://otter.pulsechain.com/tx/${notif.txHash}`, '_blank');
+                            }}
+                            className="px-2 py-1 bg-transparent text-[#00D9FF] text-xs border border-[#00D9FF] hover:bg-[#00D9FF]/10 transition-colors whitespace-nowrap"
+                          >
+                            View Tx
+                          </button>
+
+                          {/* Read/Unread Toggle */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleReadStatus(notificationId);
+                            }}
+                            className="p-1 hover:bg-[#00D9FF]/10 rounded transition-colors"
+                            title={notif.isNew ? "Mark as read" : "Mark as unread"}
+                          >
+                            {notif.isNew ? (
+                              <svg className="w-4 h-4 text-[#FF0080]" fill="currentColor" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="5" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4 text-[#00D9FF]/30" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="5" />
+                              </svg>
+                            )}
+                          </button>
                         </div>
-
-                        {/* View Tx Button */}
-                        <button
-                          onClick={() => {
-                            markAsRead(notificationId);
-                            window.open(`https://otter.pulsechain.com/tx/${notif.txHash}`, '_blank');
-                          }}
-                          className="px-3 py-1 bg-transparent text-white text-xs border border-white hover:bg-white/10 transition-colors"
-                        >
-                          View Tx
-                        </button>
                       </div>
                     </div>
                   );

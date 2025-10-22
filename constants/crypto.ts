@@ -16,7 +16,7 @@ export interface TokenConfig {
 }
 
 // ===================================
-// WHITELISTED TOKENS (Active on OTC Contract: 0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2)
+// WHITELISTED TOKENS (Active on OTC Contract: See NEXT_PUBLIC_BISTRO_SMART_CONTRACT)
 // Last verified: 2025-10-10 via RPC
 // Total Active: 8 tokens
 // ===================================

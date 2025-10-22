@@ -1,4 +1,5 @@
 {
+  "_comment": "This is a sample query. Replace 'to' address with NEXT_PUBLIC_BISTRO_SMART_CONTRACT value",
   "jsonrpc": "2.0",
   "method": "eth_call",
   "params": [

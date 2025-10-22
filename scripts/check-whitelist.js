@@ -7,9 +7,15 @@
  * Usage: node scripts/check-whitelist.js
  */
 
+require('dotenv').config({ path: '.env.local' });
 const { ethers } = require("ethers");
 
-const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
+const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT;
+
+if (!OTC_CONTRACT_ADDRESS) {
+  console.error('Error: NEXT_PUBLIC_BISTRO_SMART_CONTRACT environment variable is not set');
+  process.exit(1);
+}
 
 const WHITELIST_ABI = [
   {

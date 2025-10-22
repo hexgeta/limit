@@ -43,7 +43,7 @@ export type WhitelistedWriteFunction = typeof WHITELISTED_WRITE_FUNCTIONS[number
 export type ReadFunction = typeof READ_FUNCTIONS[number];
 
 // Contract configuration
-const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
+const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT as string;
 
 // Full contract ABI with all write functions
 const OTC_ABI = [

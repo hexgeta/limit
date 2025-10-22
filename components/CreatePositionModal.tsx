@@ -161,7 +161,7 @@ export function CreatePositionModal({
   const publicClient = usePublicClient();
 
   // Contract address for token approvals
-  const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
+  const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT as string;
 
   // Handle close - let AnimatePresence handle the timing
   const handleClose = () => {

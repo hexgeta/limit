@@ -11,6 +11,7 @@ import { formatTokenTicker } from '@/utils/tokenUtils';
 interface LimitOrderFormProps {
   onTokenChange?: (sellToken: string | undefined, buyToken: string | undefined) => void;
   onLimitPriceChange?: (price: number | undefined) => void;
+  onInvertPriceDisplayChange?: (inverted: boolean) => void;
   externalLimitPrice?: number; // Allow external control of limit price
   externalMarketPrice?: number; // Allow external control of market price (from chart)
   isDragging?: boolean; // Disable animations during drag for performance
@@ -50,9 +51,45 @@ const formatBalanceDisplay = (balance: string): string => {
   return formatNumberWithCommas(num.toFixed(2));
 };
 
+// Helper to format display value with max 4 significant figures
+const formatDisplayValue = (value: number): number => {
+  if (value === 0) return 0;
+  
+  // Get the order of magnitude
+  const magnitude = Math.floor(Math.log10(Math.abs(value)));
+  
+  // For numbers >= 1, show up to 4 decimal places but remove trailing zeros
+  if (magnitude >= 0) {
+    // Round to 4 decimal places
+    const rounded = Math.round(value * 10000) / 10000;
+    return rounded;
+  }
+  
+  // For numbers < 1, use 4 significant figures
+  const precision = 4 - magnitude - 1;
+  return parseFloat(value.toPrecision(4));
+};
+
+// Helper to format calculated values for state (avoids floating point issues in input)
+const formatCalculatedValue = (value: number): string => {
+  if (value === 0) return '';
+  
+  // Round to 4 decimal places to avoid floating point precision issues
+  const rounded = Math.round(value * 10000) / 10000;
+  
+  // Convert to string and remove trailing zeros after decimal point
+  let str = rounded.toString();
+  if (str.includes('.')) {
+    str = str.replace(/\.?0+$/, '');
+  }
+  
+  return str;
+};
+
 export function LimitOrderForm({
   onTokenChange,
   onLimitPriceChange,
+  onInvertPriceDisplayChange,
   externalLimitPrice,
   externalMarketPrice,
   isDragging = false,
@@ -75,6 +112,7 @@ export function LimitOrderForm({
   const [buySearchQuery, setBuySearchQuery] = useState('');
   const [invertPriceDisplay, setInvertPriceDisplay] = useState(false); // Toggle for price display
   const [isBuyInputFocused, setIsBuyInputFocused] = useState(false); // Track buy input focus
+  const [isSellInputFocused, setIsSellInputFocused] = useState(false); // Track sell input focus
   
   const sellDropdownRef = useRef<HTMLDivElement>(null);
   const buyDropdownRef = useRef<HTMLDivElement>(null);
@@ -222,7 +260,7 @@ export function LimitOrderForm({
       // Update buy amount based on new limit price if we have a sell amount
       if (sellAmountNum > 0) {
         const newBuyAmount = sellAmountNum * externalLimitPrice;
-        setBuyAmount(newBuyAmount.toString()); // Keep as plain string
+        setBuyAmount(formatCalculatedValue(newBuyAmount));
       }
       
       // Calculate and update percentage
@@ -281,7 +319,7 @@ export function LimitOrderForm({
         
         // Calculate new buy amount
         const newBuyAmount = sellAmountNum * newLimitPrice;
-        setBuyAmount(newBuyAmount.toString()); // Keep as plain string
+        setBuyAmount(formatCalculatedValue(newBuyAmount));
         
         // Notify parent of limit price change
         if (onLimitPriceChange) {
@@ -308,7 +346,7 @@ export function LimitOrderForm({
       if (limitPriceNum > 0) {
         isUpdatingFromOtherInputRef.current = true;
         const newBuyAmount = sellAmountNum * limitPriceNum;
-        setBuyAmount(newBuyAmount.toString()); // Keep as plain string, no formatting
+        setBuyAmount(formatCalculatedValue(newBuyAmount));
         isUpdatingFromOtherInputRef.current = false;
       }
       
@@ -334,7 +372,7 @@ export function LimitOrderForm({
       if (limitPriceNum > 0) {
         isUpdatingFromOtherInputRef.current = true;
         const newSellAmount = buyAmountNum / limitPriceNum;
-        setSellAmount(newSellAmount.toString()); // Keep as plain string, no formatting
+        setSellAmount(formatCalculatedValue(newSellAmount));
         isUpdatingFromOtherInputRef.current = false;
       }
       
@@ -370,7 +408,7 @@ export function LimitOrderForm({
     
     // Calculate new buy amount based on limit price
     const newBuyAmount = sellAmountNum * newPrice;
-    setBuyAmount(newBuyAmount.toString()); // Keep as plain string
+    setBuyAmount(formatCalculatedValue(newBuyAmount));
   };
 
   const handleMaxSellAmount = () => {
@@ -549,14 +587,38 @@ export function LimitOrderForm({
           )}
         </div>
 
-        {/* Amount Input */}
+        {/* Amount Input with NumberFlow Display */}
+        <div className="relative">
+          {!isSellInputFocused && sellAmountNum > 0 ? (
+            <div 
+              onClick={() => {
+                setIsSellInputFocused(true);
+                setTimeout(() => sellInputRef.current?.focus(), 0);
+              }}
+              className="w-full bg-black border-2 border-[#00D9FF] p-3 text-[#00D9FF] text-2xl min-h-[58px] flex items-center cursor-text"
+            >
+              <NumberFlow 
+                value={formatDisplayValue(sellAmountNum)}
+                format={{
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 4
+                }}
+                animated={!isDragging}
+              />
+            </div>
+          ) : (
         <input
+              ref={sellInputRef}
           type="text"
           value={sellAmount}
           onChange={handleSellAmountChange}
+              onFocus={() => setIsSellInputFocused(true)}
+              onBlur={() => setIsSellInputFocused(false)}
           placeholder="0.00"
-          className="w-full bg-black border-2 border-[#00D9FF]  p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
+              className="w-full bg-black border-2 border-[#00D9FF] p-3 text-[#00D9FF] text-2xl placeholder-[#00D9FF]/30 focus:outline-none focus:border-[#00D9FF] focus:shadow-[0_0_15px_rgba(0,217,255,0.5)] transition-all"
         />
+          )}
+        </div>
         <div className="flex justify-between items-center mt-2">
           <div className="text-[#00D9FF] text-sm font-semibold">
             {sellUsdValue > 0 ? (
@@ -706,10 +768,10 @@ export function LimitOrderForm({
               className="w-full bg-black border-2 border-[#00D9FF] p-3 text-[#00D9FF] text-2xl min-h-[58px] flex items-center cursor-text"
             >
               <NumberFlow 
-                value={buyAmountNum}
+                value={formatDisplayValue(buyAmountNum)}
                 format={{
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 8
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 4
                 }}
                 animated={!isDragging}
               />
@@ -751,7 +813,11 @@ export function LimitOrderForm({
             {sellToken && buyToken && (
               <button
                 type="button"
-                onClick={() => setInvertPriceDisplay(!invertPriceDisplay)}
+                onClick={() => {
+                  const newInverted = !invertPriceDisplay;
+                  setInvertPriceDisplay(newInverted);
+                  onInvertPriceDisplayChange?.(newInverted);
+                }}
                 className="p-1 text-[#FF0080] hover:text-white transition-colors"
                 title={`Show price in ${invertPriceDisplay ? formatTokenTicker(buyToken.ticker) : formatTokenTicker(sellToken.ticker)}`}
               >
@@ -860,10 +926,10 @@ export function LimitOrderForm({
             {buyAmountNum > 0 ? (
               <>
                 <NumberFlow 
-                  value={buyAmountNum * 0.002}
+                  value={formatDisplayValue(buyAmountNum * 0.002)}
                   format={{
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 8
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 4
                   }}
                   animated={!isDragging}
                 />
@@ -879,10 +945,10 @@ export function LimitOrderForm({
             {buyAmountNum > 0 ? (
               <>
                 <NumberFlow 
-                  value={buyAmountNum * 0.998}
+                  value={formatDisplayValue(buyAmountNum * 0.998)}
                   format={{
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 8
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 4
                   }}
                   animated={!isDragging}
                 />

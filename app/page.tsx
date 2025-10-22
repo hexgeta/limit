@@ -20,6 +20,7 @@ export default function LimitPage() {
   const [limitOrderPrice, setLimitOrderPrice] = useState<number | undefined>();
   const [currentMarketPrice, setCurrentMarketPrice] = useState<number | undefined>();
   const [isDragging, setIsDragging] = useState(false);
+  const [invertPriceDisplay, setInvertPriceDisplay] = useState(false);
 
   return (
     <>
@@ -44,6 +45,7 @@ export default function LimitPage() {
                   sellTokenAddress={sellTokenAddress}
                   buyTokenAddress={buyTokenAddress}
                   limitOrderPrice={limitOrderPrice}
+                  invertPriceDisplay={invertPriceDisplay}
                   onLimitPriceChange={(newPrice) => {
                     setLimitOrderPrice(newPrice);
                   }}
@@ -68,6 +70,9 @@ export default function LimitPage() {
                   }}
                   onLimitPriceChange={(price) => {
                     setLimitOrderPrice(price);
+                  }}
+                  onInvertPriceDisplayChange={(inverted) => {
+                    setInvertPriceDisplay(inverted);
                   }}
                   onTransactionStart={() => setIsTransactionLoading(true)}
                   onTransactionEnd={() => setIsTransactionLoading(false)}

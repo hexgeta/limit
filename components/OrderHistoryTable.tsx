@@ -420,7 +420,7 @@ export default function OrderHistoryTable({
             sortField === 'progress' ? 'text-[#00D9FF]' : 'text-[#00D9FF]/60'
           }`}
         >
-          Your Tx vs Order Filled Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+          Fill Status % {sortField === 'progress' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
         </button>
         
         {/* COLUMN 4: OTC % */}

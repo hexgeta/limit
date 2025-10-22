@@ -2,8 +2,8 @@ import { useContractRead, useAccount } from 'wagmi';
 import { parseEther, formatEther, Address } from 'viem';
 import { useContractWhitelist } from './useContractWhitelist';
 
-// We'll need to update this with the actual deployed contract address
-const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2';
+// Contract address from environment variable
+const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT as string;
 
 // Import the contract ABI - using the correct ABI from the contract
 const OTC_ABI = [

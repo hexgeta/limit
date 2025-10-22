@@ -6,7 +6,7 @@ This document provides information about the whitelisted tokens on the OTC contr
 
 ## Contract Address
 
-**OTC Contract:** `0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2`
+**OTC Contract:** Set via environment variable `NEXT_PUBLIC_BISTRO_SMART_CONTRACT` (required)
 
 ## Current Whitelisted Tokens (as of 2025-10-10)
 

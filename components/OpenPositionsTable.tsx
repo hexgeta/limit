@@ -267,7 +267,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
   const { data: walletClient } = useWalletClient();
 
   // Contract address for querying events
-  const OTC_CONTRACT_ADDRESS = '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as const;
+  const OTC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BISTRO_SMART_CONTRACT as const;
   const { setTransactionPending } = useTransaction();
   const { toast } = useToast();
   
@@ -927,7 +927,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             }
           ],
           functionName: 'allowance',
-          args: [address as `0x${string}`, '0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as `0x${string}`]
+          args: [address as `0x${string}`, OTC_CONTRACT_ADDRESS as `0x${string}`]
         });
 
 
@@ -956,7 +956,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
               }
             ],
             functionName: 'approve',
-            args: ['0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2' as `0x${string}`, buyAmount]
+            args: [OTC_CONTRACT_ADDRESS as `0x${string}`, buyAmount]
           });
 
           
@@ -1745,7 +1745,7 @@ export const OpenPositionsTable = forwardRef<any, {}>((props, ref) => {
             <p className="font-semibold mb-2">Unable to connect to the AgoráX OTC contract</p>
             <p className="text-sm mb-2">Error: {error.message}</p>
             <p className="text-sm text-gray-400 mb-2">
-              Contract Address: 0x342DF6d98d06f03a20Ae6E2c456344Bb91cE33a2
+              Contract Address: {OTC_CONTRACT_ADDRESS}
             </p>
             <p className="text-sm text-gray-400 mb-3">
               RPC Endpoint: https://rpc.pulsechain.com
