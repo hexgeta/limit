@@ -387,7 +387,14 @@ export function LimitOrderForm({
   };
 
   const handlePercentageClick = (percentage: number) => {
-    if (!marketPrice || !sellAmountNum) return;
+    if (!marketPrice) return;
+    
+    // If no sell amount entered, default to 1 unit
+    let effectiveSellAmount = sellAmountNum;
+    if (!sellAmountNum || sellAmountNum === 0) {
+      effectiveSellAmount = 1;
+      setSellAmount('1');
+    }
     
     // Mark that user has set the limit price
     limitPriceSetByUserRef.current = true;
@@ -407,7 +414,7 @@ export function LimitOrderForm({
     }
     
     // Calculate new buy amount based on limit price
-    const newBuyAmount = sellAmountNum * newPrice;
+    const newBuyAmount = effectiveSellAmount * newPrice;
     setBuyAmount(formatCalculatedValue(newBuyAmount));
   };
 

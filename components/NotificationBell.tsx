@@ -237,13 +237,7 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[700px] max-w-[90vw] bg-black border-2 border-[#00D9FF] shadow-[0_0_30px_rgba(0,217,255,0.3)] rounded z-[9999] flex flex-col max-h-[calc(100vh-100px)]">
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-[#00D9FF]/30 flex-shrink-0">
-            <h3 className="text-[#00D9FF] font-bold">
-              Order History {activeNotifications.length > 0 && `(${activeNotifications.length})`}
-            </h3>
-          </div>
+        <div className="fixed lg:absolute left-1/2 -translate-x-1/2 lg:left-4 lg:translate-x-0 mt-2 w-auto md:min-w-[660px] bg-black border-2 border-[#00D9FF] shadow-[0_0_30px_rgba(0,217,255,0.3)] rounded z-[9999] flex flex-col max-h-[calc(100vh-120px)]">
 
           {/* Notifications List - Scrollable */}
           <div className="overflow-y-auto flex-1 notifications-scroll"
@@ -261,7 +255,7 @@ export function NotificationBell() {
                 No order history yet
               </div>
             ) : (
-              <div className="px-4 py-4">
+              <div className="pl-4 pr-6 py-4">
                 {activeNotifications.map((notif, index) => {
                   const notificationId = notif.txHash;
                   const baseOrder = allOrders?.find((order: any) => 
@@ -321,7 +315,7 @@ export function NotificationBell() {
                           </span>
 
                           {/* Asset and Amount */}
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-col gap-1">
                             {displayTokens.map((token, idx) => (
                               <div key={idx} className="flex items-center gap-2">
                                 <TokenLogo 
