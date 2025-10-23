@@ -37,7 +37,7 @@ export const ConnectButton = () => {
       <button
         onClick={() => open()}
         disabled={isTransactionPending}
-        className={`flex items-center justify-center px-4 md:px-8 h-10 font-medium transition-all text-sm md:text-base border ${
+        className={`flex items-center justify-center px-4 md:px-8 h-10 font-medium transition-all text-sm md:text-base border w-full ${
           isTransactionPending 
             ? 'bg-gray-900 text-gray-600 border-gray-700 cursor-not-allowed' 
             : 'bg-black/40 text-[#00D9FF] border-[#00D9FF]/30 hover:bg-[#00D9FF]/10'
@@ -59,7 +59,7 @@ export const ConnectButton = () => {
     <>
       <button
         onClick={handleConnectClick}
-        className="flex items-center justify-center px-4 md:px-8 h-10 bg-black/40 text-[#00D9FF] border border-[#00D9FF]/30 font-medium hover:bg-[#00D9FF]/10 transition-all text-sm md:text-base"
+        className="flex items-center justify-center px-4 md:px-8 h-10 bg-black/40 text-[#00D9FF] border border-[#00D9FF]/30 font-medium hover:bg-[#00D9FF]/10 transition-all text-sm md:text-base w-full"
       >
         CONNECT WALLET
       </button>

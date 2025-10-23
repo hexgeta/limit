@@ -237,7 +237,7 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="fixed lg:absolute left-1/2 -translate-x-1/2 lg:left-4 lg:translate-x-0 mt-2 w-auto md:min-w-[660px] bg-black border-2 border-[#00D9FF] shadow-[0_0_30px_rgba(0,217,255,0.3)] rounded z-[9999] flex flex-col max-h-[calc(100vh-120px)]">
+        <div className="fixed lg:absolute left-1/2 -translate-x-1/2 lg:left-4 lg:translate-x-0 mt-2 w-min-w-[190px] md:min-w-[660px] bg-black border-2 border-[#00D9FF] shadow-[0_0_30px_rgba(0,217,255,0.3)] rounded z-[9999] flex flex-col max-h-[calc(100vh-120px)]">
 
           {/* Notifications List - Scrollable */}
           <div className="overflow-y-auto flex-1 notifications-scroll"
@@ -255,7 +255,7 @@ export function NotificationBell() {
                 No order history yet
               </div>
             ) : (
-              <div className="pl-4 pr-6 py-4">
+              <div className="pl-4 pr-6 py-2 md:py-4">
                 {activeNotifications.map((notif, index) => {
                   const notificationId = notif.txHash;
                   const baseOrder = allOrders?.find((order: any) => 
@@ -298,15 +298,15 @@ export function NotificationBell() {
                     <div
                       key={notif.txHash}
                       onClick={() => toggleReadStatus(notificationId)}
-                      className={`border border-[#00D9FF]/20 rounded p-3 mb-2 hover:border-[#00D9FF]/40 transition-colors cursor-pointer ${
+                      className={`border border-[#00D9FF]/20 rounded p-2 md:p-3 mb-1.5 md:mb-2 hover:border-[#00D9FF]/40 transition-colors cursor-pointer ${
                         notif.isNew ? 'bg-[#FF0080]/5' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         {/* Left: Event Badge + Asset Info */}
-                        <div className="flex items-center gap-3 flex-1">
+                        <div className="flex items-center gap-2 md:gap-3 flex-1">
                           {/* Event Type Badge */}
-                          <span className={`px-2 py-1 text-xs font-medium border rounded w-[125px] text-center ${
+                          <span className={`hidden md:inline px-2 py-1 text-xs font-medium border rounded w-[125px] text-center ${
                             notif.type === 'filled'
                               ? 'bg-green-500/20 text-green-400 border-green-400'
                               : 'bg-yellow-500/20 text-yellow-400 border-yellow-400'
@@ -332,14 +332,14 @@ export function NotificationBell() {
                         </div>
 
                         {/* Right: Time and Actions */}
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 md:gap-3">
                           {/* Time ago */}
                           <div className="text-xs text-[#00D9FF]/60 whitespace-nowrap">
                             {getTimeAgo(notif.timestamp)}
                           </div>
 
                           {/* Date */}
-                          <div className="text-xs text-[#00D9FF]/40 whitespace-nowrap">
+                          <div className="hidden md:block text-xs text-[#00D9FF]/40 whitespace-nowrap">
                             {formatTimestamp(notif.timestamp).date}
                           </div>
 

@@ -882,13 +882,13 @@ export function LimitOrderForm({
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => handlePercentageClick(0)}
-          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           Market
         </button>
         <button
           onClick={() => handlePercentageClick(1)}
-          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           1% {(() => {
             const showUp = priceDirection === 'above';
@@ -897,7 +897,7 @@ export function LimitOrderForm({
         </button>
         <button
           onClick={() => handlePercentageClick(2)}
-          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           2% {(() => {
             const showUp = priceDirection === 'above';
@@ -906,7 +906,7 @@ export function LimitOrderForm({
         </button>
         <button
           onClick={() => handlePercentageClick(5)}
-          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           5% {(() => {
             const showUp = priceDirection === 'above';
@@ -915,7 +915,7 @@ export function LimitOrderForm({
         </button>
         <button
           onClick={() => handlePercentageClick(10)}
-          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
+          className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           10% {(() => {
             const showUp = priceDirection === 'above';
