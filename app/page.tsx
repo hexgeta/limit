@@ -23,7 +23,8 @@ export default function LimitPage() {
   const [invertPriceDisplay, setInvertPriceDisplay] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('limitOrderInvertPrice');
-      return saved === 'true';
+      // If no saved value, default to true (inverted)
+      return saved === null ? true : saved === 'true';
     }
     return true;
   });
