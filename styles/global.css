@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -72,9 +72,9 @@
 html,
 body {
   @apply w-full m-0 font-sans bg-[var(--background-color)] text-[var(--text-color)];
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
-  font-size: 19px;
-  line-height: 1.4;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New';
+  font-size: 16px;
+  line-height: 1.5;
   overflow-y: auto;
   position: relative;
 }
@@ -128,43 +128,43 @@ html {
 
 * {
   box-sizing: border-box;
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
-  letter-spacing: 0.05em;
-  word-spacing: 0.2em;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
+  letter-spacing: 0.02em;
+  word-spacing: 0.1em;
 }
 
 a {
   @apply text-inherit no-underline;
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
 }
 
-/* Ensure all text elements use League Spartan */
+/* Ensure all text elements use Share Tech Mono */
 span, div, p, h1, h2, h3, h4, h5, h6, button, input, textarea, label {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
-  letter-spacing: 0.05em;
-  word-spacing: 0.2em;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
+  letter-spacing: 0.02em;
+  word-spacing: 0.1em;
 }
 
 /* Target Web3Modal button specifically */
 w3m-button, w3m-button *, w3m-button button, w3m-button span {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
 }
 
 /* Target any Web3Modal components */
 [data-w3m], [data-w3m] *, [data-w3m] button, [data-w3m] span {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
 }
 
 /* More aggressive Web3Modal targeting */
 .w3m-button, .w3m-button *, .w3m-button button, .w3m-button span,
 .w3m-connect-button, .w3m-connect-button *, .w3m-connect-button button, .w3m-connect-button span,
 .w3m-modal, .w3m-modal *, .w3m-modal button, .w3m-modal span {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
 }
 
 /* Target all possible button variations */
 button, .button, [role="button"] {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
 }
 
 /* Ultra-aggressive Web3Modal targeting - try to catch everything */
@@ -176,7 +176,7 @@ w3m-modal, w3m-modal *, w3m-modal button, w3m-modal span, w3m-modal div,
 .w3m-connect-button, .w3m-connect-button *, .w3m-modal, .w3m-modal *,
 w3m-button::part(button), w3m-button::part(text), w3m-button::part(label),
 w3m-connect-button::part(button), w3m-connect-button::part(text), w3m-connect-button::part(label) {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
   color: white !important;
   background-color: white !important;
   border: 1px solid white !important;
@@ -185,7 +185,7 @@ w3m-connect-button::part(button), w3m-connect-button::part(text), w3m-connect-bu
 /* Try to target shadow DOM elements */
 w3m-button::shadow, w3m-connect-button::shadow, w3m-modal::shadow,
 w3m-button::shadow *, w3m-connect-button::shadow *, w3m-modal::shadow * {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
   color: white !important;
   background-color: white !important;
 }
@@ -193,11 +193,11 @@ w3m-button::shadow *, w3m-connect-button::shadow *, w3m-modal::shadow * {
 /* Add a style tag injection approach */
 @supports (selector(:where(*))) {
   :where(w3m-button, w3m-connect-button, w3m-modal) {
-    font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+    font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
   }
   
   :where(w3m-button, w3m-connect-button, w3m-modal) * {
-    font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
+    font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
     color: white !important;
     background-color: white !important;
   }
@@ -313,12 +313,12 @@ textarea {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif;
-    font-size: 19px;
-    line-height: 1.4;
-    letter-spacing: 0.05em;
-    word-spacing: 0.2em;
+    @apply bg-background text-foreground font-mono;
+    font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New';
+    font-size: 16px;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    word-spacing: 0.1em;
   }
 }
 
@@ -390,9 +390,9 @@ w3m-button div,
 [data-w3m] button,
 [data-w3m] span,
 [data-w3m] div {
-  font-family: 'League Spartan', ui-sans-serif, system-ui, sans-serif !important;
-  letter-spacing: 0.05em !important;
-  word-spacing: 0.2em !important;
+  font-family: 'Share Tech Mono', monospace, ui-monospace, 'Courier New' !important;
+  letter-spacing: 0.02em !important;
+  word-spacing: 0.1em !important;
 }
 
 /* Style the main button element - multiple selectors */

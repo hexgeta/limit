@@ -20,7 +20,13 @@ export default function LimitPage() {
   const [limitOrderPrice, setLimitOrderPrice] = useState<number | undefined>();
   const [currentMarketPrice, setCurrentMarketPrice] = useState<number | undefined>();
   const [isDragging, setIsDragging] = useState(false);
-  const [invertPriceDisplay, setInvertPriceDisplay] = useState(false);
+  const [invertPriceDisplay, setInvertPriceDisplay] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('limitOrderInvertPrice');
+      return saved === 'true';
+    }
+    return true;
+  });
 
   return (
     <>

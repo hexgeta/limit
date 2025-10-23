@@ -11,13 +11,13 @@ import { headers } from 'next/headers'
 export const revalidate = 2592000; // 30 days in seconds
 
 export const metadata = {
-  title: 'Limit Pro - OTC Platform for Pooled HEX Stake Tokens',
-  description: 'Limit Pro is an OTC platform for trading pooled HEX stake tokens. Trade your HEX stakes with other users in a secure, decentralized environment.',
-  metadataBase: new URL('https://otc.lookintomaxi.com'),
+  title: 'AgoráX - Limit Orders on PulseChain',
+  description: 'AgoráX is a limit order platform for trading PulseChain tokens.',
+  metadataBase: new URL('https://limit.lookintomaxi.com'),
   openGraph: {
     title: 'Limit Pro - Peer-to-peer OTC Pooled HEX Stake Trading',
     description: 'Peer-to-peer OTC pooled HEX stake trading. At scale. On your own terms.',
-    url: 'https://otc.lookintomaxi.com',
+    url: 'https://limit.lookintomaxi.com',
     siteName: 'Limit Pro',
     images: [
       {
@@ -70,7 +70,7 @@ export default async function RootLayout({
       <head>
         <FontLoader weight="regular" priority={true} />
         <FontLoader weight="bold" />
-        <script defer data-domain="otc.lookintomaxi.com" src="https://plausible.io/js/script.js"></script>
+        <script defer data-domain="limit.lookintomaxi.com" src="https://plausible.io/js/script.js"></script>
       </head>
       <body className="min-h-screen bg-black text-white">
         <AppKitProvider cookies={cookies}>

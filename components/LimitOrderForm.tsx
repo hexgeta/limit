@@ -101,16 +101,42 @@ export function LimitOrderForm({
   const { isConnected, address } = useAccount();
   const [sellToken, setSellToken] = useState<TokenOption | null>(null);
   const [buyToken, setBuyToken] = useState<TokenOption | null>(null);
-  const [sellAmount, setSellAmount] = useState('');
-  const [buyAmount, setBuyAmount] = useState('');
-  const [limitPrice, setLimitPrice] = useState('');
-  const [pricePercentage, setPricePercentage] = useState<number | null>(null);
-  const [priceDirection, setPriceDirection] = useState<'above' | 'below'>('above'); // Track if buying above or below market
+  const [sellAmount, setSellAmount] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('limitOrderSellAmount') || '';
+    }
+    return '';
+  });
+  const [buyAmount, setBuyAmount] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('limitOrderBuyAmount') || '';
+    }
+    return '';
+  });
+  const [limitPrice, setLimitPrice] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('limitOrderPrice') || '';
+    }
+    return '';
+  });
+  const [pricePercentage, setPricePercentage] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('limitOrderPricePercentage');
+      return saved ? parseFloat(saved) : null;
+    }
+    return null;
+  });
   const [showSellDropdown, setShowSellDropdown] = useState(false);
   const [showBuyDropdown, setShowBuyDropdown] = useState(false);
   const [sellSearchQuery, setSellSearchQuery] = useState('');
   const [buySearchQuery, setBuySearchQuery] = useState('');
-  const [invertPriceDisplay, setInvertPriceDisplay] = useState(false); // Toggle for price display
+  const [invertPriceDisplay, setInvertPriceDisplay] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('limitOrderInvertPrice');
+      return saved === 'true';
+    }
+    return true;
+  }); // Toggle for price display
   const [isBuyInputFocused, setIsBuyInputFocused] = useState(false); // Track buy input focus
   const [isSellInputFocused, setIsSellInputFocused] = useState(false); // Track sell input focus
   
@@ -185,7 +211,73 @@ export function LimitOrderForm({
       const defaultBuy = availableTokens.find(t => t.a?.toLowerCase() === '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'); // HEX
       if (defaultBuy) setBuyToken(defaultBuy);
     }
+    
+    // If we loaded a limit price, mark it as user-set
+    const savedLimitPrice = localStorage.getItem('limitOrderPrice');
+    if (savedLimitPrice && parseFloat(savedLimitPrice) > 0) {
+      limitPriceSetByUserRef.current = true;
+      isInitialLoadRef.current = false;
+    }
   }, []);
+
+  // Save form values to localStorage
+  useEffect(() => {
+    if (sellAmount) {
+      localStorage.setItem('limitOrderSellAmount', sellAmount);
+    } else {
+      localStorage.removeItem('limitOrderSellAmount');
+    }
+  }, [sellAmount]);
+
+  useEffect(() => {
+    if (buyAmount) {
+      localStorage.setItem('limitOrderBuyAmount', buyAmount);
+    } else {
+      localStorage.removeItem('limitOrderBuyAmount');
+    }
+  }, [buyAmount]);
+
+  useEffect(() => {
+    if (limitPrice) {
+      localStorage.setItem('limitOrderPrice', limitPrice);
+    } else {
+      localStorage.removeItem('limitOrderPrice');
+    }
+  }, [limitPrice]);
+
+  useEffect(() => {
+    if (pricePercentage !== null) {
+      localStorage.setItem('limitOrderPricePercentage', pricePercentage.toString());
+    } else {
+      localStorage.removeItem('limitOrderPricePercentage');
+    }
+  }, [pricePercentage]);
+
+  useEffect(() => {
+    localStorage.setItem('limitOrderInvertPrice', invertPriceDisplay.toString());
+  }, [invertPriceDisplay]);
+
+  // Recalculate percentage when invert display changes
+  useEffect(() => {
+    // Calculate market price here
+    const sellTokenPrice = sellToken ? prices[sellToken.a]?.price || 0 : 0;
+    const buyTokenPrice = buyToken ? prices[buyToken.a]?.price || 0 : 0;
+    const internalMarketPrice = sellTokenPrice && buyTokenPrice ? sellTokenPrice / buyTokenPrice : 0;
+    const marketPrice = externalMarketPrice || internalMarketPrice;
+    
+    if (limitPrice && marketPrice > 0 && limitPriceSetByUserRef.current) {
+      const limitPriceNum = parseFloat(limitPrice);
+      let percentageAboveMarket;
+      if (invertPriceDisplay) {
+        const invertedLimitPrice = 1 / limitPriceNum;
+        const invertedMarketPrice = 1 / marketPrice;
+        percentageAboveMarket = ((invertedLimitPrice - invertedMarketPrice) / invertedMarketPrice) * 100;
+      } else {
+        percentageAboveMarket = ((limitPriceNum - marketPrice) / marketPrice) * 100;
+      }
+      setPricePercentage(Math.abs(percentageAboveMarket) > 0.01 ? percentageAboveMarket : null);
+    }
+  }, [invertPriceDisplay, limitPrice, externalMarketPrice, sellToken, buyToken, prices]);
 
   // Notify parent of token changes
   useEffect(() => {
@@ -193,6 +285,21 @@ export function LimitOrderForm({
       onTokenChange(sellToken?.a, buyToken?.a);
     }
   }, [sellToken, buyToken, onTokenChange]);
+
+  // Notify parent of loaded invertPriceDisplay on mount
+  useEffect(() => {
+    if (onInvertPriceDisplayChange) {
+      onInvertPriceDisplayChange(invertPriceDisplay);
+    }
+  }, []);
+
+  // Notify parent of loaded limit price on mount
+  useEffect(() => {
+    const savedLimitPrice = localStorage.getItem('limitOrderPrice');
+    if (savedLimitPrice && parseFloat(savedLimitPrice) > 0 && onLimitPriceChange) {
+      onLimitPriceChange(parseFloat(savedLimitPrice));
+    }
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -265,11 +372,19 @@ export function LimitOrderForm({
       
       // Calculate and update percentage
       if (marketPrice > 0) {
-        const percentageAboveMarket = ((externalLimitPrice - marketPrice) / marketPrice) * 100;
+        // When display is inverted, calculate percentage based on inverted prices
+        let percentageAboveMarket;
+        if (invertPriceDisplay) {
+          const invertedLimitPrice = 1 / externalLimitPrice;
+          const invertedMarketPrice = 1 / marketPrice;
+          percentageAboveMarket = ((invertedLimitPrice - invertedMarketPrice) / invertedMarketPrice) * 100;
+        } else {
+          percentageAboveMarket = ((externalLimitPrice - marketPrice) / marketPrice) * 100;
+        }
         setPricePercentage(percentageAboveMarket);
       }
     }
-  }, [externalLimitPrice, sellAmountNum, marketPrice]);
+  }, [externalLimitPrice, sellAmountNum, marketPrice, invertPriceDisplay]);
 
   // Calculate limit price and percentage ONLY during initial load
   useEffect(() => {
@@ -293,7 +408,14 @@ export function LimitOrderForm({
       }
       
       // Calculate percentage above market
-      const percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
+      let percentageAboveMarket;
+      if (invertPriceDisplay) {
+        const invertedLimitPrice = 1 / currentLimitPrice;
+        const invertedMarketPrice = 1 / marketPrice;
+        percentageAboveMarket = ((invertedLimitPrice - invertedMarketPrice) / invertedMarketPrice) * 100;
+      } else {
+        percentageAboveMarket = ((currentLimitPrice - marketPrice) / marketPrice) * 100;
+      }
       setPricePercentage(percentageAboveMarket);
         
         // Mark initial load as complete after first calculation
@@ -386,7 +508,7 @@ export function LimitOrderForm({
     // Order creation logic
   };
 
-  const handlePercentageClick = (percentage: number) => {
+  const handlePercentageClick = (percentage: number, direction: 'above' | 'below' = 'above') => {
     if (!marketPrice) return;
     
     // If no sell amount entered, default to 1 unit
@@ -401,11 +523,22 @@ export function LimitOrderForm({
     isInitialLoadRef.current = false;
     
     // Apply percentage based on direction (above = positive, below = negative)
-    const adjustedPercentage = priceDirection === 'above' ? percentage : -percentage;
+    const adjustedPercentage = direction === 'above' ? percentage : -percentage;
     
     // Set percentage to null for market price (0%), so it doesn't show
     setPricePercentage(percentage === 0 ? null : adjustedPercentage);
-    const newPrice = marketPrice * (1 + adjustedPercentage / 100);
+    
+    // Calculate new price considering if display is inverted
+    let newPrice;
+    if (invertPriceDisplay) {
+      // When inverted, apply percentage to inverted price, then invert back
+      const invertedMarketPrice = 1 / marketPrice;
+      const newInvertedPrice = invertedMarketPrice * (1 + adjustedPercentage / 100);
+      newPrice = 1 / newInvertedPrice;
+    } else {
+      newPrice = marketPrice * (1 + adjustedPercentage / 100);
+    }
+    
     setLimitPrice(newPrice.toFixed(8));
     
     // Notify parent of limit price change
@@ -472,9 +605,6 @@ export function LimitOrderForm({
     const tempAmount = sellAmount;
     setSellAmount(buyAmount);
     setBuyAmount(tempAmount);
-    
-    // Flip the price direction (above ↔ below)
-    setPriceDirection(prev => prev === 'above' ? 'below' : 'above');
     
     // Update localStorage
     if (buyToken) {
@@ -881,46 +1011,34 @@ export function LimitOrderForm({
       {/* Percentage Buttons */}
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => handlePercentageClick(0)}
+          onClick={() => handlePercentageClick(0, 'above')}
           className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
           Market
         </button>
         <button
-          onClick={() => handlePercentageClick(1)}
+          onClick={() => handlePercentageClick(1, invertPriceDisplay ? 'below' : 'above')}
           className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
-          1% {(() => {
-            const showUp = priceDirection === 'above';
-            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
-          })()}
+          1% {invertPriceDisplay ? '↓' : '↑'}
         </button>
         <button
-          onClick={() => handlePercentageClick(2)}
+          onClick={() => handlePercentageClick(2, invertPriceDisplay ? 'below' : 'above')}
           className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
-          2% {(() => {
-            const showUp = priceDirection === 'above';
-            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
-          })()}
+          2% {invertPriceDisplay ? '↓' : '↑'}
         </button>
         <button
-          onClick={() => handlePercentageClick(5)}
+          onClick={() => handlePercentageClick(5, invertPriceDisplay ? 'below' : 'above')}
           className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
-          5% {(() => {
-            const showUp = priceDirection === 'above';
-            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
-          })()}
+          5% {invertPriceDisplay ? '↓' : '↑'}
         </button>
         <button
-          onClick={() => handlePercentageClick(10)}
+          onClick={() => handlePercentageClick(10, invertPriceDisplay ? 'below' : 'above')}
           className="flex-1 py-2 bg-black border-2 border-[#FF0080]  text-xs md:text-sm text-[#FF0080] hover:bg-[#FF0080] hover:text-black transition-all font-medium shadow-[0_0_10px_rgba(255,0,128,0.3)]"
         >
-          10% {(() => {
-            const showUp = priceDirection === 'above';
-            return invertPriceDisplay ? (showUp ? '↓' : '↑') : (showUp ? '↑' : '↓');
-          })()}
+          10% {invertPriceDisplay ? '↓' : '↑'}
         </button>
       </div>
 

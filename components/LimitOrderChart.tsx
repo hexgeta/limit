@@ -16,7 +16,7 @@ interface LimitOrderChartProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice, invertPriceDisplay = false, onLimitPriceChange, onCurrentPriceChange, onDragStateChange }: LimitOrderChartProps) {
+export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderPrice, invertPriceDisplay = true, onLimitPriceChange, onCurrentPriceChange, onDragStateChange }: LimitOrderChartProps) {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -327,7 +327,11 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                 transform: 'translateY(50%)'
               }}
             >
-              <div className="absolute -top-7.5 left-16 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#00D9FF] min-w-[220px]">
+              <div 
+                className={`absolute left-16 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#00D9FF] min-w-[220px] ${
+                  limitPricePosition && limitPricePosition < currentPricePosition ? '-top-8' : '-bottom-8'
+                }`}
+              >
                 <span className="text-xs text-[#00D9FF]/70 whitespace-nowrap">Current Price:</span>
                 <span className="text-sm font-bold text-[#00D9FF] min-w-[60px] text-right">
                   {displayCurrentPrice?.toLocaleString(undefined, {
@@ -374,7 +378,11 @@ export function LimitOrderChart({ sellTokenAddress, buyTokenAddress, limitOrderP
                     transition: isDragging ? 'none' : 'all 200ms'
                   }}
                 />
-                <div className="absolute -top-3 right-4 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#FF0080] pointer-events-none min-w-[200px]">
+                <div 
+                  className={`absolute right-4 flex items-center gap-2 bg-black/90 px-3 py-1 border border-[#FF0080] pointer-events-none min-w-[200px] ${
+                    limitPricePosition < currentPricePosition ? '-bottom-3' : '-top-3'
+                  }`}
+                >
                   <span className="text-xs text-[#FF0080]/70 whitespace-nowrap">Limit Price:</span>
                   <span className="text-sm font-bold text-[#FF0080] min-w-[60px] text-right">
                     <NumberFlow 
