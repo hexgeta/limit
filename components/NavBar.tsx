@@ -18,11 +18,18 @@ const NavBar = () => {
             <Link href="/" className="text-[#00D9FF] font-bold text-xl md:text-3xl">
               AgoráX
             </Link>
-            <NotificationBell />
+            {/* Notification Bell - Mobile only (next to logo) */}
+            <div className="md:hidden">
+              <NotificationBell />
+            </div>
           </div>
           
-          {/* Bottom row on mobile: Buttons */}
+          {/* Bottom row on mobile: Buttons / Right side on desktop */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
+            {/* Notification Bell - Desktop only (with other buttons) */}
+            <div className="hidden md:block">
+              <NotificationBell />
+            </div>
             {TESTING_MODE && <ContractSwitcher />}
             <ChainSwitcher isCheckingConnection={false} />
             <ConnectButton />
